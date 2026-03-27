@@ -10,7 +10,7 @@ import type {
   SessionResponse,
   VaultSecretResponse,
 } from "../shared/contracts";
-import { parseAgentInput } from "../shared/lifeAgent";
+import { resolveAgentMutation } from "./agent";
 import {
   clearSessionCookie,
   completeGoogleOAuth,
@@ -102,7 +102,8 @@ app.post("/api/agent", async (c) => {
   const body = (await c.req.json()) as AgentCommandRequest;
   const session = await resolveSession(c.env, c.req.raw.headers);
   const snapshot = await getDashboardSnapshot(c.env.DB, session.user!);
-  const mutation = parseAgentInput(body.command, snapshot.data);
+  const agentResult = await resolveAgentMutation(c.env, body.command, snapshot.data);
+  const mutation = agentResult.mutation;
   const persisted = await persistAgentMutation(c.env.DB, session.user!, mutation, c.env.VAULT_MASTER_KEY);
 
   const response: AgentCommandResponse = {

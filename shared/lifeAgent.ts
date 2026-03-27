@@ -6,6 +6,28 @@ export type AgentMutation =
   | { kind: "journal"; message: string; entry: JournalEntry }
   | { kind: "vault"; message: string; entry: VaultItem };
 
+export type SerializedAgentMutation =
+  | {
+      kind: "expense";
+      message?: string;
+      entry: { amount: number; category: string; note: string; date?: string };
+    }
+  | {
+      kind: "health";
+      message?: string;
+      entry: { sys: number; dia: number; hr: number; weight?: number; date?: string };
+    }
+  | {
+      kind: "journal";
+      message?: string;
+      entry: { content: string; tags?: string[]; date?: string };
+    }
+  | {
+      kind: "vault";
+      message?: string;
+      entry: { site: string; username: string; secret: string };
+    };
+
 const today = "2026-03-27";
 const shortDate = "03-27";
 const now = "2026-03-27 09:30";
@@ -85,6 +107,59 @@ export function parseAgentInput(input: string, state: LifeOSState): AgentMutatio
       tags: inferTags(text)
     }
   };
+}
+
+export function hydrateAgentMutation(value: SerializedAgentMutation, state: LifeOSState): AgentMutation {
+  switch (value.kind) {
+    case "expense":
+      return {
+        kind: "expense",
+        message: value.message ?? `已記錄消費：NT$ ${value.entry.amount}`,
+        entry: {
+          id: Date.now(),
+          date: value.entry.date ?? today,
+          amount: Number(value.entry.amount) || 0,
+          category: value.entry.category || "AI 自動",
+          note: value.entry.note || "",
+        },
+      };
+    case "health": {
+      const latest = state.health[state.health.length - 1];
+      return {
+        kind: "health",
+        message: value.message ?? `已更新健康資料：${value.entry.sys}/${value.entry.dia}，心跳 ${value.entry.hr}`,
+        entry: {
+          date: value.entry.date ?? shortDate,
+          sys: Number(value.entry.sys) || latest?.sys || 120,
+          dia: Number(value.entry.dia) || latest?.dia || 80,
+          hr: Number(value.entry.hr) || latest?.hr || 72,
+          weight: value.entry.weight,
+        },
+      };
+    }
+    case "journal":
+      return {
+        kind: "journal",
+        message: value.message ?? "已新增隨手日記",
+        entry: {
+          id: Date.now(),
+          date: value.entry.date ?? now,
+          content: value.entry.content,
+          tags: value.entry.tags?.length ? value.entry.tags : ["隨記"],
+        },
+      };
+    case "vault":
+      return {
+        kind: "vault",
+        message: value.message ?? `已新增密碼：${value.entry.site}`,
+        entry: {
+          id: Date.now(),
+          site: value.entry.site,
+          username: value.entry.username,
+          secret: value.entry.secret,
+        },
+      };
+  }
 }
 
 function inferCategory(text: string): string {

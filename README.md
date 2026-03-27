@@ -83,6 +83,118 @@ npx wrangler d1 execute lifeos-db --local --file=schema.sql
 
 For Cloudflare-managed environments, update `wrangler.toml` with the real `database_id` and run the corresponding Wrangler D1 commands in your target environment.
 
+## Cloudflare Deployment
+
+This project deploys in two pieces:
+- Worker API to Cloudflare Workers
+- Frontend app to Cloudflare Pages
+
+### 1. Deploy the Worker
+
+Login to Cloudflare:
+
+```bash
+npx wrangler login
+```
+
+Create the production D1 database:
+
+```bash
+npx wrangler d1 create lifeos-db
+```
+
+Then update [wrangler.toml](/home/zzlee/lifeos/wrangler.toml):
+- keep the top-level `[[d1_databases]]` entry for local development
+- add or uncomment the `env.production` example
+- replace `REPLACE_WITH_PRODUCTION_D1_ID` with the real `database_id`
+
+Initialize the production schema:
+
+```bash
+npx wrangler d1 execute lifeos-db --remote --file=schema.sql
+```
+
+Set required Worker secrets:
+
+```bash
+npx wrangler secret put SESSION_SECRET
+npx wrangler secret put VAULT_MASTER_KEY
+```
+
+Optional secrets:
+
+```bash
+npx wrangler secret put OPENAI_API_KEY
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
+npx wrangler secret put GOOGLE_REDIRECT_URI
+```
+
+Optional non-secret var:
+- set `OPENAI_MODEL` in `wrangler.toml` under `[vars]`, or configure it in the Cloudflare dashboard as a regular environment variable
+
+Deploy:
+
+```bash
+npx wrangler deploy --env production
+```
+
+After deploy, note your Worker URL, for example:
+
+```text
+https://lifeos-production.<your-subdomain>.workers.dev
+```
+
+### 2. Deploy the Frontend to Pages
+
+Push the repo to GitHub, then create a Cloudflare Pages project using that repo.
+
+Use these settings:
+- Framework preset: `Vite`
+- Build command: `npm run build`
+- Build output directory: `dist`
+
+Set the Pages environment variable:
+
+```bash
+VITE_API_BASE_URL=https://lifeos-production.<your-subdomain>.workers.dev
+```
+
+### 3. Google OAuth Production Setup
+
+If you want Google login in production:
+
+- Set Worker secrets:
+  - `GOOGLE_CLIENT_ID`
+  - `GOOGLE_CLIENT_SECRET`
+  - `GOOGLE_REDIRECT_URI`
+- Use the deployed Worker callback URL as `GOOGLE_REDIRECT_URI`, for example:
+
+```text
+https://lifeos-production.<your-subdomain>.workers.dev/api/auth/google/callback
+```
+
+- Add the same callback URL to the Google Cloud Console OAuth redirect URI allowlist.
+
+### 4. Recommended Minimal First Deploy
+
+If you want the fastest safe first release:
+
+- deploy Workers + D1
+- deploy Pages
+- set only:
+  - `SESSION_SECRET`
+  - `VAULT_MASTER_KEY`
+- do not enable Google OAuth or OpenAI yet
+- use `Demo Login` to verify the full app flow
+
+That lets you validate:
+- session cookie flow
+- dashboard rendering
+- D1 writes
+- vault encryption/decryption
+- basic agent behavior
+
 ## Environment Variables
 
 Frontend:
@@ -100,12 +212,14 @@ GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 GOOGLE_REDIRECT_URI=...
 OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-4o-mini
 ```
 
 Notes:
 - `SESSION_SECRET` currently falls back to a development default if unset. That is acceptable for local work, not for production.
 - `VAULT_MASTER_KEY` should be treated as sensitive and environment-specific.
 - Google OAuth requires valid Google credentials and redirect URI configuration to test end-to-end.
+- `OPENAI_MODEL` is optional. If unset, the worker defaults to `gpt-4o-mini`.
 
 ## Available Scripts
 
