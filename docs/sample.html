@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LifeOS: 個人數位生活導航系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chosen Palette: Warm Neutrals with Semantic Accents. Background: Slate-50. Surface: White. Accents: Blue-600 (Primary/AI), Emerald-500 (Finance), Rose-500 (Health), Amber-500 (Vault), Slate-800 (Text). -->
+    <!-- Application Structure Plan: The SPA uses a modern dashboard architecture with a persistent sidebar (desktop) or bottom navigation (mobile) for seamless context switching. It is divided into 5 core task-oriented views: 'Overview' (synthesized daily status), 'Finance' (expense tracking & analysis), 'Journal' (mood and text logs), 'Health' (physiological trends), and 'Vault' (password management). A persistent 'AI Assistant' input is anchored at the top to simulate the natural language interaction paradigm outlined in the report. This structure breaks down the report's technical modules into highly consumable, interactive daily tools. -->
+    <!-- Visualization & Content Choices: 
+         1. Finance Overview -> Compare/Inform -> Donut Chart (Chart.js) -> Hover for exact amounts. Justification: Clearly shows expense distribution across AI-categorized domains. 
+         2. Health Trends -> Change/Relationships -> Line Chart (Chart.js) -> Interactive tooltips. Justification: Best for tracking Systolic/Diastolic BP and Heart Rate over time. 
+         3. Journal/Vault -> Organize/Inform -> Dynamic Grid/List (HTML/JS) -> Filtering and conditional rendering (hiding passwords). Justification: Allows quick scanning and secure, interactive access without heavy graphics. 
+         Library/Method: Chart.js for all charts. HTML/Tailwind for layouts and Unicode for icons. Confirming NO SVG or Mermaid used. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 40vh;
+            max-height: 350px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 300px;
+            }
+        }
+        .hide-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .view-section {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .view-section.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .nav-item.active {
+            background-color: #eff6ff;
+            color: #2563eb;
+            font-weight: 600;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row h-screen w-full">
+
+    <aside class="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 h-full p-6 z-20 shadow-sm">
+        <div class="flex items-center gap-3 mb-10">
+            <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xl font-bold shadow-lg shadow-blue-500/30">L</div>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-800">LifeOS</h1>
+        </div>
+        <nav class="flex-1 space-y-2" id="desktop-nav">
+            <button data-target="overview" class="nav-item active w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-slate-50 text-slate-600 text-left">
+                <span class="text-xl">🏠</span> 總覽面板
+            </button>
+            <button data-target="finance" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-slate-50 text-slate-600 text-left">
+                <span class="text-xl">💳</span> 消費記錄
+            </button>
+            <button data-target="journal" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-slate-50 text-slate-600 text-left">
+                <span class="text-xl">📖</span> 隨手日記
+            </button>
+            <button data-target="health" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-slate-50 text-slate-600 text-left">
+                <span class="text-xl">❤️</span> 生理資訊
+            </button>
+            <button data-target="vault" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-slate-50 text-slate-600 text-left">
+                <span class="text-xl">🔐</span> 密碼管理
+            </button>
+        </nav>
+        <div class="pt-6 border-t border-slate-200 mt-auto">
+            <div class="flex items-center gap-3 px-2">
+                <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold">張</div>
+                <div>
+                    <p class="text-sm font-semibold text-slate-800">張小明</p>
+                    <p class="text-xs text-slate-500">Google Auth 啟用</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-full relative overflow-hidden bg-slate-50">
+        
+        <header class="glass-panel w-full px-6 py-4 flex items-center justify-between z-10 sticky top-0">
+            <h2 id="current-view-title" class="text-xl font-bold text-slate-800 hidden md:block">總覽面板</h2>
+            <div class="w-full md:w-1/2 lg:w-1/3 relative ml-auto md:ml-0 flex items-center">
+                <span class="absolute left-3 text-lg">🤖</span>
+                <input type="text" id="ai-input" placeholder="LifeOS Agent: 輸入「剛花150吃午餐」或「血壓120/80」..." class="w-full pl-10 pr-12 py-2.5 rounded-full border border-slate-300 bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all">
+                <button id="ai-submit" class="absolute right-2 top-1.5 bg-blue-600 text-white rounded-full p-1.5 hover:bg-blue-700 transition-colors">
+                    <span class="text-sm block leading-none p-0.5">🚀</span>
+                </button>
+            </div>
+        </header>
+
+        <div id="ai-feedback" class="absolute top-20 right-6 bg-emerald-100 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl shadow-lg z-50 transform translate-x-[150%] transition-transform duration-300 flex items-center gap-3">
+            <span>✅</span>
+            <div>
+                <p class="font-bold text-sm">AI 處理成功</p>
+                <p id="ai-feedback-text" class="text-xs text-emerald-600"></p>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8 hide-scroll" id="main-scroll-area">
+            
+            <section id="view-overview" class="view-section active space-y-6 max-w-6xl mx-auto">
+                <div>
+                    <p class="text-sm text-slate-500 font-medium mb-1">您的數位生活導航</p>
+                    <p class="text-slate-600 text-sm max-w-3xl leading-relaxed mb-6">此區塊提供 LifeOS 系統的綜合摘要，整合了邊緣運算資料庫中的最新消費、健康與活動狀態，讓您一眼掌握數位生活全貌。</p>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div class="flex justify-between items-start mb-4">
+                            <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">本月支出</p>
+                            <span class="p-2 bg-emerald-100 rounded-lg text-emerald-600">💳</span>
+                        </div>
+                        <p class="text-2xl font-bold text-slate-800" id="stat-expense">$0</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div class="flex justify-between items-start mb-4">
+                            <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">最新血壓</p>
+                            <span class="p-2 bg-rose-100 rounded-lg text-rose-600">❤️</span>
+                        </div>
+                        <p class="text-2xl font-bold text-slate-800" id="stat-bp">--/--</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div class="flex justify-between items-start mb-4">
+                            <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">日記篇數</p>
+                            <span class="p-2 bg-blue-100 rounded-lg text-blue-600">📖</span>
+                        </div>
+                        <p class="text-2xl font-bold text-slate-800" id="stat-journal">0</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                        <div class="flex justify-between items-start mb-4">
+                            <p class="text-xs text-slate-500 uppercase font-bold tracking-wider">安全密碼庫</p>
+                            <span class="p-2 bg-amber-100 rounded-lg text-amber-600">🔐</span>
+                        </div>
+                        <p class="text-2xl font-bold text-slate-800" id="stat-vault">0</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                        <h3 class="font-bold text-slate-800 mb-4">本週消費結構</h3>
+                        <div class="chart-container">
+                            <canvas id="overviewChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                        <h3 class="font-bold text-slate-800 mb-4">近期日記與心情</h3>
+                        <div class="space-y-4" id="overview-journals"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-finance" class="view-section space-y-6 max-w-6xl mx-auto">
+                <div>
+                    <h3 class="text-2xl font-bold text-slate-800 mb-2">生活消費記錄 (Finance)</h3>
+                    <p class="text-slate-600 text-sm max-w-3xl leading-relaxed">透過 AI 自動歸類的消費數據分析。此視圖允許您追蹤每日支出、檢視類別分佈，並掌握財務狀況。</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-1 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col">
+                        <h4 class="font-bold text-slate-800 mb-6">支出分佈 (AI 歸類)</h4>
+                        <div class="chart-container my-auto">
+                            <canvas id="financeChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="font-bold text-slate-800">交易明細</h4>
+                            <span class="text-xs text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Cloudflare D1 模擬</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm">
+                                <thead class="border-b border-slate-200 text-slate-500">
+                                    <tr>
+                                        <th class="py-3 font-semibold">日期</th>
+                                        <th class="py-3 font-semibold">類別</th>
+                                        <th class="py-3 font-semibold">備註</th>
+                                        <th class="py-3 font-semibold text-right">金額</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="finance-table-body" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-journal" class="view-section space-y-6 max-w-6xl mx-auto">
+                <div>
+                    <h3 class="text-2xl font-bold text-slate-800 mb-2">隨手日記 (Journal)</h3>
+                    <p class="text-slate-600 text-sm max-w-3xl leading-relaxed">記錄日常瑣事與靈感，系統透過 AI 自動分析情緒標籤，幫助您追蹤長期的心理狀態與想法。</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="journal-grid"></div>
+            </section>
+
+            <section id="view-health" class="view-section space-y-6 max-w-6xl mx-auto">
+                <div>
+                    <h3 class="text-2xl font-bold text-slate-800 mb-2">生理資訊 (Health)</h3>
+                    <p class="text-slate-600 text-sm max-w-3xl leading-relaxed">統整您的生理指標，包含血壓（收縮壓/舒張壓）與心跳變化趨勢，以視覺化圖表協助您監控健康狀態。</p>
+                </div>
+                
+                <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                    <h4 class="font-bold text-slate-800 mb-6">血壓與心跳趨勢分析</h4>
+                    <div class="chart-container" style="max-width: 100%;">
+                        <canvas id="healthChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center text-xl">💓</div>
+                        <div>
+                            <p class="text-xs text-slate-500 font-bold">平均收縮壓</p>
+                            <p class="text-xl font-bold text-slate-800" id="avg-sys">--</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center text-xl">🩸</div>
+                        <div>
+                            <p class="text-xs text-slate-500 font-bold">平均舒張壓</p>
+                            <p class="text-xl font-bold text-slate-800" id="avg-dia">--</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center text-xl">⏱️</div>
+                        <div>
+                            <p class="text-xs text-slate-500 font-bold">平均心跳</p>
+                            <p class="text-xl font-bold text-slate-800" id="avg-hr">--</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-vault" class="view-section space-y-6 max-w-6xl mx-auto">
+                <div>
+                    <h3 class="text-2xl font-bold text-slate-800 mb-2">簡易密碼管理 (Vault)</h3>
+                    <p class="text-slate-600 text-sm max-w-3xl leading-relaxed">以 Web Crypto API (AES-GCM) 模擬的邊緣端加密密碼庫。支援快速過濾與一鍵複製功能，確保數據主權。</p>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+                        <div class="relative w-full sm:w-64">
+                            <span class="absolute left-3 top-2.5 text-slate-400">🔍</span>
+                            <input type="text" id="vault-search" placeholder="搜尋站點名稱..." class="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
+                        </div>
+                        <button class="w-full sm:w-auto px-4 py-2 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-colors flex items-center justify-center gap-2">
+                            <span>➕</span> 新增密碼
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="vault-grid"></div>
+                </div>
+            </section>
+
+        </div>
+
+        <nav class="md:hidden glass-panel border-t border-slate-200 px-2 py-3 flex justify-around items-center z-20 pb-safe">
+            <button data-target="overview" class="nav-item active flex flex-col items-center gap-1 p-2 text-slate-500 rounded-lg">
+                <span class="text-xl">🏠</span>
+                <span class="text-[10px] font-medium">總覽</span>
+            </button>
+            <button data-target="finance" class="nav-item flex flex-col items-center gap-1 p-2 text-slate-500 rounded-lg">
+                <span class="text-xl">💳</span>
+                <span class="text-[10px] font-medium">消費</span>
+            </button>
+            <button data-target="journal" class="nav-item flex flex-col items-center gap-1 p-2 text-slate-500 rounded-lg">
+                <span class="text-xl">📖</span>
+                <span class="text-[10px] font-medium">日記</span>
+            </button>
+            <button data-target="health" class="nav-item flex flex-col items-center gap-1 p-2 text-slate-500 rounded-lg">
+                <span class="text-xl">❤️</span>
+                <span class="text-[10px] font-medium">健康</span>
+            </button>
+            <button data-target="vault" class="nav-item flex flex-col items-center gap-1 p-2 text-slate-500 rounded-lg">
+                <span class="text-xl">🔐</span>
+                <span class="text-[10px] font-medium">密碼</span>
+            </button>
+        </nav>
+
+    </main>
+
+    <script>
+        const appState = {
+            currentView: 'overview',
+            finance: [
+                { id: 1, date: '2026-03-26', amount: 150, category: '餐飲', note: '午餐牛肉麵' },
+                { id: 2, date: '2026-03-25', amount: 55, category: '餐飲', note: '咖啡' },
+                { id: 3, date: '2026-03-24', amount: 1200, category: '交通', note: '高鐵票' },
+                { id: 4, date: '2026-03-22', amount: 850, category: '娛樂', note: '電影與爆米花' },
+                { id: 5, date: '2026-03-20', amount: 300, category: '生活', note: '日常用品' }
+            ],
+            journals: [
+                { id: 1, date: '2026-03-26 10:30', content: '今天早上的會議非常順利，專案架構終於敲定！', tags: ['成就感', '工作'] },
+                { id: 2, date: '2026-03-24 21:15', content: '晚餐吃了很雷的義大利麵，心情稍微受影響。', tags: ['抱怨', '飲食'] },
+                { id: 3, date: '2026-03-21 08:00', content: '週末晨跑 5 公里，感覺精神百倍，準備迎接新的一週。', tags: ['活力', '運動'] }
+            ],
+            health: [
+                { date: '03-20', sys: 118, dia: 78, hr: 72 },
+                { date: '03-21', sys: 120, dia: 80, hr: 75 },
+                { date: '03-22', sys: 115, dia: 75, hr: 70 },
+                { date: '03-23', sys: 122, dia: 82, hr: 78 },
+                { date: '03-24', sys: 119, dia: 79, hr: 73 },
+                { date: '03-25', sys: 117, dia: 77, hr: 71 },
+                { date: '03-26', sys: 121, dia: 81, hr: 74 }
+            ],
+            vault: [
+                { id: 1, site: 'GitHub', username: 'developer_os', secret: 'gh_pass_2026' },
+                { id: 2, site: 'Netflix', username: 'family_main', secret: 'movie_time!99' },
+                { id: 3, site: 'AWS Console', username: 'admin_root', secret: 'aws_secure_!@#' },
+                { id: 4, site: 'OpenAI API', username: 'agent_key', secret: 'sk-proj-xxxxxx' }
+            ]
+        };
+
+        const chartInstances = {};
+
+        function initNavigation() {
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => {
+                item.addEventListener('click', (e) => {
+                    const target = e.currentTarget.getAttribute('data-target');
+                    switchView(target);
+                });
+            });
+        }
+
+        function switchView(viewId) {
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            
+            document.getElementById(`view-${viewId}`).classList.add('active');
+            
+            document.querySelectorAll(`.nav-item[data-target="${viewId}"]`).forEach(nav => nav.classList.add('active'));
+            
+            const titles = { overview: '總覽面板', finance: '消費記錄', journal: '隨手日記', health: '生理資訊', vault: '密碼管理' };
+            document.getElementById('current-view-title').innerText = titles[viewId];
+            
+            appState.currentView = viewId;
+            updateUI();
+        }
+
+        function updateUI() {
+            renderDashboardStats();
+            if(appState.currentView === 'overview' || appState.currentView === 'finance') renderFinance();
+            if(appState.currentView === 'overview' || appState.currentView === 'journal') renderJournal();
+            if(appState.currentView === 'health') renderHealth();
+            if(appState.currentView === 'vault') renderVault();
+        }
+
+        function renderDashboardStats() {
+            const totalExp = appState.finance.reduce((sum, item) => sum + item.amount, 0);
+            document.getElementById('stat-expense').innerText = `$${totalExp}`;
+            
+            const latestHealth = appState.health[appState.health.length - 1];
+            document.getElementById('stat-bp').innerText = `${latestHealth.sys}/${latestHealth.dia}`;
+            
+            document.getElementById('stat-journal').innerText = appState.journals.length;
+            document.getElementById('stat-vault').innerText = appState.vault.length;
+        }
+
+        function renderFinance() {
+            const tbody = document.getElementById('finance-table-body');
+            tbody.innerHTML = '';
+            
+            let catTotals = {};
+            
+            appState.finance.forEach(item => {
+                catTotals[item.category] = (catTotals[item.category] || 0) + item.amount;
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="py-3 font-medium text-slate-800">${item.date}</td>
+                    <td class="py-3"><span class="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">${item.category}</span></td>
+                    <td class="py-3 text-slate-600">${item.note}</td>
+                    <td class="py-3 text-right font-bold text-slate-800">$${item.amount}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const labels = Object.keys(catTotals);
+            const data = Object.values(catTotals);
+            const bgColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+
+            const renderDonut = (ctxId) => {
+                const ctx = document.getElementById(ctxId);
+                if(!ctx) return;
+                if(chartInstances[ctxId]) chartInstances[ctxId].destroy();
+                
+                chartInstances[ctxId] = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: { labels, datasets: [{ data, backgroundColor: bgColors, borderWidth: 0 }] },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: {
+                            legend: { position: 'right', labels: { font: { family: 'Inter' } } },
+                            tooltip: { 
+                                callbacks: { 
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) { label += ': '; }
+                                        if (context.parsed !== null) { label += '$' + context.parsed; }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            };
+
+            if(appState.currentView === 'overview') renderDonut('overviewChart');
+            if(appState.currentView === 'finance') renderDonut('financeChart');
+        }
+
+        function renderJournal() {
+            const renderTarget = appState.currentView === 'overview' ? 'overview-journals' : 'journal-grid';
+            const container = document.getElementById(renderTarget);
+            container.innerHTML = '';
+
+            const items = appState.currentView === 'overview' ? appState.journals.slice(0, 3) : appState.journals;
+
+            items.forEach(j => {
+                const tagsHtml = j.tags.map(t => `<span class="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded-md">#${t}</span>`).join('');
+                const el = document.createElement('div');
+                el.className = 'bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3';
+                el.innerHTML = `
+                    <div class="text-xs text-slate-400 font-medium">${j.date}</div>
+                    <p class="text-sm text-slate-700 leading-relaxed">${j.content}</p>
+                    <div class="flex flex-wrap gap-2 mt-auto pt-3">${tagsHtml}</div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function renderHealth() {
+            const labels = appState.health.map(h => h.date);
+            const sysData = appState.health.map(h => h.sys);
+            const diaData = appState.health.map(h => h.dia);
+            const hrData = appState.health.map(h => h.hr);
+
+            const avgSys = Math.round(sysData.reduce((a,b)=>a+b,0)/sysData.length);
+            const avgDia = Math.round(diaData.reduce((a,b)=>a+b,0)/diaData.length);
+            const avgHr = Math.round(hrData.reduce((a,b)=>a+b,0)/hrData.length);
+
+            document.getElementById('avg-sys').innerText = avgSys;
+            document.getElementById('avg-dia').innerText = avgDia;
+            document.getElementById('avg-hr').innerText = avgHr;
+
+            const ctx = document.getElementById('healthChart');
+            if(chartInstances['healthChart']) chartInstances['healthChart'].destroy();
+            
+            chartInstances['healthChart'] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: '收縮壓', data: sysData, borderColor: '#f43f5e', backgroundColor: '#f43f5e', tension: 0.4 },
+                        { label: '舒張壓', data: diaData, borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.4 },
+                        { label: '心跳', data: hrData, borderColor: '#3b82f6', backgroundColor: '#3b82f6', tension: 0.4, borderDash: [5, 5] }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { labels: { font: { family: 'Inter' } } },
+                        tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleFont: { family: 'Inter' } }
+                    },
+                    scales: {
+                        y: { min: 50, max: 150, grid: { color: '#f1f5f9' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function renderVault(filter = '') {
+            const container = document.getElementById('vault-grid');
+            if(!container) return;
+            container.innerHTML = '';
+
+            const filtered = appState.vault.filter(v => v.site.toLowerCase().includes(filter.toLowerCase()));
+
+            filtered.forEach(v => {
+                const el = document.createElement('div');
+                el.className = 'bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col justify-between group';
+                el.innerHTML = `
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 bg-white border border-slate-200 rounded-lg flex items-center justify-center text-xl shadow-sm">🌐</div>
+                        <div>
+                            <p class="font-bold text-slate-800">${v.site}</p>
+                            <p class="text-xs text-slate-500">${v.username}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between bg-white border border-slate-200 px-3 py-2 rounded-lg">
+                        <code class="text-sm font-mono text-slate-400 group-hover:text-slate-800 transition-colors w-24 overflow-hidden truncate">********</code>
+                        <button class="text-slate-400 hover:text-blue-600 transition-colors copy-btn" data-secret="${v.secret}">
+                            <span>📋</span>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(el);
+            });
+
+            document.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const secret = e.currentTarget.getAttribute('data-secret');
+                    const codeEl = e.currentTarget.previousElementSibling;
+                    codeEl.innerText = secret;
+                    codeEl.classList.remove('text-slate-400');
+                    codeEl.classList.add('text-amber-600');
+                    
+                    document.execCommand('copy'); 
+                    
+                    setTimeout(() => {
+                        codeEl.innerText = '********';
+                        codeEl.classList.add('text-slate-400');
+                        codeEl.classList.remove('text-amber-600');
+                    }, 2000);
+                });
+            });
+        }
+
+        function initAI() {
+            const input = document.getElementById('ai-input');
+            const submit = document.getElementById('submit');
+            const feedback = document.getElementById('ai-feedback');
+            const feedbackText = document.getElementById('ai-feedback-text');
+
+            const processAI = () => {
+                const text = input.value.trim();
+                if(!text) return;
+
+                let actionMsg = '';
+
+                if(text.includes('花') || text.includes('買') || text.includes('元')) {
+                    const numMatch = text.match(/\d+/);
+                    const amount = numMatch ? parseInt(numMatch[0]) : 100;
+                    appState.finance.unshift({
+                        id: Date.now(),
+                        date: '2026-03-26',
+                        amount: amount,
+                        category: 'AI 自動',
+                        note: text
+                    });
+                    actionMsg = `已記錄消費：$${amount}`;
+                    if(appState.currentView === 'overview' || appState.currentView === 'finance') updateUI();
+                } else if(text.includes('血壓') || text.includes('心跳')) {
+                    const nums = text.match(/\d+/g);
+                    if(nums && nums.length >= 2) {
+                        appState.health.push({
+                            date: '03-26', sys: parseInt(nums[0]), dia: parseInt(nums[1]), hr: 75
+                        });
+                        actionMsg = `已更新血壓：${nums[0]}/${nums[1]}`;
+                        if(appState.currentView === 'health' || appState.currentView === 'overview') updateUI();
+                    } else {
+                        actionMsg = `無法解析健康數值`;
+                    }
+                } else {
+                    appState.journals.unshift({
+                        id: Date.now(),
+                        date: '2026-03-26 11:33',
+                        content: text,
+                        tags: ['隨記']
+                    });
+                    actionMsg = `已新增隨手日記`;
+                    if(appState.currentView === 'journal' || appState.currentView === 'overview') updateUI();
+                }
+
+                input.value = '';
+                
+                feedbackText.innerText = actionMsg;
+                feedback.classList.remove('translate-x-[150%]');
+                setTimeout(() => {
+                    feedback.classList.add('translate-x-[150%]');
+                }, 3000);
+            };
+
+            document.getElementById('ai-submit').addEventListener('click', processAI);
+            input.addEventListener('keypress', (e) => {
+                if(e.key === 'Enter') processAI();
+            });
+            
+            const vaultSearch = document.getElementById('vault-search');
+            if(vaultSearch) {
+                vaultSearch.addEventListener('input', (e) => {
+                    renderVault(e.target.value);
+                });
+            }
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            initNavigation();
+            initAI();
+            updateUI();
+        });
+
+    </script>
+</body>
+</html>
