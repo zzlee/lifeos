@@ -1,12 +1,23 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { deleteCookie, setCookie } from "hono/cookie";
 import type {
   AgentCommandRequest,
   AgentCommandResponse,
+  AuthMutationResponse,
   DashboardSnapshotResponse,
+  DemoLoginRequest,
+  SessionResponse,
   VaultSecretResponse,
 } from "../shared/contracts";
 import { parseAgentInput } from "../shared/lifeAgent";
+import {
+  clearSessionCookie,
+  createDemoLoginResponse,
+  createLogoutResponse,
+  getGoogleAuthStartUrl,
+  resolveSession,
+} from "./auth";
 import type { Env } from "./env";
 import { getDashboardSnapshot, getVaultSecret, persistAgentMutation } from "./repository";
 
@@ -22,8 +33,51 @@ app.get("/api/health", (c) =>
   }),
 );
 
+app.get("/api/session", async (c) => {
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  return c.json(session satisfies SessionResponse);
+});
+
+app.post("/api/auth/demo-login", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as DemoLoginRequest;
+  const result = await createDemoLoginResponse(c.env, body);
+  setCookie(c, "lifeos_session", result.cookie.split("=")[1].split(";")[0], {
+    httpOnly: true,
+    sameSite: "Lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+  return c.json(result.body satisfies AuthMutationResponse);
+});
+
+app.post("/api/auth/logout", async (c) => {
+  deleteCookie(c, "lifeos_session", { path: "/" });
+  c.header("Set-Cookie", clearSessionCookie());
+  return c.json(createLogoutResponse(c.env) satisfies AuthMutationResponse);
+});
+
+app.get("/api/auth/google/start", async (c) => {
+  const redirectUrl = getGoogleAuthStartUrl(c.env, c.req.url);
+  if (!redirectUrl) {
+    return c.json({ ok: false, error: "Google OAuth is not configured" }, 501);
+  }
+  return c.redirect(redirectUrl, 302);
+});
+
+app.get("/api/auth/google/callback", async (c) => {
+  return c.json(
+    {
+      ok: false,
+      error: "Google OAuth callback exchange is not implemented yet. Configure token exchange here next.",
+      code: c.req.query("code") ?? null,
+    },
+    501,
+  );
+});
+
 app.get("/api/dashboard", async (c) => {
-  const snapshot = await getDashboardSnapshot(c.env.DB);
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  const snapshot = await getDashboardSnapshot(c.env.DB, session.user!);
   const response: DashboardSnapshotResponse = {
     ...snapshot,
     generatedAt: new Date().toISOString()
@@ -33,9 +87,10 @@ app.get("/api/dashboard", async (c) => {
 
 app.post("/api/agent", async (c) => {
   const body = (await c.req.json()) as AgentCommandRequest;
-  const snapshot = await getDashboardSnapshot(c.env.DB);
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  const snapshot = await getDashboardSnapshot(c.env.DB, session.user!);
   const mutation = parseAgentInput(body.command, snapshot.data);
-  const persisted = await persistAgentMutation(c.env.DB, mutation, c.env.VAULT_MASTER_KEY);
+  const persisted = await persistAgentMutation(c.env.DB, session.user!, mutation, c.env.VAULT_MASTER_KEY);
 
   const response: AgentCommandResponse = {
     accepted: true,
@@ -49,7 +104,8 @@ app.post("/api/agent", async (c) => {
 
 app.get("/api/vault/:id/secret", async (c) => {
   const vaultId = Number(c.req.param("id"));
-  const result = await getVaultSecret(c.env.DB, vaultId, c.env.VAULT_MASTER_KEY);
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  const result = await getVaultSecret(c.env.DB, session.user!, vaultId, c.env.VAULT_MASTER_KEY);
   const response: VaultSecretResponse = {
     id: vaultId,
     secret: result.secret,

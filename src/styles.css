@@ -121,6 +121,27 @@ button {
   border-top: 1px solid #e2e8f0;
 }
 
+.auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-button {
+  width: 100%;
+}
+
+.auth-button-light {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.auth-hint {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
 .avatar {
   width: 40px;
   height: 40px;

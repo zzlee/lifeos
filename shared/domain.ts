@@ -1,5 +1,11 @@
 export type ViewId = "overview" | "finance" | "journal" | "health" | "vault";
 
+export type UserProfile = {
+  id: string;
+  email: string;
+  name: string;
+};
+
 export type Expense = {
   id: number;
   date: string;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchDashboardSnapshot, fetchVaultSecret, sendAgentCommand } from "./lib/api";
-import type { Expense, HealthEntry, JournalEntry, LifeOSState, VaultItem, ViewId } from "./lib/types";
+import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, loginDemo, logout, sendAgentCommand } from "./lib/api";
+import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem, ViewId } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
   { id: "overview", title: "總覽面板", mobile: "總覽", icon: "🏠" },
@@ -13,16 +13,23 @@ const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string 
 type ToastState = { visible: boolean; message: string };
 
 const emptyState: LifeOSState = { finance: [], journals: [], health: [], vault: [] };
+const defaultUser: UserProfile = { id: "demo-user", email: "demo@lifeos.app", name: "LifeOS Demo" };
 
 export default function App() {
   const [view, setView] = useState<ViewId>("overview");
   const [data, setData] = useState<LifeOSState>(emptyState);
+  const [user, setUser] = useState<UserProfile>(defaultUser);
+  const [googleAuthEnabled, setGoogleAuthEnabled] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [toast, setToast] = useState<ToastState>({ visible: false, message: "" });
   const [vaultQuery, setVaultQuery] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
   useEffect(() => {
+    fetchSession().then((session) => {
+      setUser(session.user ?? defaultUser);
+      setGoogleAuthEnabled(session.googleAuthEnabled);
+    });
     fetchDashboardSnapshot().then((snapshot) => setData(snapshot.data));
   }, []);
 
@@ -64,6 +71,20 @@ export default function App() {
     window.setTimeout(() => setCopiedId((current) => (current === item.id ? null : current)), 2000);
   }
 
+  async function handleDemoLogin() {
+    const response = await loginDemo({});
+    setUser(response.session.user ?? defaultUser);
+    setGoogleAuthEnabled(response.session.googleAuthEnabled);
+  }
+
+  async function handleLogout() {
+    const response = await logout();
+    setUser(response.session.user ?? defaultUser);
+    setGoogleAuthEnabled(response.session.googleAuthEnabled);
+    const snapshot = await fetchDashboardSnapshot();
+    setData(snapshot.data);
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -89,11 +110,20 @@ export default function App() {
         </nav>
 
         <div className="profile-card">
-          <div className="avatar">張</div>
+          <div className="avatar">{user.name.slice(0, 1)}</div>
           <div>
-            <strong>張小明</strong>
-            <p>Google Auth 啟用</p>
+            <strong>{user.name}</strong>
+            <p>{user.email}</p>
           </div>
+        </div>
+        <div className="auth-actions">
+          <button className="secondary-button auth-button" type="button" onClick={() => void handleDemoLogin()}>
+            Demo Login
+          </button>
+          <button className="secondary-button auth-button auth-button-light" type="button" onClick={() => void handleLogout()}>
+            Logout
+          </button>
+          <p className="auth-hint">{googleAuthEnabled ? "Google OAuth 已配置" : "Google OAuth 尚未配置"}</p>
         </div>
       </aside>
 

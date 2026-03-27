@@ -1,4 +1,4 @@
-import type { LifeOSState } from "./domain";
+import type { LifeOSState, UserProfile } from "./domain";
 import type { AgentMutation } from "./lifeAgent";
 
 export type DashboardSnapshotResponse = {
@@ -22,4 +22,21 @@ export type VaultSecretResponse = {
   id: number;
   secret: string;
   source: "mock" | "d1";
+};
+
+export type SessionResponse = {
+  authenticated: boolean;
+  provider: "demo" | "google-ready";
+  user: UserProfile | null;
+  googleAuthEnabled: boolean;
+};
+
+export type DemoLoginRequest = {
+  name?: string;
+  email?: string;
+};
+
+export type AuthMutationResponse = {
+  ok: true;
+  session: SessionResponse;
 };

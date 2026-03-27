@@ -1,26 +1,26 @@
 import { initialData } from "../shared/mockData";
 import type { AgentMutation } from "../shared/lifeAgent";
-import type { LifeOSState } from "../shared/domain";
+import type { LifeOSState, UserProfile } from "../shared/domain";
 import type { D1Database } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
 
-const DEMO_USER_ID = "demo-user";
-const DEMO_USER_EMAIL = "demo@lifeos.app";
-const DEMO_USER_NAME = "LifeOS Demo";
 const DEFAULT_VAULT_KEY = "lifeos-demo-master-key";
 
-export async function getDashboardSnapshot(db?: D1Database): Promise<{ data: LifeOSState; source: "mock" | "d1" }> {
+export async function getDashboardSnapshot(
+  db: D1Database | undefined,
+  user: UserProfile,
+): Promise<{ data: LifeOSState; source: "mock" | "d1" }> {
   if (!db) {
     return { data: structuredClone(initialData), source: "mock" };
   }
 
-  await ensureDemoData(db);
+  await ensureDemoData(db, user);
 
   const [expenses, journals, health, vault] = await Promise.all([
-    db.prepare("SELECT id, date, amount, category, note FROM expenses WHERE user_id = ? ORDER BY date DESC, id DESC LIMIT 20").bind(DEMO_USER_ID).all<LifeOSState["finance"][number]>(),
-    db.prepare("SELECT id, created_at as date, content, tags FROM journals WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 12").bind(DEMO_USER_ID).all<{ id: number; date: string; content: string; tags: string }>(),
-    db.prepare("SELECT recorded_at as date, sys, dia, hr, weight FROM health_daily WHERE user_id = ? ORDER BY recorded_at ASC, id ASC LIMIT 30").bind(DEMO_USER_ID).all<LifeOSState["health"][number]>(),
-    db.prepare("SELECT id, site, username, secret_preview as secret FROM vault_items WHERE user_id = ? ORDER BY site ASC LIMIT 20").bind(DEMO_USER_ID).all<LifeOSState["vault"][number]>()
+    db.prepare("SELECT id, date, amount, category, note FROM expenses WHERE user_id = ? ORDER BY date DESC, id DESC LIMIT 20").bind(user.id).all<LifeOSState["finance"][number]>(),
+    db.prepare("SELECT id, created_at as date, content, tags FROM journals WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 12").bind(user.id).all<{ id: number; date: string; content: string; tags: string }>(),
+    db.prepare("SELECT recorded_at as date, sys, dia, hr, weight FROM health_daily WHERE user_id = ? ORDER BY recorded_at ASC, id ASC LIMIT 30").bind(user.id).all<LifeOSState["health"][number]>(),
+    db.prepare("SELECT id, site, username, secret_preview as secret FROM vault_items WHERE user_id = ? ORDER BY site ASC LIMIT 20").bind(user.id).all<LifeOSState["vault"][number]>()
   ]);
 
   return {
@@ -36,6 +36,7 @@ export async function getDashboardSnapshot(db?: D1Database): Promise<{ data: Lif
 
 export async function persistAgentMutation(
   db: D1Database | undefined,
+  user: UserProfile,
   mutation: AgentMutation,
   vaultMasterKey?: string,
 ): Promise<{ data: LifeOSState; source: "mock" | "d1" }> {
@@ -43,25 +44,25 @@ export async function persistAgentMutation(
     return { data: applyMutation(structuredClone(initialData), mutation), source: "mock" };
   }
 
-  await ensureDemoData(db);
+  await ensureDemoData(db, user);
 
   switch (mutation.kind) {
     case "expense":
       await db
         .prepare("INSERT INTO expenses (user_id, amount, category, note, date) VALUES (?, ?, ?, ?, ?)")
-        .bind(DEMO_USER_ID, mutation.entry.amount, mutation.entry.category, mutation.entry.note, mutation.entry.date)
+        .bind(user.id, mutation.entry.amount, mutation.entry.category, mutation.entry.note, mutation.entry.date)
         .run();
       break;
     case "journal":
       await db
         .prepare("INSERT INTO journals (user_id, content, tags, created_at) VALUES (?, ?, ?, ?)")
-        .bind(DEMO_USER_ID, mutation.entry.content, mutation.entry.tags.join(","), mutation.entry.date)
+        .bind(user.id, mutation.entry.content, mutation.entry.tags.join(","), mutation.entry.date)
         .run();
       break;
     case "health":
       await db
         .prepare("INSERT INTO health_daily (user_id, recorded_at, sys, dia, hr, weight) VALUES (?, ?, ?, ?, ?, ?)")
-        .bind(DEMO_USER_ID, mutation.entry.date, mutation.entry.sys, mutation.entry.dia, mutation.entry.hr, mutation.entry.weight ?? null)
+        .bind(user.id, mutation.entry.date, mutation.entry.sys, mutation.entry.dia, mutation.entry.hr, mutation.entry.weight ?? null)
         .run();
       break;
     case "vault": {
@@ -71,7 +72,7 @@ export async function persistAgentMutation(
           "INSERT INTO vault_items (user_id, site, username, secret_ciphertext, secret_iv, secret_preview) VALUES (?, ?, ?, ?, ?, ?)",
         )
         .bind(
-          DEMO_USER_ID,
+          user.id,
           mutation.entry.site,
           mutation.entry.username,
           encrypted.ciphertext,
@@ -83,11 +84,12 @@ export async function persistAgentMutation(
     }
   }
 
-  return getDashboardSnapshot(db);
+  return getDashboardSnapshot(db, user);
 }
 
 export async function getVaultSecret(
   db: D1Database | undefined,
+  user: UserProfile,
   vaultId: number,
   vaultMasterKey?: string,
 ): Promise<{ secret: string; source: "mock" | "d1" }> {
@@ -96,10 +98,10 @@ export async function getVaultSecret(
     return { secret: item?.secret ?? "", source: "mock" };
   }
 
-  await ensureDemoData(db);
+  await ensureDemoData(db, user);
   const record = await db
     .prepare("SELECT secret_ciphertext, secret_iv FROM vault_items WHERE user_id = ? AND id = ?")
-    .bind(DEMO_USER_ID, vaultId)
+    .bind(user.id, vaultId)
     .first<{ secret_ciphertext: string; secret_iv: string }>();
 
   if (!record) {
@@ -125,15 +127,15 @@ function applyMutation(state: LifeOSState, mutation: AgentMutation): LifeOSState
   }
 }
 
-async function ensureDemoData(db: D1Database): Promise<void> {
+async function ensureDemoData(db: D1Database, user: UserProfile): Promise<void> {
   await db
     .prepare("INSERT OR IGNORE INTO users (id, email, name) VALUES (?, ?, ?)")
-    .bind(DEMO_USER_ID, DEMO_USER_EMAIL, DEMO_USER_NAME)
+    .bind(user.id, user.email, user.name)
     .run();
 
   const existingExpense = await db
     .prepare("SELECT id FROM expenses WHERE user_id = ? LIMIT 1")
-    .bind(DEMO_USER_ID)
+    .bind(user.id)
     .first<{ id: number }>();
 
   if (existingExpense) return;
@@ -141,21 +143,21 @@ async function ensureDemoData(db: D1Database): Promise<void> {
   for (const expense of initialData.finance) {
     await db
       .prepare("INSERT INTO expenses (user_id, amount, category, note, date) VALUES (?, ?, ?, ?, ?)")
-      .bind(DEMO_USER_ID, expense.amount, expense.category, expense.note, expense.date)
+      .bind(user.id, expense.amount, expense.category, expense.note, expense.date)
       .run();
   }
 
   for (const journal of initialData.journals) {
     await db
       .prepare("INSERT INTO journals (user_id, content, tags, created_at) VALUES (?, ?, ?, ?)")
-      .bind(DEMO_USER_ID, journal.content, journal.tags.join(","), journal.date)
+      .bind(user.id, journal.content, journal.tags.join(","), journal.date)
       .run();
   }
 
   for (const health of initialData.health) {
     await db
       .prepare("INSERT INTO health_daily (user_id, recorded_at, sys, dia, hr, weight) VALUES (?, ?, ?, ?, ?, ?)")
-      .bind(DEMO_USER_ID, health.date, health.sys, health.dia, health.hr, health.weight ?? null)
+      .bind(user.id, health.date, health.sys, health.dia, health.hr, health.weight ?? null)
       .run();
   }
 
@@ -165,7 +167,7 @@ async function ensureDemoData(db: D1Database): Promise<void> {
       .prepare(
         "INSERT INTO vault_items (user_id, site, username, secret_ciphertext, secret_iv, secret_preview) VALUES (?, ?, ?, ?, ?, ?)",
       )
-      .bind(DEMO_USER_ID, vault.site, vault.username, encrypted.ciphertext, encrypted.iv, maskSecret(vault.secret))
+      .bind(user.id, vault.site, vault.username, encrypted.ciphertext, encrypted.iv, maskSecret(vault.secret))
       .run();
   }
 }

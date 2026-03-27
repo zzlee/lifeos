@@ -3,6 +3,7 @@ export type {
   HealthEntry,
   JournalEntry,
   LifeOSState,
+  UserProfile,
   VaultItem,
   ViewId,
 } from "../../shared/domain";
