@@ -41,17 +41,18 @@
   - send cookie credentials
   - expose Demo Login / Logout actions
 
+### Completed Google OAuth Flow
+- Implemented Google OAuth start redirect with signed `state`.
+- Implemented Google OAuth callback token exchange against Google token endpoint.
+- Implemented Google userinfo fetch and LifeOS session cookie issuance after successful login.
+- Added direct Google Login entry in the frontend sidebar.
+- Kept `Demo Login` as the no-external-dependency local testing path.
+
 ### Verified
 - `npm run build`
 - `npm run check:worker`
 
 ## In Progress / Next Priority
-
-### Google OAuth Completion
-- Implement real Google OAuth token exchange in `/api/auth/google/callback`.
-- Validate `id_token` or fetch Google user info securely.
-- Create/login the real user from Google identity.
-- Issue LifeOS session cookie after successful Google auth.
 
 ### Auth Hardening
 - Replace development fallback secrets with environment-required secrets.
@@ -81,7 +82,7 @@
 - Add explicit forms/modals for each module, not only AI input.
 - Add loading/error states for API requests.
 - Add empty states and better success/error feedback.
-- Add session/auth UI for real Google login.
+- Improve session/auth UI beyond the current sidebar buttons.
 
 ### CLI Work
 - Implement `lifeos auth`
@@ -92,7 +93,7 @@
 - Add production/development environment variable documentation.
 - Add local development instructions for Vite + Wrangler + D1.
 - Add deploy scripts/workflow for Cloudflare Pages + Workers.
-- Add README setup instructions.
+- Add production secret management guidance for Cloudflare.
 
 ### Testing
 - Add unit tests for:
@@ -103,6 +104,6 @@
 - Add end-to-end UI tests for core dashboard flows.
 
 ## Notes
-- Current Google OAuth routes are scaffolded but not fully implemented.
 - Current AI behavior is still rule-based parsing, not OpenAI-backed.
-- Current session flow is usable for local/demo work but not production-ready.
+- Current session flow is usable for local/demo work and Google-based sign-in, but still needs production hardening.
+- `Demo Login` remains the easiest way to test without Google credentials.

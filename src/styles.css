@@ -131,6 +131,13 @@ button {
   width: 100%;
 }
 
+.auth-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .auth-button-light {
   background: #e2e8f0;
   color: #0f172a;

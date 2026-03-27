@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, loginDemo, logout, sendAgentCommand } from "./lib/api";
+import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, getGoogleLoginUrl, loginDemo, logout, sendAgentCommand } from "./lib/api";
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem, ViewId } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -120,6 +120,9 @@ export default function App() {
           <button className="secondary-button auth-button" type="button" onClick={() => void handleDemoLogin()}>
             Demo Login
           </button>
+          <a className="secondary-button auth-button auth-link" href={getGoogleLoginUrl()}>
+            Google Login
+          </a>
           <button className="secondary-button auth-button auth-button-light" type="button" onClick={() => void handleLogout()}>
             Logout
           </button>

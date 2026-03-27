@@ -101,6 +101,10 @@ export async function logout(): Promise<AuthMutationResponse> {
   return (await response.json()) as AuthMutationResponse;
 }
 
+export function getGoogleLoginUrl(): string {
+  return `${apiBase}/api/auth/google/start`;
+}
+
 function applyMutation(state: LifeOSState, mutation: AgentCommandResponse["mutation"]): LifeOSState {
   switch (mutation.kind) {
     case "expense":

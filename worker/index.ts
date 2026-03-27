@@ -13,6 +13,7 @@ import type {
 import { parseAgentInput } from "../shared/lifeAgent";
 import {
   clearSessionCookie,
+  completeGoogleOAuth,
   createDemoLoginResponse,
   createLogoutResponse,
   getGoogleAuthStartUrl,
@@ -57,7 +58,7 @@ app.post("/api/auth/logout", async (c) => {
 });
 
 app.get("/api/auth/google/start", async (c) => {
-  const redirectUrl = getGoogleAuthStartUrl(c.env, c.req.url);
+  const redirectUrl = await getGoogleAuthStartUrl(c.env, c.req.url);
   if (!redirectUrl) {
     return c.json({ ok: false, error: "Google OAuth is not configured" }, 501);
   }
@@ -65,14 +66,26 @@ app.get("/api/auth/google/start", async (c) => {
 });
 
 app.get("/api/auth/google/callback", async (c) => {
-  return c.json(
-    {
-      ok: false,
-      error: "Google OAuth callback exchange is not implemented yet. Configure token exchange here next.",
-      code: c.req.query("code") ?? null,
-    },
-    501,
-  );
+  const code = c.req.query("code");
+  const state = c.req.query("state");
+  const error = c.req.query("error");
+
+  if (error) {
+    return c.json({ ok: false, error }, 400);
+  }
+
+  if (!code || !state) {
+    return c.json({ ok: false, error: "Missing OAuth code or state" }, 400);
+  }
+
+  try {
+    const result = await completeGoogleOAuth(c.env, code, state);
+    c.header("Set-Cookie", result.cookie);
+    return c.redirect(result.redirectUrl, 302);
+  } catch (oauthError) {
+    const message = oauthError instanceof Error ? oauthError.message : "OAuth callback failed";
+    return c.json({ ok: false, error: message }, 500);
+  }
 });
 
 app.get("/api/dashboard", async (c) => {

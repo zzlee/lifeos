@@ -6,7 +6,7 @@ The current repository contains:
 - a React + Vite frontend inspired by [docs/sample.html](/home/zzlee/lifeos/docs/sample.html)
 - a Cloudflare Workers + Hono backend
 - a D1 schema and repository layer
-- session/auth scaffolding with demo login
+- cookie-based session/auth with demo login and Google OAuth
 - encrypted vault storage using Web Crypto AES-GCM in the worker
 
 ## Status
@@ -18,13 +18,14 @@ Implemented now:
 - Vault encryption at rest in the worker
 - Secret retrieval API for copy-to-clipboard flows
 - Cookie-based demo session handling
-- Google OAuth route skeleton
+- Google OAuth start + callback code exchange flow
+- Sidebar auth actions for Demo Login, Google Login, and Logout
 
 Not finished yet:
-- Real Google OAuth token exchange and callback completion
 - OpenAI-backed tool calling
 - CLI commands
 - Comprehensive tests
+- Auth hardening for production
 
 ## Tech Stack
 
@@ -104,7 +105,7 @@ OPENAI_API_KEY=...
 Notes:
 - `SESSION_SECRET` currently falls back to a development default if unset. That is acceptable for local work, not for production.
 - `VAULT_MASTER_KEY` should be treated as sensitive and environment-specific.
-- Google OAuth routes are scaffolded, but callback token exchange is not implemented yet.
+- Google OAuth requires valid Google credentials and redirect URI configuration to test end-to-end.
 
 ## Available Scripts
 
@@ -129,8 +130,23 @@ npm run check:worker
 
 - Open the app and confirm the sidebar user profile renders.
 - Click `Demo Login` to create a signed cookie session.
+- Click `Google Login` only if Google OAuth env vars are configured.
 - Click `Logout` to clear the session cookie.
 - Call `GET /api/session` and verify the response contains `authenticated`, `provider`, `user`, and `googleAuthEnabled`.
+
+Direct API examples:
+
+```bash
+curl -i -X POST http://127.0.0.1:8787/api/auth/demo-login \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+```bash
+curl -i -X POST http://127.0.0.1:8787/api/auth/demo-login \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com"}'
+```
 
 ### 3. Agent and dashboard flows
 
@@ -154,10 +170,11 @@ Expected behavior:
 - The frontend should call `GET /api/vault/:id/secret`.
 - In D1, `vault_items` should store encrypted content in `secret_ciphertext` and `secret_iv`, not plain text.
 
-### 5. Google OAuth skeleton
+### 5. Google OAuth flow
 
 - `GET /api/auth/google/start` should redirect only when Google env vars are configured.
-- `GET /api/auth/google/callback` currently returns `501` by design until token exchange is implemented.
+- `GET /api/auth/google/callback` should exchange the authorization code, fetch Google user info, issue a LifeOS session cookie, and redirect back to the frontend origin.
+- If Google env vars are missing, OAuth should not be considered testable and `Demo Login` should be used instead.
 
 ## API Overview
 
@@ -176,7 +193,6 @@ Current worker endpoints:
 ## Current Limitations
 
 - AI behavior is still heuristic parsing, not OpenAI-backed tool use.
-- Google OAuth is not fully implemented.
 - Demo data seeding currently happens automatically for a new user path in local/dev usage.
 - Session handling is usable for development, but still needs hardening for production.
 - No automated tests are included yet.
@@ -185,7 +201,7 @@ Current worker endpoints:
 
 The current highest-priority remaining work is:
 
-1. Complete Google OAuth callback token exchange and user creation/login.
+1. Harden auth/session handling for production deployment.
 2. Replace heuristic agent parsing with OpenAI tool calling.
 3. Add proper test coverage.
 4. Add CLI commands and deployment documentation.
