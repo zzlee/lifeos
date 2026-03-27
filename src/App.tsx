@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchDashboardSnapshot, sendAgentCommand } from "./lib/api";
-import { parseAgentInput } from "./lib/agent";
+import type { AgentMutation } from "./lib/agent";
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, VaultItem, ViewId } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -24,7 +24,7 @@ export default function App() {
   const [copiedId, setCopiedId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchDashboardSnapshot().then(setData);
+    fetchDashboardSnapshot().then((snapshot) => setData(snapshot.data));
   }, []);
 
   useEffect(() => {
@@ -51,8 +51,8 @@ export default function App() {
     const text = prompt.trim();
     if (!text) return;
 
-    await sendAgentCommand(text);
-    const mutation = parseAgentInput(text, data);
+    const response = await sendAgentCommand(text, data);
+    const mutation = response.mutation;
     setData((current) => applyMutation(current, mutation));
     setPrompt("");
     setToast({ visible: true, message: mutation.message });
@@ -470,7 +470,7 @@ function groupFinance(items: Expense[]) {
   }));
 }
 
-function applyMutation(state: LifeOSState, mutation: ReturnType<typeof parseAgentInput>): LifeOSState {
+function applyMutation(state: LifeOSState, mutation: AgentMutation): LifeOSState {
   switch (mutation.kind) {
     case "expense":
       return { ...state, finance: [mutation.entry, ...state.finance] };

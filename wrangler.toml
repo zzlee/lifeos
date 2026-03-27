@@ -1,0 +1,11 @@
+name = "lifeos"
+main = "worker/index.ts"
+compatibility_date = "2026-03-27"
+
+[vars]
+APP_NAME = "LifeOS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lifeos-db"
+database_id = "local-dev"
