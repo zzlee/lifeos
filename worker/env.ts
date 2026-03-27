@@ -14,4 +14,5 @@ export type D1Database = {
 export type Env = {
   DB?: D1Database;
   OPENAI_API_KEY?: string;
+  VAULT_MASTER_KEY?: string;
 };

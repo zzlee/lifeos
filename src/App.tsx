@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchDashboardSnapshot, sendAgentCommand } from "./lib/api";
-import type { AgentMutation } from "./lib/agent";
+import { fetchDashboardSnapshot, fetchVaultSecret, sendAgentCommand } from "./lib/api";
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, VaultItem, ViewId } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -53,13 +52,14 @@ export default function App() {
 
     const response = await sendAgentCommand(text, data);
     const mutation = response.mutation;
-    setData((current) => applyMutation(current, mutation));
+    setData(response.data);
     setPrompt("");
     setToast({ visible: true, message: mutation.message });
   }
 
   async function handleCopy(item: VaultItem) {
-    await navigator.clipboard.writeText(item.secret);
+    const response = await fetchVaultSecret(item);
+    await navigator.clipboard.writeText(response.secret);
     setCopiedId(item.id);
     window.setTimeout(() => setCopiedId((current) => (current === item.id ? null : current)), 2000);
   }
@@ -108,7 +108,7 @@ export default function App() {
               onKeyDown={(event) => {
                 if (event.key === "Enter") void handlePromptSubmit();
               }}
-              placeholder="LifeOS Agent: 輸入「剛花150吃午餐」或「血壓120/80」..."
+              placeholder="LifeOS Agent: 輸入「剛花150吃午餐」、「血壓120/80」或「新增 GitHub 帳號 dev 密碼 xyz」..."
             />
             <button type="button" onClick={() => void handlePromptSubmit()}>
               🚀
@@ -276,7 +276,7 @@ export default function App() {
                         </div>
                       </div>
                       <div className="secret-row">
-                        <code>{copiedId === item.id ? item.secret : "********"}</code>
+                        <code>{copiedId === item.id ? "已複製到剪貼簿" : item.secret}</code>
                         <button type="button" onClick={() => void handleCopy(item)}>
                           {copiedId === item.id ? "已複製" : "📋"}
                         </button>
@@ -468,15 +468,4 @@ function groupFinance(items: Expense[]) {
     amount,
     color: palette[index % palette.length],
   }));
-}
-
-function applyMutation(state: LifeOSState, mutation: AgentMutation): LifeOSState {
-  switch (mutation.kind) {
-    case "expense":
-      return { ...state, finance: [mutation.entry, ...state.finance] };
-    case "health":
-      return { ...state, health: [...state.health, mutation.entry] };
-    case "journal":
-      return { ...state, journals: [mutation.entry, ...state.journals] };
-  }
 }

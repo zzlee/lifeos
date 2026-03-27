@@ -1,9 +1,10 @@
-import type { Expense, HealthEntry, JournalEntry, LifeOSState } from "./domain";
+import type { Expense, HealthEntry, JournalEntry, LifeOSState, VaultItem } from "./domain";
 
 export type AgentMutation =
   | { kind: "expense"; message: string; entry: Expense }
   | { kind: "health"; message: string; entry: HealthEntry }
-  | { kind: "journal"; message: string; entry: JournalEntry };
+  | { kind: "journal"; message: string; entry: JournalEntry }
+  | { kind: "vault"; message: string; entry: VaultItem };
 
 const today = "2026-03-27";
 const shortDate = "03-27";
@@ -11,6 +12,15 @@ const now = "2026-03-27 09:30";
 
 export function parseAgentInput(input: string, state: LifeOSState): AgentMutation {
   const text = input.trim();
+
+  if (/(密碼|password|帳號|account)/i.test(text) && /(新增|加入|保存|記住|vault|密碼庫)/i.test(text)) {
+    const entry = parseVaultCommand(text, state);
+    return {
+      kind: "vault",
+      message: `已新增密碼：${entry.site}`,
+      entry
+    };
+  }
 
   if (/(花|買|元|午餐|晚餐|早餐|咖啡|交通)/.test(text)) {
     const amountMatch = text.match(/\d+(?:\.\d+)?/);
@@ -89,4 +99,24 @@ function inferTags(text: string): string[] {
   if (/(累|煩|雷|焦慮)/.test(text)) return ["壓力", "隨記"];
   if (/(跑步|運動|健身)/.test(text)) return ["活力", "運動"];
   return ["隨記"];
+}
+
+function parseVaultCommand(text: string, state: LifeOSState): VaultItem {
+  const structured =
+    text.match(/新增\s+(.+?)\s+帳號\s+(.+?)\s+密碼\s+(.+)/i) ??
+    text.match(/(?:網站|site)\s*[:：]?\s*([^\s，,]+).*(?:帳號|username|account)\s*[:：]?\s*([^\s，,]+).*(?:密碼|password)\s*[:：]?\s*(.+)$/i);
+
+  const fallbackSite =
+    text.match(/(?:網站|site)\s*[:：]?\s*([^\s，,]+)/i)?.[1] ??
+    text.match(/新增\s+([^\s，,]+)/)?.[1] ??
+    `Vault ${state.vault.length + 1}`;
+  const fallbackUsername = text.match(/(?:帳號|username|account)\s*[:：]?\s*([^\s，,]+)/i)?.[1] ?? "lifeos_user";
+  const fallbackSecret = text.match(/(?:密碼|password)\s*[:：]?\s*(.+)$/i)?.[1]?.trim() ?? "change-me";
+
+  return {
+    id: Date.now(),
+    site: structured?.[1]?.trim() ?? fallbackSite,
+    username: structured?.[2]?.trim() ?? fallbackUsername,
+    secret: structured?.[3]?.trim() ?? fallbackSecret
+  };
 }
