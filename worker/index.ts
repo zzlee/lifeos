@@ -26,6 +26,10 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.use("/api/*", cors());
 
+app.get("/", (c) =>
+  c.text("LifeOS API is running. Use /api/health to verify service status."),
+);
+
 app.get("/api/health", (c) =>
   c.json({
     ok: true,
@@ -126,6 +130,10 @@ app.get("/api/vault/:id/secret", async (c) => {
     source: result.source
   };
   return c.json(response);
+});
+
+app.notFound((c) => {
+  return c.text("LifeOS Worker: Route not found. Are you calling an API endpoint?", 404);
 });
 
 export default app;

@@ -111,7 +111,7 @@ Then update [wrangler.toml](/home/zzlee/lifeos/wrangler.toml):
 Initialize the production schema:
 
 ```bash
-npx wrangler d1 execute lifeos-db --remote --file=schema.sql
+npx wrangler d1 execute lifeos-db --remote --file=schema.sql --env production
 ```
 
 Set required Worker secrets:
@@ -154,13 +154,24 @@ Use these settings:
 - Build command: `npm run build`
 - Build output directory: `dist`
 
-Set the Pages environment variable:
+**Important: Set the Pages environment variable in the Cloudflare Dashboard:**
+1. Go to your Pages project -> Settings -> Environment variables.
+2. Add a variable for **Production** (and optionally Preview):
+   - Variable name: `VITE_API_BASE_URL`
+   - Value: `https://lifeos-production.<your-subdomain>.workers.dev` (replace with your actual Worker URL)
 
-```bash
-VITE_API_BASE_URL=https://lifeos-production.<your-subdomain>.workers.dev
-```
+### 3. Troubleshooting 404 Errors
 
-### 3. Google OAuth Production Setup
+If you see a "404 Not Found" error after deployment:
+
+1. **At the Worker URL:** If you visit the Worker URL directly and see 404, it might be because you are hitting a route that doesn't exist. We've added a root route (`/`) to the Worker that should show "LifeOS API is running".
+2. **At the Pages URL:** 
+   - Ensure `VITE_API_BASE_URL` is set in the Pages project settings (not just your local shell).
+   - Ensure the "Build output directory" is set to `dist`.
+   - If you refresh a page on a subpath (e.g., `/finance`), ensure the `public/_redirects` file exists with `/* /index.html 200`.
+3. **API calls returning 404:** Check the browser console. If the frontend is calling `https://your-pages.pages.dev/api/...` instead of `https://your-worker.workers.dev/api/...`, it means `VITE_API_BASE_URL` was not correctly baked into the build. You must **re-deploy** the Pages project after changing environment variables.
+
+### 4. Google OAuth Production Setup
 
 If you want Google login in production:
 
@@ -176,7 +187,7 @@ https://lifeos-production.<your-subdomain>.workers.dev/api/auth/google/callback
 
 - Add the same callback URL to the Google Cloud Console OAuth redirect URI allowlist.
 
-### 4. Recommended Minimal First Deploy
+### 5. Recommended Minimal First Deploy
 
 If you want the fastest safe first release:
 
