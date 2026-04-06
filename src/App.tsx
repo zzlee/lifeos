@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, getGoogleLoginUrl, loginDemo, logout, sendAgentCommand } from "./lib/api";
+import LoginPage from "./components/LoginPage";
+import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, getGoogleLoginUrl, logout, sendAgentCommand } from "./lib/api";
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem, ViewId } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -19,6 +20,7 @@ export default function App() {
   const [view, setView] = useState<ViewId>("overview");
   const [data, setData] = useState<LifeOSState>(emptyState);
   const [user, setUser] = useState<UserProfile>(defaultUser);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [googleAuthEnabled, setGoogleAuthEnabled] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [toast, setToast] = useState<ToastState>({ visible: false, message: "" });
@@ -28,10 +30,23 @@ export default function App() {
   useEffect(() => {
     fetchSession().then((session) => {
       setUser(session.user ?? defaultUser);
+      setIsAuthenticated(session.authenticated);
       setGoogleAuthEnabled(session.googleAuthEnabled);
     });
     fetchDashboardSnapshot().then((snapshot) => setData(snapshot.data));
   }, []);
+
+  if (!isAuthenticated) {
+    return (
+      <LoginPage
+        onLoginSuccess={(user, googleAuthEnabled) => {
+          setUser(user ?? defaultUser);
+          setIsAuthenticated(true);
+          setGoogleAuthEnabled(googleAuthEnabled);
+        }}
+      />
+    );
+  }
 
   useEffect(() => {
     if (!toast.visible) return;
@@ -71,15 +86,10 @@ export default function App() {
     window.setTimeout(() => setCopiedId((current) => (current === item.id ? null : current)), 2000);
   }
 
-  async function handleDemoLogin() {
-    const response = await loginDemo({});
-    setUser(response.session.user ?? defaultUser);
-    setGoogleAuthEnabled(response.session.googleAuthEnabled);
-  }
-
   async function handleLogout() {
     const response = await logout();
     setUser(response.session.user ?? defaultUser);
+    setIsAuthenticated(false);
     setGoogleAuthEnabled(response.session.googleAuthEnabled);
     const snapshot = await fetchDashboardSnapshot();
     setData(snapshot.data);
@@ -109,17 +119,16 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="profile-card">
-          <div className="avatar">{user.name.slice(0, 1)}</div>
-          <div>
-            <strong>{user.name}</strong>
-            <p>{user.email}</p>
+        {isAuthenticated && (
+          <div className="profile-card">
+            <div className="avatar">{user.name.slice(0, 1)}</div>
+            <div>
+              <strong>{user.name}</strong>
+              <p>{user.email}</p>
+            </div>
           </div>
-        </div>
+        )}
         <div className="auth-actions">
-          <button className="secondary-button auth-button" type="button" onClick={() => void handleDemoLogin()}>
-            Demo Login
-          </button>
           <a className="secondary-button auth-button auth-link" href={getGoogleLoginUrl()}>
             Google Login
           </a>
