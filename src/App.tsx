@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
-import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, getGoogleLoginUrl, logout, sendAgentCommand } from "./lib/api";
-import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem, ViewId } from "./lib/types";
+import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, logout, sendAgentCommand } from "./lib/api";
+import type { Expense, HealthEntry, LifeOSState, UserProfile, VaultItem, ViewId } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
   { id: "overview", title: "總覽面板", mobile: "總覽", icon: "🏠" },
@@ -21,7 +21,6 @@ export default function App() {
   const [data, setData] = useState<LifeOSState>(emptyState);
   const [user, setUser] = useState<UserProfile>(defaultUser);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [googleAuthEnabled, setGoogleAuthEnabled] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [toast, setToast] = useState<ToastState>({ visible: false, message: "" });
   const [vaultQuery, setVaultQuery] = useState("");
@@ -31,7 +30,6 @@ export default function App() {
     fetchSession().then((session) => {
       setUser(session.user ?? defaultUser);
       setIsAuthenticated(session.authenticated);
-      setGoogleAuthEnabled(session.googleAuthEnabled);
     });
     fetchDashboardSnapshot().then((snapshot) => setData(snapshot.data));
   }, []);
@@ -53,7 +51,6 @@ export default function App() {
     () => data.vault.filter((item) => item.site.toLowerCase().includes(vaultQuery.toLowerCase())),
     [data.vault, vaultQuery],
   );
-
   const healthStats = useMemo(() => getHealthStats(data.health), [data.health]);
 
   if (!isAuthenticated) {
@@ -79,12 +76,10 @@ export default function App() {
   }
 
   async function handleLogout() {
-    const response = await logout();
-    setUser(response.session.user ?? defaultUser);
+    await logout();
+    setUser(defaultUser);
     setIsAuthenticated(false);
-    setGoogleAuthEnabled(response.session.googleAuthEnabled);
-    const snapshot = await fetchDashboardSnapshot();
-    setData(snapshot.data);
+    setData(emptyState);
   }
 
   return (
@@ -121,13 +116,9 @@ export default function App() {
           </div>
         )}
         <div className="auth-actions">
-          <a className="secondary-button auth-button auth-link" href={getGoogleLoginUrl()}>
-            Google Login
-          </a>
           <button className="secondary-button auth-button auth-button-light" type="button" onClick={() => void handleLogout()}>
             Logout
           </button>
-          <p className="auth-hint">{googleAuthEnabled ? "Google OAuth 已配置" : "Google OAuth 尚未配置"}</p>
         </div>
       </aside>
 
@@ -164,10 +155,6 @@ export default function App() {
               <div className="hero-copy">
                 <p className="eyebrow">您的數位生活導航</p>
                 <h3>把消費、健康、日記與密碼集中在一個乾淨的日常工作台。</h3>
-                <p>
-                  這個前端骨架依照 sample UI 建立，先以 mock data 驅動頁面與自然語言入口，後續可直接接上
-                  Cloudflare Workers、D1 與 OAuth。
-                </p>
               </div>
 
               <div className="stats-grid">
@@ -204,7 +191,7 @@ export default function App() {
             <section className="page-section">
               <SectionHeading
                 title="生活消費記錄 (Finance)"
-                description="透過 AI 自動歸類的消費數據分析。此視圖保留 sample 的結構，但改成 React state 與可延伸的資料模型。"
+                description="透過 AI 自動歸類的消費數據分析。"
               />
               <div className="panel-grid finance-layout">
                 <div className="panel">
@@ -217,7 +204,6 @@ export default function App() {
                 <div className="panel">
                   <div className="panel-header">
                     <h4>交易明細</h4>
-                    <span>Cloudflare D1 Ready</span>
                   </div>
                   <div className="table-wrap">
                     <table>
@@ -250,7 +236,7 @@ export default function App() {
             <section className="page-section">
               <SectionHeading
                 title="隨手日記 (Journal)"
-                description="記錄日常瑣事與靈感，前端先提供情緒標籤、卡片檢視與後續串接 AI 分析的欄位位置。"
+                description="記錄日常瑣事與靈感。"
               />
               <div className="card-grid">
                 {data.journals.map((entry) => (
@@ -264,7 +250,7 @@ export default function App() {
             <section className="page-section">
               <SectionHeading
                 title="生理資訊 (Health)"
-                description="統整血壓、心跳與體重趨勢。這裡先用原生 SVG 折線圖，不增加額外圖表依賴。"
+                description="統整血壓、心跳與體重趨勢。"
               />
               <div className="panel">
                 <div className="panel-header">
@@ -285,7 +271,7 @@ export default function App() {
             <section className="page-section">
               <SectionHeading
                 title="簡易密碼管理 (Vault)"
-                description="保留 sample 的搜尋與快速複製體驗，資料欄位已對齊未來 Workers 端加密後的密碼庫模型。"
+                description="安全加密的密碼庫。"
               />
               <div className="panel">
                 <div className="vault-toolbar">
@@ -310,7 +296,7 @@ export default function App() {
                         </div>
                       </div>
                       <div className="secret-row">
-                        <code>{copiedId === item.id ? "已複製到剪貼簿" : item.secret}</code>
+                        <code>{copiedId === item.id ? "已複製到剪貼簿" : "••••••••"}</code>
                         <button type="button" onClick={() => void handleCopy(item)}>
                           {copiedId === item.id ? "已複製" : "📋"}
                         </button>
@@ -373,7 +359,7 @@ function MetricCard({ title, value, accent, icon }: { title: string; value: stri
   );
 }
 
-function JournalCard({ entry, compact = false }: { entry: JournalEntry; compact?: boolean }) {
+function JournalCard({ entry, compact = false }: { entry: { date: string; content: string; tags: string[] }; compact?: boolean }) {
   return (
     <article className={`journal-card ${compact ? "compact" : ""}`}>
       <p className="journal-date">{entry.date}</p>
@@ -391,6 +377,8 @@ function JournalCard({ entry, compact = false }: { entry: JournalEntry; compact?
 
 function DonutChart({ groups }: { groups: Array<{ category: string; amount: number; color: string }> }) {
   const total = groups.reduce((sum, item) => sum + item.amount, 0);
+  if (total === 0) return <div className="donut-layout">沒有數據</div>;
+  
   const segments = groups.map((item, index) => {
     const previous = groups.slice(0, index).reduce((sum, current) => sum + current.amount, 0);
     return {
@@ -431,6 +419,7 @@ function DonutChart({ groups }: { groups: Array<{ category: string; amount: numb
 }
 
 function HealthChart({ entries }: { entries: HealthEntry[] }) {
+  if (entries.length === 0) return <div>沒有健康數據</div>;
   const width = 780;
   const height = 280;
   const padding = 24;

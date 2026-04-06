@@ -123,8 +123,11 @@ app.get("/api/auth/google/callback", async (c) => {
 });
 
 app.get("/api/dashboard", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
   const session = await resolveSession(c.env, c.req.raw.headers);
-  const snapshot = await getDashboardSnapshot(c.env.DB, session.user!);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+  
+  const snapshot = await getDashboardSnapshot(c.env.DB, session.user);
   const response: DashboardSnapshotResponse = {
     ...snapshot,
     generatedAt: new Date().toISOString()
@@ -133,12 +136,17 @@ app.get("/api/dashboard", async (c) => {
 });
 
 app.post("/api/agent", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  if (!c.env.VAULT_MASTER_KEY) return c.json({ error: "Vault key not configured" }, 500);
+  
   const body = (await c.req.json()) as AgentCommandRequest;
   const session = await resolveSession(c.env, c.req.raw.headers);
-  const snapshot = await getDashboardSnapshot(c.env.DB, session.user!);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const snapshot = await getDashboardSnapshot(c.env.DB, session.user);
   const agentResult = await resolveAgentMutation(c.env, body.command, snapshot.data);
   const mutation = agentResult.mutation;
-  const persisted = await persistAgentMutation(c.env.DB, session.user!, mutation, c.env.VAULT_MASTER_KEY);
+  const persisted = await persistAgentMutation(c.env.DB, session.user, mutation, c.env.VAULT_MASTER_KEY);
 
   const response: AgentCommandResponse = {
     accepted: true,
@@ -151,9 +159,14 @@ app.post("/api/agent", async (c) => {
 });
 
 app.get("/api/vault/:id/secret", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  if (!c.env.VAULT_MASTER_KEY) return c.json({ error: "Vault key not configured" }, 500);
+  
   const vaultId = Number(c.req.param("id"));
   const session = await resolveSession(c.env, c.req.raw.headers);
-  const result = await getVaultSecret(c.env.DB, session.user!, vaultId, c.env.VAULT_MASTER_KEY);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const result = await getVaultSecret(c.env.DB, session.user, vaultId, c.env.VAULT_MASTER_KEY);
   const response: VaultSecretResponse = {
     id: vaultId,
     secret: result.secret,

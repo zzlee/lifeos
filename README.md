@@ -3,10 +3,10 @@
 LifeOS is a personal digital life dashboard that consolidates finance logs, journal entries, health records, and a lightweight vault behind a single AI-style input surface.
 
 The current repository contains:
-- a React + Vite frontend inspired by [docs/sample.html](/home/zzlee/lifeos/docs/sample.html)
+- a React + Vite frontend
 - a Cloudflare Workers + Hono backend
 - a D1 schema and repository layer
-- cookie-based session/auth with demo login and Google OAuth
+- cookie-based session/auth with Google OAuth
 - encrypted vault storage using Web Crypto AES-GCM in the worker
 
 ## Status
@@ -17,15 +17,8 @@ Implemented now:
 - D1-backed reads and writes for dashboard data
 - Vault encryption at rest in the worker
 - Secret retrieval API for copy-to-clipboard flows
-- Cookie-based demo session handling
 - Google OAuth start + callback code exchange flow
-- Sidebar auth actions for Demo Login, Google Login, and Logout
-
-Not finished yet:
-- OpenAI-backed tool calling
-- CLI commands
-- Comprehensive tests
-- Auth hardening for production
+- API Key support for CLI/External integrations
 
 ## Tech Stack
 
@@ -81,21 +74,9 @@ Create and initialize the database in local/dev flow:
 npx wrangler d1 execute lifeos-db --local --file=schema.sql
 ```
 
-For Cloudflare-managed environments, update `wrangler.toml` with the real `database_id` and run the corresponding Wrangler D1 commands in your target environment.
-
 ## Cloudflare Deployment
 
-This project deploys in two pieces:
-- Worker API to Cloudflare Workers
-- Frontend app to Cloudflare Pages
-
 ### 1. Deploy the Worker
-
-Login to Cloudflare:
-
-```bash
-npx wrangler login
-```
 
 Create the production D1 database:
 
@@ -103,10 +84,7 @@ Create the production D1 database:
 npx wrangler d1 create lifeos-db
 ```
 
-Then update [wrangler.toml](/home/zzlee/lifeos/wrangler.toml):
-- keep the top-level `[[d1_databases]]` entry for local development
-- add or uncomment the `env.production` example
-- replace `REPLACE_WITH_PRODUCTION_D1_ID` with the real `database_id`
+Update [wrangler.toml](/home/zzlee/lifeos/wrangler.toml) with the real `database_id`.
 
 Initialize the production schema:
 
@@ -119,19 +97,11 @@ Set required Worker secrets:
 ```bash
 npx wrangler secret put SESSION_SECRET
 npx wrangler secret put VAULT_MASTER_KEY
-```
-
-Optional secrets:
-
-```bash
 npx wrangler secret put OPENAI_API_KEY
 npx wrangler secret put GOOGLE_CLIENT_ID
 npx wrangler secret put GOOGLE_CLIENT_SECRET
 npx wrangler secret put GOOGLE_REDIRECT_URI
 ```
-
-Optional non-secret var:
-- set `OPENAI_MODEL` in `wrangler.toml` under `[vars]`, or configure it in the Cloudflare dashboard as a regular environment variable
 
 Deploy:
 
@@ -139,98 +109,28 @@ Deploy:
 npx wrangler deploy --env production
 ```
 
-After deploy, note your Worker URL, for example:
-
-```text
-https://lifeos-production.<your-subdomain>.workers.dev
-```
-
 ### 2. Deploy the Frontend to Pages
 
-Push the repo to GitHub, then create a Cloudflare Pages project using that repo.
-
-Use these settings:
-- Framework preset: `Vite`
-- Build command: `npm run build`
-- Build output directory: `dist`
-
-**Important: Set the Pages environment variable in the Cloudflare Dashboard:**
-1. Go to your Pages project -> Settings -> Environment variables.
-2. Add a variable for **Production** (and optionally Preview):
-   - Variable name: `VITE_API_BASE_URL`
-   - Value: `https://lifeos-production.<your-subdomain>.workers.dev` (replace with your actual Worker URL)
+Set the Pages environment variable in the Cloudflare Dashboard:
+- `VITE_API_BASE_URL`: Your Worker URL
 
 ### 3. Troubleshooting 404 Errors
 
-If you see a "404 Not Found" error after deployment:
-
-1. **At the Worker URL:** If you visit the Worker URL directly and see 404, it might be because you are hitting a route that doesn't exist. We've added a root route (`/`) to the Worker that should show "LifeOS API is running".
-2. **At the Pages URL:** 
-   - Ensure `VITE_API_BASE_URL` is set in the Pages project settings (not just your local shell).
-   - Ensure the "Build output directory" is set to `dist`.
-   - If you refresh a page on a subpath (e.g., `/finance`), ensure the `public/_redirects` file exists with `/* /index.html 200`.
-3. **API calls returning 404:** Check the browser console. If the frontend is calling `https://your-pages.pages.dev/api/...` instead of `https://your-worker.workers.dev/api/...`, it means `VITE_API_BASE_URL` was not correctly baked into the build. You must **re-deploy** the Pages project after changing environment variables.
-
-### 4. Google OAuth Production Setup
-
-If you want Google login in production:
-
-- Set Worker secrets:
-  - `GOOGLE_CLIENT_ID`
-  - `GOOGLE_CLIENT_SECRET`
-  - `GOOGLE_REDIRECT_URI`
-- Use the deployed Worker callback URL as `GOOGLE_REDIRECT_URI`, for example:
-
-```text
-https://lifeos-production.<your-subdomain>.workers.dev/api/auth/google/callback
-```
-
-- Add the same callback URL to the Google Cloud Console OAuth redirect URI allowlist.
-
-### 5. Recommended Minimal First Deploy
-
-If you want the fastest safe first release:
-
-- deploy Workers + D1
-- deploy Pages
-- set only:
-  - `SESSION_SECRET`
-  - `VAULT_MASTER_KEY`
-- do not enable Google OAuth or OpenAI yet
-- use `Demo Login` to verify the full app flow
-
-That lets you validate:
-- session cookie flow
-- dashboard rendering
-- D1 writes
-- vault encryption/decryption
-- basic agent behavior
+See the troubleshooting section in the dashboard if API calls fail. Ensure `VITE_API_BASE_URL` is correct.
 
 ## Environment Variables
-
-Frontend:
-
-```bash
-VITE_API_BASE_URL=http://127.0.0.1:8787
-```
 
 Worker:
 
 ```bash
-SESSION_SECRET=replace-this-in-real-env
-VAULT_MASTER_KEY=replace-this-in-real-env
+SESSION_SECRET=...
+VAULT_MASTER_KEY=...
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 GOOGLE_REDIRECT_URI=...
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-4o-mini
 ```
-
-Notes:
-- `SESSION_SECRET` currently falls back to a development default if unset. That is acceptable for local work, not for production.
-- `VAULT_MASTER_KEY` should be treated as sensitive and environment-specific.
-- Google OAuth requires valid Google credentials and redirect URI configuration to test end-to-end.
-- `OPENAI_MODEL` is optional. If unset, the worker defaults to `gpt-4o-mini`.
 
 ## Available Scripts
 
@@ -239,96 +139,5 @@ npm run dev
 npm run dev:worker
 npm run build
 npm run check:worker
-npm run preview
+npm run deploy
 ```
-
-## How to Test
-
-### 1. Build and typecheck
-
-```bash
-npm run build
-npm run check:worker
-```
-
-### 2. Session and auth
-
-- Open the app and confirm the sidebar user profile renders.
-- Click `Demo Login` to create a signed cookie session.
-- Click `Google Login` only if Google OAuth env vars are configured.
-- Click `Logout` to clear the session cookie.
-- Call `GET /api/session` and verify the response contains `authenticated`, `provider`, `user`, and `googleAuthEnabled`.
-
-Direct API examples:
-
-```bash
-curl -i -X POST http://127.0.0.1:8787/api/auth/demo-login \
-  -H "Content-Type: application/json" \
-  -d '{}'
-```
-
-```bash
-curl -i -X POST http://127.0.0.1:8787/api/auth/demo-login \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Alice","email":"alice@example.com"}'
-```
-
-### 3. Agent and dashboard flows
-
-Try these prompts in the main input:
-
-- `剛花150吃午餐`
-- `血壓120/80`
-- `今天完成了 LifeOS worker 串接`
-- `新增 GitHub 帳號 dev 密碼 xyz12345`
-
-Expected behavior:
-- Finance receives a new expense
-- Health receives a new reading
-- Journal receives a new entry
-- Vault receives a new site credential
-
-### 4. Vault encryption flow
-
-- Add a vault record through the agent input.
-- Click the copy button in the Vault page.
-- The frontend should call `GET /api/vault/:id/secret`.
-- In D1, `vault_items` should store encrypted content in `secret_ciphertext` and `secret_iv`, not plain text.
-
-### 5. Google OAuth flow
-
-- `GET /api/auth/google/start` should redirect only when Google env vars are configured.
-- `GET /api/auth/google/callback` should exchange the authorization code, fetch Google user info, issue a LifeOS session cookie, and redirect back to the frontend origin.
-- If Google env vars are missing, OAuth should not be considered testable and `Demo Login` should be used instead.
-
-## API Overview
-
-Current worker endpoints:
-
-- `GET /api/health`
-- `GET /api/session`
-- `POST /api/auth/demo-login`
-- `POST /api/auth/logout`
-- `GET /api/auth/google/start`
-- `GET /api/auth/google/callback`
-- `GET /api/dashboard`
-- `POST /api/agent`
-- `GET /api/vault/:id/secret`
-
-## Current Limitations
-
-- AI behavior is still heuristic parsing, not OpenAI-backed tool use.
-- Demo data seeding currently happens automatically for a new user path in local/dev usage.
-- Session handling is usable for development, but still needs hardening for production.
-- No automated tests are included yet.
-
-## Next Steps
-
-The current highest-priority remaining work is:
-
-1. Harden auth/session handling for production deployment.
-2. Replace heuristic agent parsing with OpenAI tool calling.
-3. Add proper test coverage.
-4. Add CLI commands and deployment documentation.
-
-For the detailed running backlog, see [TODO.md](/home/zzlee/lifeos/TODO.md).
