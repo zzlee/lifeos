@@ -26,7 +26,7 @@ export type VaultSecretResponse = {
 
 export type SessionResponse = {
   authenticated: boolean;
-  provider: "demo" | "google-ready";
+  provider: "demo" | "google-ready" | "api-key";
   user: UserProfile | null;
   googleAuthEnabled: boolean;
 };

@@ -18,7 +18,7 @@ database_id = "local-dev"
 # 3. Deploy with `npx wrangler deploy`
 #
 [env.production]
-name = "lifeos-production"
+name = "lifeos-worker"
 
 [env.production.vars]
 APP_NAME = "LifeOS"

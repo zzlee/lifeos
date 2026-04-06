@@ -8,7 +8,11 @@
     "dev:worker": "wrangler dev",
     "build": "tsc -b && vite build",
     "check:worker": "tsc --noEmit -p tsconfig.worker.json",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:worker": "wrangler deploy --env production",
+    "deploy": "npm run deploy:worker && npm run build && npx wrangler pages deploy ./dist --project-name lifeos",
+    "cli:build": "cd cli && npm run build",
+    "cli:start": "node cli/dist/cli.js"
   },
   "dependencies": {
     "hono": "^4.8.5",

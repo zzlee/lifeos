@@ -55,6 +55,50 @@ app.post("/api/auth/demo-login", async (c) => {
   return c.json(result.body satisfies AuthMutationResponse);
 });
 
+app.post("/api/auth/keys", async (c) => {
+  try {
+    const session = await resolveSession(c.env, c.req.raw.headers);
+    if (!session.authenticated || !session.user) {
+      return c.json({ ok: false, error: "Unauthorized" }, 401);
+    }
+
+    const body = (await c.req.json().catch(() => ({}))) as { name: string };
+    const name = body.name || "New API Key";
+    const key = crypto.randomUUID() + crypto.randomUUID();
+
+    const hashBuffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+    const keyHash = btoa(String.fromCharCode(...new Uint8Array(hashBuffer)))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+
+    if (c.env.DB) {
+      await c.env.DB.prepare(
+        "INSERT INTO api_keys (id, user_id, key_hash, name) VALUES (?, ?, ?, ?)"
+      ).bind(crypto.randomUUID(), session.user.id, keyHash, name).run();
+    }
+
+    return c.json({ ok: true, key });
+  } catch (e: any) {
+    console.error("API Key Generation Error:", e);
+    return c.json({ ok: false, error: e.message || "Internal Server Error" }, 500);
+  }
+});
+
+app.delete("/api/auth/keys/:id", async (c) => {
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) {
+    return c.json({ ok: false, error: "Unauthorized" }, 401);
+  }
+
+  const keyId = c.req.param("id");
+  if (c.env.DB) {
+    await c.env.DB.prepare(
+      "DELETE FROM api_keys WHERE id = ? AND user_id = ?"
+    ).bind(keyId, session.user.id).run();
+  }
+
+  return c.json({ ok: true });
+});
+
 app.post("/api/auth/logout", async (c) => {
   deleteCookie(c, "lifeos_session", { path: "/" });
   c.header("Set-Cookie", clearSessionCookie());

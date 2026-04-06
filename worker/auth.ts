@@ -43,6 +43,33 @@ export async function resolveSession(
   env: Env,
   headers: Headers,
 ): Promise<SessionResponse> {
+  const authHeader = headers.get("Authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+    const hash = await hashKey(token);
+
+    if (env.DB) {
+      const apiKey = await env.DB.prepare(
+        "SELECT user_id FROM api_keys WHERE key_hash = ?"
+      ).bind(hash).first<{ user_id: string }>();
+
+      if (apiKey) {
+        const user = await env.DB.prepare(
+          "SELECT id, email, name FROM users WHERE id = ?"
+        ).bind(apiKey.user_id).first<UserProfile>();
+
+        if (user) {
+          return {
+            authenticated: true,
+            provider: "api-key",
+            user,
+            googleAuthEnabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI),
+          };
+        }
+      }
+    }
+  }
+
   const cookieToken = readCookie(headers, SESSION_COOKIE);
   const headerUser = readUserFromHeaders(headers);
 
@@ -294,6 +321,12 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function hashKey(key: string): Promise<string> {
+  const msgUint8 = encoder.encode(key);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
+  return bytesToBase64Url(new Uint8Array(hashBuffer));
 }
 
 function slugify(value: string): string {
