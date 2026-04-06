@@ -357,6 +357,14 @@ export default function App() {
               <small>{item.mobile}</small>
             </button>
           ))}
+          <button
+            className="mobile-nav-item"
+            style={{ color: "#ef4444" }}
+            onClick={() => void handleLogout()}
+          >
+            <span>🚪</span>
+            <small>登出</small>
+          </button>
         </nav>
       </main>
 
