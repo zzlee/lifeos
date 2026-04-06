@@ -36,18 +36,6 @@ export default function App() {
     fetchDashboardSnapshot().then((snapshot) => setData(snapshot.data));
   }, []);
 
-  if (!isAuthenticated) {
-    return (
-      <LoginPage
-        onLoginSuccess={(user, googleAuthEnabled) => {
-          setUser(user ?? defaultUser);
-          setIsAuthenticated(true);
-          setGoogleAuthEnabled(googleAuthEnabled);
-        }}
-      />
-    );
-  }
-
   useEffect(() => {
     if (!toast.visible) return;
     const timer = window.setTimeout(() => setToast({ visible: false, message: "" }), 3000);
@@ -67,6 +55,18 @@ export default function App() {
   );
 
   const healthStats = useMemo(() => getHealthStats(data.health), [data.health]);
+
+  if (!isAuthenticated) {
+    return (
+      <LoginPage
+        onLoginSuccess={(user, googleAuthEnabled) => {
+          setUser(user ?? defaultUser);
+          setIsAuthenticated(true);
+          setGoogleAuthEnabled(googleAuthEnabled);
+        }}
+      />
+    );
+  }
 
   async function handlePromptSubmit() {
     const text = prompt.trim();
