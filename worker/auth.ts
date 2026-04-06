@@ -1,12 +1,6 @@
-import type { AuthMutationResponse, DemoLoginRequest, SessionResponse } from "../shared/contracts";
+import type { AuthMutationResponse, SessionResponse } from "../shared/contracts";
 import type { UserProfile } from "../shared/domain";
 import type { D1Database, Env } from "./env";
-
-const DEMO_USER: UserProfile = {
-  id: "demo-user",
-  email: "demo@lifeos.app",
-  name: "LifeOS Demo",
-};
 
 const SESSION_COOKIE = "lifeos_session";
 const OAUTH_STATE_TTL_MS = 1000 * 60 * 10;
@@ -14,7 +8,7 @@ const encoder = new TextEncoder();
 
 type SessionTokenPayload = {
   user: UserProfile;
-  provider: "demo" | "google-ready";
+  provider: "google-ready";
   exp: number;
 };
 
@@ -77,63 +71,25 @@ export async function resolveSession(
     ? await verifySessionToken(cookieToken, env.SESSION_SECRET ?? "lifeos-dev-session-secret")
     : null;
 
-  const provider = headerUser ? "google-ready" : sessionFromCookie?.provider ?? "demo";
-  const user = headerUser ?? sessionFromCookie?.user ?? DEMO_USER;
-
-  if (env.DB) {
-    await ensureUser(env.DB, user);
-  }
+  const provider = headerUser ? "google-ready" : sessionFromCookie?.provider ?? "none";
+  const user = headerUser ?? sessionFromCookie?.user ?? null;
 
   return {
-    authenticated: true,
+    authenticated: !!user,
     provider,
     user,
     googleAuthEnabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI),
   };
 }
 
-export async function createDemoLoginResponse(env: Env, request: DemoLoginRequest): Promise<{ cookie: string; body: AuthMutationResponse }> {
-  const user: UserProfile = {
-    id: slugify(request.email ?? request.name ?? DEMO_USER.id),
-    email: request.email ?? DEMO_USER.email,
-    name: request.name ?? DEMO_USER.name,
-  };
-
-  if (env.DB) {
-    await ensureUser(env.DB, user);
-  }
-
-  const token = await signSessionToken(
-    {
-      user,
-      provider: "demo",
-      exp: Date.now() + 1000 * 60 * 60 * 24 * 7,
-    },
-    env.SESSION_SECRET ?? "lifeos-dev-session-secret",
-  );
-
-  return {
-    cookie: serializeSessionCookie(token),
-    body: {
-      ok: true,
-      session: {
-        authenticated: true,
-        provider: "demo",
-        user,
-        googleAuthEnabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI),
-      },
-    },
-  };
-}
-
-export function createLogoutResponse(env: Env): AuthMutationResponse {
+export function createLogoutResponse(): AuthMutationResponse {
   return {
     ok: true,
     session: {
-      authenticated: true,
-      provider: "demo",
-      user: DEMO_USER,
-      googleAuthEnabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI),
+      authenticated: false,
+      provider: "none",
+      user: null,
+      googleAuthEnabled: false,
     },
   };
 }

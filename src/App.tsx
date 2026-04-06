@@ -14,7 +14,7 @@ const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string 
 type ToastState = { visible: boolean; message: string };
 
 const emptyState: LifeOSState = { finance: [], journals: [], health: [], vault: [] };
-const defaultUser: UserProfile = { id: "demo-user", email: "demo@lifeos.app", name: "LifeOS Demo" };
+const defaultUser: UserProfile = { id: "", email: "", name: "" };
 
 export default function App() {
   const [view, setView] = useState<ViewId>("overview");
@@ -57,22 +57,14 @@ export default function App() {
   const healthStats = useMemo(() => getHealthStats(data.health), [data.health]);
 
   if (!isAuthenticated) {
-    return (
-      <LoginPage
-        onLoginSuccess={(user, googleAuthEnabled) => {
-          setUser(user ?? defaultUser);
-          setIsAuthenticated(true);
-          setGoogleAuthEnabled(googleAuthEnabled);
-        }}
-      />
-    );
+    return <LoginPage />;
   }
 
   async function handlePromptSubmit() {
     const text = prompt.trim();
     if (!text) return;
 
-    const response = await sendAgentCommand(text, data);
+    const response = await sendAgentCommand(text);
     const mutation = response.mutation;
     setData(response.data);
     setPrompt("");

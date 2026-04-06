@@ -26,14 +26,9 @@ export type VaultSecretResponse = {
 
 export type SessionResponse = {
   authenticated: boolean;
-  provider: "demo" | "google-ready" | "api-key";
+  provider: "none" | "google-ready" | "api-key";
   user: UserProfile | null;
   googleAuthEnabled: boolean;
-};
-
-export type DemoLoginRequest = {
-  name?: string;
-  email?: string;
 };
 
 export type AuthMutationResponse = {

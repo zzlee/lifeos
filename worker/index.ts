@@ -1,12 +1,11 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { deleteCookie, setCookie } from "hono/cookie";
+import { deleteCookie } from "hono/cookie";
 import type {
   AgentCommandRequest,
   AgentCommandResponse,
   AuthMutationResponse,
   DashboardSnapshotResponse,
-  DemoLoginRequest,
   SessionResponse,
   VaultSecretResponse,
 } from "../shared/contracts";
@@ -14,7 +13,6 @@ import { resolveAgentMutation } from "./agent";
 import {
   clearSessionCookie,
   completeGoogleOAuth,
-  createDemoLoginResponse,
   createLogoutResponse,
   getGoogleAuthStartUrl,
   resolveSession,
@@ -41,18 +39,6 @@ app.get("/api/health", (c) =>
 app.get("/api/session", async (c) => {
   const session = await resolveSession(c.env, c.req.raw.headers);
   return c.json(session satisfies SessionResponse);
-});
-
-app.post("/api/auth/demo-login", async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as DemoLoginRequest;
-  const result = await createDemoLoginResponse(c.env, body);
-  setCookie(c, "lifeos_session", result.cookie.split("=")[1].split(";")[0], {
-    httpOnly: true,
-    sameSite: "Lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
-  return c.json(result.body satisfies AuthMutationResponse);
 });
 
 app.post("/api/auth/keys", async (c) => {
@@ -102,7 +88,7 @@ app.delete("/api/auth/keys/:id", async (c) => {
 app.post("/api/auth/logout", async (c) => {
   deleteCookie(c, "lifeos_session", { path: "/" });
   c.header("Set-Cookie", clearSessionCookie());
-  return c.json(createLogoutResponse(c.env) satisfies AuthMutationResponse);
+  return c.json(createLogoutResponse() satisfies AuthMutationResponse);
 });
 
 app.get("/api/auth/google/start", async (c) => {
