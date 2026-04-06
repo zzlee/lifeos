@@ -18,11 +18,21 @@ import {
   resolveSession,
 } from "./auth";
 import type { Env } from "./env";
-import { getDashboardSnapshot, getVaultSecret, persistAgentMutation } from "./repository";
+import { getDashboardSnapshot, getVaultSecret, persistAgentMutation, createVaultItem } from "./repository";
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.use("/api/*", cors());
+app.use("/api/*", async (c, next) => {
+  const origin = c.req.header("Origin");
+  const corsHandler = cors({
+    origin: origin || "*",
+    credentials: true,
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization", "X-LifeOS-User-Id", "X-LifeOS-User-Email", "X-LifeOS-User-Name"],
+    exposeHeaders: ["Set-Cookie"],
+  });
+  return corsHandler(c, next);
+});
 
 app.get("/", (c) =>
   c.text("LifeOS API is running. Use /api/health to verify service status."),
@@ -92,7 +102,8 @@ app.post("/api/auth/logout", async (c) => {
 });
 
 app.get("/api/auth/google/start", async (c) => {
-  const redirectUrl = await getGoogleAuthStartUrl(c.env, c.req.url);
+  const from = c.req.query("from");
+  const redirectUrl = await getGoogleAuthStartUrl(c.env, from || c.req.url);
   if (!redirectUrl) {
     return c.json({ ok: false, error: "Google OAuth is not configured" }, 501);
   }
@@ -173,6 +184,18 @@ app.get("/api/vault/:id/secret", async (c) => {
     source: result.source
   };
   return c.json(response);
+});
+
+app.post("/api/vault", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  if (!c.env.VAULT_MASTER_KEY) return c.json({ error: "Vault key not configured" }, 500);
+
+  const body = (await c.req.json()) as { site: string; username: string; secret: string };
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const result = await createVaultItem(c.env.DB, session.user, body, c.env.VAULT_MASTER_KEY);
+  return c.json(result);
 });
 
 app.notFound((c) => {

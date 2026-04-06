@@ -7,7 +7,7 @@ import type {
 } from "../../shared/contracts";
 import type { VaultItem } from "./types";
 
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
+const apiBase = import.meta.env.VITE_API_BASE_URL ?? "https://lifeos-worker.zzlee-tw.workers.dev";
 
 if (!apiBase && import.meta.env.PROD) {
   console.error(
@@ -18,7 +18,7 @@ if (!apiBase && import.meta.env.PROD) {
 }
 
 export function isApiConfigured(): boolean {
-  return apiBase.startsWith("http");
+  return apiBase.startsWith("https");
 }
 
 export async function fetchDashboardSnapshot(): Promise<DashboardSnapshotResponse> {
@@ -50,6 +50,17 @@ export async function fetchVaultSecret(item: VaultItem): Promise<VaultSecretResp
   return (await response.json()) as VaultSecretResponse;
 }
 
+export async function createVaultItem(entry: { site: string; username: string; secret: string }): Promise<DashboardSnapshotResponse> {
+  const response = await fetch(`${apiBase}/api/vault`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entry)
+  });
+  if (!response.ok) throw new Error(`create vault ${response.status}`);
+  return (await response.json()) as DashboardSnapshotResponse;
+}
+
 export async function logout(): Promise<AuthMutationResponse> {
   const response = await fetch(`${apiBase}/api/auth/logout`, {
     method: "POST",
@@ -60,5 +71,6 @@ export async function logout(): Promise<AuthMutationResponse> {
 }
 
 export function getGoogleLoginUrl(): string {
-  return `${apiBase}/api/auth/google/start`;
+  const origin = window.location.origin;
+  return `${apiBase}/api/auth/google/start?from=${encodeURIComponent(origin)}`;
 }

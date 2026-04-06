@@ -93,6 +93,30 @@ export async function getVaultSecret(
   };
 }
 
+export async function createVaultItem(
+  db: D1Database,
+  user: UserProfile,
+  entry: { site: string; username: string; secret: string },
+  vaultMasterKey: string,
+): Promise<{ data: LifeOSState; source: "d1" }> {
+  const encrypted = await encryptSecret(entry.secret, vaultMasterKey);
+  await db
+    .prepare(
+      "INSERT INTO vault_items (user_id, site, username, secret_ciphertext, secret_iv, secret_preview) VALUES (?, ?, ?, ?, ?, ?)",
+    )
+    .bind(
+      user.id,
+      entry.site,
+      entry.username,
+      encrypted.ciphertext,
+      encrypted.iv,
+      maskSecret(entry.secret),
+    )
+    .run();
+
+  return getDashboardSnapshot(db, user);
+}
+
 function maskSecret(secret: string): string {
   if (secret.length <= 4) return "****";
   return `${secret.slice(0, 2)}••••${secret.slice(-2)}`;

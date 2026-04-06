@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
-import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand } from "./lib/api";
+import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem } from "./lib/api";
 import type { Expense, HealthEntry, LifeOSState, UserProfile, VaultItem, ViewId } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -50,6 +50,8 @@ export default function App() {
   const [toast, setToast] = useState<ToastState>({ visible: false, message: "" });
   const [vaultQuery, setVaultQuery] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
+  const [newVaultItem, setNewVaultItem] = useState({ site: "", username: "", secret: "" });
 
   useEffect(() => {
     fetchSession().then((session) => {
@@ -98,6 +100,16 @@ export default function App() {
     await navigator.clipboard.writeText(response.secret);
     setCopiedId(item.id);
     window.setTimeout(() => setCopiedId((current) => (current === item.id ? null : current)), 2000);
+  }
+
+  async function handleCreateVaultItem(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newVaultItem.site || !newVaultItem.secret) return;
+    const response = await createVaultItem(newVaultItem);
+    setData(response.data);
+    setNewVaultItem({ site: "", username: "", secret: "" });
+    setIsVaultModalOpen(false);
+    setToast({ visible: true, message: `已新增 ${newVaultItem.site} 的密碼` });
   }
 
   async function handleLogout() {
@@ -308,7 +320,7 @@ export default function App() {
                       placeholder="搜尋站點名稱..."
                     />
                   </label>
-                  <button className="secondary-button" type="button">新增密碼</button>
+                  <button className="secondary-button" type="button" onClick={() => setIsVaultModalOpen(true)}>新增密碼</button>
                 </div>
                 <div className="card-grid vault-grid">
                   {filteredVault.map((item) => (
@@ -347,6 +359,51 @@ export default function App() {
           ))}
         </nav>
       </main>
+
+      {isVaultModalOpen && (
+        <div className="modal-overlay">
+          <div className="panel modal-content">
+            <div className="panel-header">
+              <h4>新增密碼紀錄</h4>
+              <button className="close-button" onClick={() => setIsVaultModalOpen(false)}>✕</button>
+            </div>
+            <form onSubmit={handleCreateVaultItem} className="modal-form">
+              <div className="form-group">
+                <label>站點名稱</label>
+                <input 
+                  required 
+                  value={newVaultItem.site} 
+                  onChange={e => setNewVaultItem({...newVaultItem, site: e.target.value})}
+                  placeholder="例如: GitHub, Facebook" 
+                />
+              </div>
+              <div className="form-group">
+                <label>使用者名稱 / Email</label>
+                <input 
+                  required 
+                  value={newVaultItem.username} 
+                  onChange={e => setNewVaultItem({...newVaultItem, username: e.target.value})}
+                  placeholder="您的帳號" 
+                />
+              </div>
+              <div className="form-group">
+                <label>密碼</label>
+                <input 
+                  required 
+                  type="password"
+                  value={newVaultItem.secret} 
+                  onChange={e => setNewVaultItem({...newVaultItem, secret: e.target.value})}
+                  placeholder="密碼明文 (存入後將加密)" 
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="secondary-button" onClick={() => setIsVaultModalOpen(false)}>取消</button>
+                <button type="submit" className="primary-button">儲存密碼</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
