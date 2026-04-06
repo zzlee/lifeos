@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
-import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, logout, sendAgentCommand } from "./lib/api";
+import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand } from "./lib/api";
 import type { Expense, HealthEntry, LifeOSState, UserProfile, VaultItem, ViewId } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -17,6 +17,31 @@ const emptyState: LifeOSState = { finance: [], journals: [], health: [], vault: 
 const defaultUser: UserProfile = { id: "", email: "", name: "" };
 
 export default function App() {
+  if (!isApiConfigured()) {
+    return (
+      <div className="login-screen">
+        <div className="panel login-card" style={{ maxWidth: "540px" }}>
+          <div className="brand-mark" style={{ backgroundColor: "#ef4444" }}>!</div>
+          <h1 style={{ color: "#ef4444" }}>Configuration Error</h1>
+          <p>
+            The frontend is not configured to communicate with the backend. 
+            The environment variable <strong>VITE_API_BASE_URL</strong> is missing or invalid.
+          </p>
+          <div style={{ textAlign: "left", marginTop: "1rem", padding: "1rem", background: "#f8fafc", borderRadius: "8px", fontSize: "14px", lineHeight: "1.6" }}>
+            <strong>How to fix this:</strong>
+            <ol style={{ paddingLeft: "1.2rem", marginTop: "0.5rem" }}>
+              <li>Visit your <strong>Cloudflare Pages</strong> dashboard.</li>
+              <li>Go to <strong>Settings</strong> &rarr; <strong>Environment Variables</strong>.</li>
+              <li>Add <code>VITE_API_BASE_URL</code>.</li>
+              <li>Set the value to your Worker URL (e.g., <code>https://lifeos.user.workers.dev</code>).</li>
+              <li><strong>Crucial:</strong> Go to the "Deployments" tab and trigger a <strong>Retry deployment</strong>.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const [view, setView] = useState<ViewId>("overview");
   const [data, setData] = useState<LifeOSState>(emptyState);
   const [user, setUser] = useState<UserProfile>(defaultUser);

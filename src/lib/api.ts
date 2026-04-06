@@ -9,6 +9,18 @@ import type { VaultItem } from "./types";
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
 
+if (!apiBase && import.meta.env.PROD) {
+  console.error(
+    "Critical Configuration Error: VITE_API_BASE_URL is not defined.\n" +
+    "The frontend will not be able to connect to the backend Worker.\n" +
+    "Please set this environment variable in the Cloudflare Pages Dashboard."
+  );
+}
+
+export function isApiConfigured(): boolean {
+  return apiBase.startsWith("http");
+}
+
 export async function fetchDashboardSnapshot(): Promise<DashboardSnapshotResponse> {
   const response = await fetch(`${apiBase}/api/dashboard`, { credentials: "include" });
   if (!response.ok) throw new Error(`dashboard ${response.status}`);

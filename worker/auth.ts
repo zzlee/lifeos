@@ -103,7 +103,13 @@ export function serializeSessionCookie(token: string): string {
 }
 
 export async function getGoogleAuthStartUrl(env: Env, requestUrl: string): Promise<string | null> {
-  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI) return null;
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI || !env.GOOGLE_CLIENT_SECRET) {
+    console.error("Google OAuth Configuration Error: Missing required environment variables.");
+    if (!env.GOOGLE_CLIENT_ID) console.error("Missing: GOOGLE_CLIENT_ID");
+    if (!env.GOOGLE_REDIRECT_URI) console.error("Missing: GOOGLE_REDIRECT_URI");
+    if (!env.GOOGLE_CLIENT_SECRET) console.error("Missing: GOOGLE_CLIENT_SECRET");
+    return null;
+  }
 
   const origin = new URL(requestUrl).origin;
   const state = await createOAuthState(origin, env.SESSION_SECRET ?? "lifeos-dev-session-secret");
@@ -126,7 +132,11 @@ export async function completeGoogleOAuth(
   state: string,
 ): Promise<{ cookie: string; redirectUrl: string }> {
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REDIRECT_URI) {
-    throw new Error("Google OAuth is not configured");
+    const missing = [];
+    if (!env.GOOGLE_CLIENT_ID) missing.push("GOOGLE_CLIENT_ID");
+    if (!env.GOOGLE_CLIENT_SECRET) missing.push("GOOGLE_CLIENT_SECRET");
+    if (!env.GOOGLE_REDIRECT_URI) missing.push("GOOGLE_REDIRECT_URI");
+    throw new Error(`Google OAuth is not configured. Missing: ${missing.join(", ")}`);
   }
 
   const verifiedState = await verifyOAuthState(state, env.SESSION_SECRET ?? "lifeos-dev-session-secret");
