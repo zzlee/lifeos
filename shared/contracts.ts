@@ -31,6 +31,21 @@ export type SessionResponse = {
   googleAuthEnabled: boolean;
 };
 
+export type ApiKey = {
+  id: string;
+  name: string;
+  createdAt: string;
+};
+
+export type ApiKeyListResponse = {
+  keys: ApiKey[];
+};
+
+export type ApiKeyCreateResponse = {
+  ok: true;
+  key: string;
+};
+
 export type AuthMutationResponse = {
   ok: true;
   session: SessionResponse;

@@ -43,6 +43,61 @@ auth.command('status')
     }
   });
 
+auth.command('set-url')
+  .description('Update the API base URL')
+  .argument('<url>', 'The new API base URL')
+  .action((url) => {
+    config.set('apiUrl', url);
+    console.log(chalk.green(`API URL updated to: ${url}`));
+  });
+
+const keyMgmt = auth.command('key').description('Manage API keys');
+
+keyMgmt.command('create')
+  .description('Create a new API key')
+  .option('-n, --name <name>', 'Name for the API key', 'New API Key')
+  .action(async (options) => {
+    try {
+      const res = await api.post('/api/auth/keys', { name: options.name });
+      console.log(chalk.green('\n✓ API Key created successfully!'));
+      console.log(chalk.bold.cyan(`\nYour API Key: ${res.data.key}`));
+      console.log(chalk.dim('\nPlease save this key securely. It will not be shown again.'));
+      console.log(chalk.dim(`\nTo use this key, run: ${chalk.bold('lifeos auth login <key>')}\n`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error creating API key: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+keyMgmt.command('list')
+  .description('List all your API keys')
+  .action(async () => {
+    try {
+      const res = await api.get('/api/auth/keys');
+      const keys = res.data.keys;
+      if (!keys || keys.length === 0) {
+        console.log(chalk.yellow('No API keys found.'));
+        return;
+      }
+      console.log(chalk.bold(`\nYour API Keys:`));
+      console.table(keys);
+    } catch (e: any) {
+      console.log(chalk.red(`Error listing API keys: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+keyMgmt.command('delete')
+  .description('Delete an API key')
+  .argument('<id>', 'ID of the API key to delete')
+  .action(async (id) => {
+    try {
+      await api.delete(`/api/auth/keys/${id}`);
+      console.log(chalk.green(`✓ API key ${id} has been revoked.`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error deleting API key: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+
 // --- Log Command ---
 program.command('log')
   .description('Quickly log data using natural language')

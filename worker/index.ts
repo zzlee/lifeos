@@ -4,6 +4,7 @@ import { deleteCookie } from "hono/cookie";
 import type {
   AgentCommandRequest,
   AgentCommandResponse,
+  ApiKeyListResponse,
   AuthMutationResponse,
   DashboardSnapshotResponse,
   SessionResponse,
@@ -49,6 +50,21 @@ app.get("/api/health", (c) =>
 app.get("/api/session", async (c) => {
   const session = await resolveSession(c.env, c.req.raw.headers);
   return c.json(session satisfies SessionResponse);
+});
+
+app.get("/api/auth/keys", async (c) => {
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) {
+    return c.json({ ok: false, error: "Unauthorized" }, 401);
+  }
+
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+
+  const keys = await c.env.DB.prepare(
+    "SELECT id, name, created_at as createdAt FROM api_keys WHERE user_id = ? ORDER BY created_at DESC"
+  ).bind(session.user.id).all<{ id: string; name: string; createdAt: string }>();
+
+  return c.json({ keys: keys.results } satisfies ApiKeyListResponse);
 });
 
 app.post("/api/auth/keys", async (c) => {
