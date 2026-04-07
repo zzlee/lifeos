@@ -114,25 +114,6 @@ program.command('log')
     }
   });
 
-// --- List Command ---
-program.command('ls')
-  .description('List entries for a module')
-  .argument('<module>', 'Module to list (finance, journals, health, vault)')
-  .action(async (module) => {
-    try {
-      const res = await api.get('/api/dashboard');
-      const data = res.data.data[module];
-      if (!data) {
-        console.log(chalk.red(`Unknown module: ${module}`));
-        return;
-      }
-      console.log(chalk.bold(`\n--- ${module.toUpperCase()} ---`));
-      console.table(data);
-    } catch (e: any) {
-      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
-    }
-  });
-
 // --- Journal Command ---
 const journal = program.command('journal').description('Journal management');
 
@@ -378,6 +359,23 @@ health.command('delete')
 
 // --- Vault Command ---
 const vault = program.command('vault').description('Vault management');
+
+vault.command('ls')
+  .description('List all vault items')
+  .action(async () => {
+    try {
+      const res = await api.get('/api/dashboard');
+      const vaultItems = res.data.data.vault;
+      if (!vaultItems || vaultItems.length === 0) {
+        console.log(chalk.yellow('No vault items found.'));
+        return;
+      }
+      console.log(chalk.bold('\n--- VAULT ---'));
+      console.table(vaultItems);
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
 
 vault.command('get')
   .description('Retrieve a secret from the vault')
