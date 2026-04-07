@@ -15,6 +15,7 @@
     "cli:start": "node cli/dist/cli.js"
   },
   "dependencies": {
+    "dotenv": "^17.4.1",
     "hono": "^4.8.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
