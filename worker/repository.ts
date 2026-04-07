@@ -93,6 +93,28 @@ export async function getVaultSecret(
   };
 }
 
+export async function exportVault(
+  db: D1Database,
+  user: UserProfile,
+  vaultMasterKey: string,
+): Promise<Array<{ site: string; username: string; secret: string }>> {
+  const records = await db
+    .prepare("SELECT site, username, secret_ciphertext, secret_iv FROM vault_items WHERE user_id = ? ORDER BY site ASC")
+    .bind(user.id)
+    .all<{ site: string; username: string; secret_ciphertext: string; secret_iv: string }>();
+
+  const result = [];
+  for (const record of records.results || []) {
+    result.push({
+      site: record.site,
+      username: record.username,
+      secret: await decryptSecret(record.secret_ciphertext, record.secret_iv, vaultMasterKey)
+    });
+  }
+
+  return result;
+}
+
 export async function createVaultItem(
   db: D1Database,
   user: UserProfile,

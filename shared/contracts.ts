@@ -24,6 +24,10 @@ export type VaultSecretResponse = {
   source: "d1";
 };
 
+export type VaultExportResponse = {
+  items: Array<{ site: string; username: string; secret: string }>;
+};
+
 export type SessionResponse = {
   authenticated: boolean;
   provider: "none" | "google-ready" | "api-key";

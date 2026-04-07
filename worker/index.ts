@@ -8,6 +8,7 @@ import type {
   AuthMutationResponse,
   DashboardSnapshotResponse,
   SessionResponse,
+  VaultExportResponse,
   VaultSecretResponse,
 } from "../shared/contracts";
 import { resolveAgentMutation } from "./agent";
@@ -19,7 +20,7 @@ import {
   resolveSession,
 } from "./auth";
 import type { Env } from "./env";
-import { getDashboardSnapshot, getVaultSecret, persistAgentMutation, createVaultItem } from "./repository";
+import { getDashboardSnapshot, getVaultSecret, persistAgentMutation, createVaultItem, exportVault } from "./repository";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -200,6 +201,17 @@ app.get("/api/vault/:id/secret", async (c) => {
     source: result.source
   };
   return c.json(response);
+});
+
+app.get("/api/vault/export", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  if (!c.env.VAULT_MASTER_KEY) return c.json({ error: "Vault key not configured" }, 500);
+
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const items = await exportVault(c.env.DB, session.user, c.env.VAULT_MASTER_KEY);
+  return c.json({ items } satisfies VaultExportResponse);
 });
 
 app.post("/api/vault", async (c) => {

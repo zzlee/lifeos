@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
+import fs from 'fs';
 import { config } from './config';
 import { api } from './api';
 
@@ -143,6 +144,51 @@ vault.command('get')
       console.log(chalk.green(`Secret: ${res.data.secret}`));
     } catch (e: any) {
       console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+vault.command('export')
+  .description('Export all vault secrets to a JSON file')
+  .argument('<filename>', 'Filename to export to (e.g., secrets.json)')
+  .action(async (filename) => {
+    try {
+      console.log(chalk.blue(`Exporting secrets to ${filename}...`));
+      const res = await api.get('/api/vault/export');
+      fs.writeFileSync(filename, JSON.stringify(res.data.items, null, 2));
+      console.log(chalk.green(`✓ Successfully exported ${res.data.items.length} items.`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error exporting: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+vault.command('import')
+  .description('Import vault secrets from a JSON file')
+  .argument('<filename>', 'Filename to import from')
+  .action(async (filename) => {
+    try {
+      if (!fs.existsSync(filename)) {
+        console.log(chalk.red(`File not found: ${filename}`));
+        return;
+      }
+      const data = JSON.parse(fs.readFileSync(filename, 'utf-8'));
+      if (!Array.isArray(data)) {
+        console.log(chalk.red('Invalid format: File must contain an array of vault items.'));
+        return;
+      }
+
+      console.log(chalk.blue(`Importing ${data.length} items...`));
+      let success = 0;
+      for (const item of data) {
+        try {
+          await api.post('/api/vault', item);
+          success++;
+        } catch (err: any) {
+          console.log(chalk.yellow(`! Failed to import ${item.site}: ${err.message}`));
+        }
+      }
+      console.log(chalk.green(`✓ Successfully imported ${success}/${data.length} items.`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error importing: ${e.message}`));
     }
   });
 
