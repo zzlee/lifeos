@@ -6,4 +6,5 @@ export type {
   UserProfile,
   VaultItem,
   ViewId,
+  ApiKey,
 } from "../../shared/domain";

@@ -1,5 +1,6 @@
 import type {
   AgentCommandResponse,
+  ApiKeyListResponse,
   AuthMutationResponse,
   DashboardSnapshotResponse,
   SessionResponse,
@@ -42,6 +43,32 @@ export async function sendAgentCommand(command: string): Promise<AgentCommandRes
   });
   if (!response.ok) throw new Error(`agent ${response.status}`);
   return (await response.json()) as AgentCommandResponse;
+}
+
+export async function fetchApiKeys(): Promise<ApiKeyListResponse> {
+  const response = await fetch(`${apiBase}/api/auth/keys`, { credentials: "include" });
+  if (!response.ok) throw new Error(`fetch keys ${response.status}`);
+  return (await response.json()) as ApiKeyListResponse;
+}
+
+export async function createApiKey(name: string): Promise<{ ok: boolean; key: string }> {
+  const response = await fetch(`${apiBase}/api/auth/keys`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name })
+  });
+  if (!response.ok) throw new Error(`create key ${response.status}`);
+  return (await response.json()) as { ok: boolean; key: string };
+}
+
+export async function deleteApiKey(id: string): Promise<{ ok: boolean }> {
+  const response = await fetch(`${apiBase}/api/auth/keys/${id}`, {
+    method: "DELETE",
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error(`delete key ${response.status}`);
+  return (await response.json()) as { ok: boolean };
 }
 
 export async function fetchVaultSecret(item: VaultItem): Promise<VaultSecretResponse> {

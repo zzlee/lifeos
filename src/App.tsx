@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
-import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem } from "./lib/api";
-import type { Expense, HealthEntry, LifeOSState, UserProfile, VaultItem, ViewId } from "./lib/types";
+import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey } from "./lib/api";
+import type { Expense, HealthEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
   { id: "overview", title: "總覽面板", mobile: "總覽", icon: "🏠" },
   { id: "finance", title: "消費記錄", mobile: "消費", icon: "💳" },
   { id: "journal", title: "隨手日記", mobile: "日記", icon: "📖" },
   { id: "health", title: "生理資訊", mobile: "健康", icon: "❤️" },
-  { id: "vault", title: "密碼管理", mobile: "密碼", icon: "🔐" }
+  { id: "vault", title: "密碼管理", mobile: "密碼", icon: "🔐" },
+  { id: "settings", title: "系統設定", mobile: "設定", icon: "⚙️" }
 ];
 
 type ToastState = { visible: boolean; message: string };
@@ -53,6 +54,10 @@ export default function App() {
   const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
   const [newVaultItem, setNewVaultItem] = useState({ site: "", username: "", secret: "" });
 
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
+
   useEffect(() => {
     fetchSession().then((session) => {
       setUser(session.user ?? defaultUser);
@@ -60,6 +65,33 @@ export default function App() {
     });
     fetchDashboardSnapshot().then((snapshot) => setData(snapshot.data));
   }, []);
+
+  useEffect(() => {
+    if (view === "settings") {
+      loadKeys();
+    }
+  }, [view]);
+
+  async function loadKeys() {
+    const res = await fetchApiKeys();
+    setApiKeys(res.keys);
+  }
+
+  async function handleCreateKey(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newKeyName.trim()) return;
+    const res = await createApiKey(newKeyName);
+    setNewKeyValue(res.key);
+    setNewKeyName("");
+    loadKeys();
+  }
+
+  async function handleDeleteKey(id: string) {
+    if (!confirm("確定要刪除此 API Key 嗎？這將導致使用此 Key 的 CLI 工具失效。")) return;
+    await deleteApiKey(id);
+    loadKeys();
+    setToast({ visible: true, message: "API Key 已成功刪除" });
+  }
 
   useEffect(() => {
     if (!toast.visible) return;
@@ -344,6 +376,71 @@ export default function App() {
               </div>
             </section>
           )}
+
+          {view === "settings" && (
+            <section className="page-section">
+              <SectionHeading
+                title="系統設定 (Settings)"
+                description="管理您的 API Keys 以便在 CLI 或第三方工具中使用 LifeOS。"
+              />
+              
+              <div className="panel">
+                <div className="panel-header">
+                  <h4>API Key 管理</h4>
+                  <p className="text-sm text-slate-500">這些金鑰允許對您的 LifeOS 數據進行程式化存取。請妥善保管。</p>
+                </div>
+                
+                <div className="settings-content" style={{ marginTop: "1.5rem" }}>
+                  <form onSubmit={handleCreateKey} className="inline-form" style={{ display: "flex", gap: "1rem", marginBottom: "2rem" }}>
+                    <input 
+                      className="flex-1"
+                      value={newKeyName}
+                      onChange={e => setNewKeyName(e.target.value)}
+                      placeholder="給這把金鑰一個名稱 (例如: Home PC CLI)" 
+                    />
+                    <button type="submit" className="primary-button">建立新金鑰</button>
+                  </form>
+
+                  <div className="table-wrap">
+                    <table className="api-keys-table">
+                      <thead>
+                        <tr>
+                          <th>名稱</th>
+                          <th>ID</th>
+                          <th>建立日期</th>
+                          <th className="align-right">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {apiKeys.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} style={{ textAlign: "center", padding: "2rem", color: "#64748b" }}>尚未建立任何 API Key</td>
+                          </tr>
+                        ) : (
+                          apiKeys.map(key => (
+                            <tr key={key.id}>
+                              <td><strong>{key.name}</strong></td>
+                              <td><code style={{ fontSize: "12px" }}>{key.id}</code></td>
+                              <td>{new Date(key.createdAt).toLocaleDateString()}</td>
+                              <td className="align-right">
+                                <button 
+                                  className="text-button danger" 
+                                  onClick={() => handleDeleteKey(key.id)}
+                                  style={{ color: "#ef4444", fontSize: "14px", fontWeight: "600" }}
+                                >
+                                  撤銷
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
         </div>
 
         <nav className="mobile-nav">
@@ -409,6 +506,38 @@ export default function App() {
                 <button type="submit" className="primary-button">儲存密碼</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {newKeyValue && (
+        <div className="modal-overlay">
+          <div className="panel modal-content" style={{ maxWidth: "500px" }}>
+            <div className="panel-header">
+              <h4 style={{ color: "#10b981" }}>金鑰建立成功！</h4>
+            </div>
+            <div className="modal-body" style={{ padding: "1.5rem 0" }}>
+              <p style={{ fontSize: "14px", color: "#64748b", marginBottom: "1rem" }}>
+                請<strong>立即複製</strong>這把金鑰。基於安全考量，它將不會再次顯示。
+              </p>
+              <div 
+                className="key-display" 
+                style={{ 
+                  background: "#f1f5f9", 
+                  padding: "1rem", 
+                  borderRadius: "8px", 
+                  fontFamily: "monospace", 
+                  wordBreak: "break-all",
+                  border: "1px solid #e2e8f0",
+                  fontSize: "13px"
+                }}
+              >
+                {newKeyValue}
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="primary-button" onClick={() => setNewKeyValue(null)}>我知道了</button>
+            </div>
           </div>
         </div>
       )}

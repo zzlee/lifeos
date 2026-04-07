@@ -1,4 +1,10 @@
-export type ViewId = "overview" | "finance" | "journal" | "health" | "vault";
+export type ViewId = "overview" | "finance" | "journal" | "health" | "vault" | "settings";
+
+export type ApiKey = {
+  id: string;
+  name: string;
+  createdAt: string;
+};
 
 export type UserProfile = {
   id: string;

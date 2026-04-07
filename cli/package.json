@@ -2,12 +2,15 @@
   "name": "cli",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/cli.js",
+  "bin": {
+    "lifeos": "dist/cli.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/cli.js",
-    "cli:build": "cd cli && npm run build",
-    "cli:start": "node cli/dist/cli.js"
+    "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/cli.js --banner:js=\"#!/usr/bin/env node\"",
+    "cli:build": "npm run build",
+    "cli:start": "node dist/cli.js"
   },
   "keywords": [],
   "author": "",
