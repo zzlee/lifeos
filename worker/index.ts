@@ -21,7 +21,7 @@ import {
 } from "./auth";
 import type { Env } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
-import { getDashboardSnapshot, getVaultSecret, persistAgentMutation, createVaultItem, exportVault, maskSecret } from "./repository";
+import { getDashboardSnapshot, getVaultSecret, persistAgentMutation, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./repository";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -263,6 +263,147 @@ app.delete("/api/vault/:id", async (c) => {
     "DELETE FROM vault_items WHERE id = ? AND user_id = ?"
   ).bind(vaultId, session.user.id).run();
 
+  return c.json({ ok: true });
+});
+
+app.get("/api/journals", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const limit = Number(c.req.query("limit") || 20);
+  const offset = Number(c.req.query("offset") || 0);
+  
+  const journals = await getJournals(c.env.DB, session.user, limit, offset);
+  return c.json({ journals });
+});
+
+app.post("/api/journals", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const body = (await c.req.json()) as { content: string; tags: string[] };
+  await createJournal(c.env.DB, session.user, body.content, body.tags || []);
+  return c.json({ ok: true });
+});
+
+app.put("/api/journals/:id", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const journalId = Number(c.req.param("id"));
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const body = (await c.req.json()) as { content: string; tags: string[] };
+  await updateJournal(c.env.DB, journalId, session.user, body.content, body.tags || []);
+  return c.json({ ok: true });
+});
+
+app.delete("/api/journals/:id", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const journalId = Number(c.req.param("id"));
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  await deleteJournal(c.env.DB, journalId, session.user);
+  return c.json({ ok: true });
+});
+
+app.get("/api/expenses", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const limit = Number(c.req.query("limit") || 20);
+  const offset = Number(c.req.query("offset") || 0);
+  
+  const expenses = await getExpenses(c.env.DB, session.user, limit, offset);
+  return c.json({ expenses });
+});
+
+app.post("/api/expenses", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const body = (await c.req.json()) as { amount: number; category: string; note: string; date: string };
+  await createExpense(c.env.DB, session.user, body);
+  return c.json({ ok: true });
+});
+
+app.put("/api/expenses/:id", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const expenseId = Number(c.req.param("id"));
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const body = (await c.req.json()) as { amount: number; category: string; note: string; date: string };
+  await updateExpense(c.env.DB, expenseId, session.user, body);
+  return c.json({ ok: true });
+});
+
+app.delete("/api/expenses/:id", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const expenseId = Number(c.req.param("id"));
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  await deleteExpense(c.env.DB, expenseId, session.user);
+  return c.json({ ok: true });
+});
+
+app.get("/api/health", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const limit = Number(c.req.query("limit") || 30);
+  const offset = Number(c.req.query("offset") || 0);
+  
+  const health = await getHealthRecords(c.env.DB, session.user, limit, offset);
+  return c.json({ health });
+});
+
+app.post("/api/health", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const body = (await c.req.json()) as { sys: number; dia: number; hr: number; weight?: number; date: string };
+  await createHealthRecord(c.env.DB, session.user, body);
+  return c.json({ ok: true });
+});
+
+app.put("/api/health/:id", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const healthId = Number(c.req.param("id"));
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const body = (await c.req.json()) as { sys: number; dia: number; hr: number; weight?: number; date: string };
+  await updateHealthRecord(c.env.DB, healthId, session.user, body);
+  return c.json({ ok: true });
+});
+
+app.delete("/api/health/:id", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const healthId = Number(c.req.param("id"));
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  await deleteHealthRecord(c.env.DB, healthId, session.user);
   return c.json({ ok: true });
 });
 

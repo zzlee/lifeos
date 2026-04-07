@@ -3,6 +3,12 @@ import type {
   ApiKeyListResponse,
   AuthMutationResponse,
   DashboardSnapshotResponse,
+  ExpenseListResponse,
+  ExpenseMutationResponse,
+  HealthListResponse,
+  HealthMutationResponse,
+  JournalListResponse,
+  JournalMutationResponse,
   SessionResponse,
   VaultSecretResponse,
 } from "../../shared/contracts";
@@ -106,6 +112,117 @@ export async function deleteVaultItem(id: number): Promise<{ ok: boolean }> {
   });
   if (!response.ok) throw new Error(`delete vault ${response.status}`);
   return (await response.json()) as { ok: boolean };
+}
+
+export async function fetchJournals(limit: number = 20, offset: number = 0): Promise<JournalListResponse> {
+  const response = await fetch(`${apiBase}/api/journals?limit=${limit}&offset=${offset}`, { credentials: "include" });
+  if (!response.ok) throw new Error(`fetch journals ${response.status}`);
+  return (await response.json()) as JournalListResponse;
+}
+
+export async function createJournal(entry: { content: string; tags: string[] }): Promise<JournalMutationResponse> {
+  const response = await fetch(`${apiBase}/api/journals`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entry)
+  });
+  if (!response.ok) throw new Error(`create journal ${response.status}`);
+  return (await response.json()) as JournalMutationResponse;
+}
+
+export async function updateJournal(id: number, entry: { content: string; tags: string[] }): Promise<JournalMutationResponse> {
+  const response = await fetch(`${apiBase}/api/journals/${id}`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entry)
+  });
+  if (!response.ok) throw new Error(`update journal ${response.status}`);
+  return (await response.json()) as JournalMutationResponse;
+}
+
+export async function deleteJournal(id: number): Promise<JournalMutationResponse> {
+  const response = await fetch(`${apiBase}/api/journals/${id}`, {
+    method: "DELETE",
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error(`delete journal ${response.status}`);
+  return (await response.json()) as JournalMutationResponse;
+}
+
+export async function fetchExpenses(limit: number = 20, offset: number = 0): Promise<ExpenseListResponse> {
+  const response = await fetch(`${apiBase}/api/expenses?limit=${limit}&offset=${offset}`, { credentials: "include" });
+  if (!response.ok) throw new Error(`fetch expenses ${response.status}`);
+  return (await response.json()) as ExpenseListResponse;
+}
+
+export async function createExpense(entry: { amount: number; category: string; note: string; date: string }): Promise<ExpenseMutationResponse> {
+  const response = await fetch(`${apiBase}/api/expenses`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entry)
+  });
+  if (!response.ok) throw new Error(`create expense ${response.status}`);
+  return (await response.json()) as ExpenseMutationResponse;
+}
+
+export async function updateExpense(id: number, entry: { amount: number; category: string; note: string; date: string }): Promise<ExpenseMutationResponse> {
+  const response = await fetch(`${apiBase}/api/expenses/${id}`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entry)
+  });
+  if (!response.ok) throw new Error(`update expense ${response.status}`);
+  return (await response.json()) as ExpenseMutationResponse;
+}
+
+export async function deleteExpense(id: number): Promise<ExpenseMutationResponse> {
+  const response = await fetch(`${apiBase}/api/expenses/${id}`, {
+    method: "DELETE",
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error(`delete expense ${response.status}`);
+  return (await response.json()) as ExpenseMutationResponse;
+}
+
+export async function fetchHealthRecords(limit: number = 30, offset: number = 0): Promise<HealthListResponse> {
+  const response = await fetch(`${apiBase}/api/health?limit=${limit}&offset=${offset}`, { credentials: "include" });
+  if (!response.ok) throw new Error(`fetch health ${response.status}`);
+  return (await response.json()) as HealthListResponse;
+}
+
+export async function createHealthRecord(entry: { sys: number; dia: number; hr: number; weight?: number; date: string }): Promise<HealthMutationResponse> {
+  const response = await fetch(`${apiBase}/api/health`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entry)
+  });
+  if (!response.ok) throw new Error(`create health ${response.status}`);
+  return (await response.json()) as HealthMutationResponse;
+}
+
+export async function updateHealthRecord(id: number, entry: { sys: number; dia: number; hr: number; weight?: number; date: string }): Promise<HealthMutationResponse> {
+  const response = await fetch(`${apiBase}/api/health/${id}`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entry)
+  });
+  if (!response.ok) throw new Error(`update health ${response.status}`);
+  return (await response.json()) as HealthMutationResponse;
+}
+
+export async function deleteHealthRecord(id: number): Promise<HealthMutationResponse> {
+  const response = await fetch(`${apiBase}/api/health/${id}`, {
+    method: "DELETE",
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error(`delete health ${response.status}`);
+  return (await response.json()) as HealthMutationResponse;
 }
 
 export async function logout(): Promise<AuthMutationResponse> {

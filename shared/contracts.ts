@@ -1,5 +1,29 @@
-import type { LifeOSState, UserProfile } from "./domain";
+import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile } from "./domain";
 import type { AgentMutation } from "./lifeAgent";
+
+export type JournalListResponse = {
+  journals: JournalEntry[];
+};
+
+export type JournalMutationResponse = {
+  ok: true;
+};
+
+export type ExpenseListResponse = {
+  expenses: Expense[];
+};
+
+export type ExpenseMutationResponse = {
+  ok: true;
+};
+
+export type HealthListResponse = {
+  health: HealthEntry[];
+};
+
+export type HealthMutationResponse = {
+  ok: true;
+};
 
 export type DashboardSnapshotResponse = {
   data: LifeOSState;

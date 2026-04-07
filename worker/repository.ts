@@ -1,7 +1,84 @@
 import type { AgentMutation } from "../shared/lifeAgent";
-import type { LifeOSState, UserProfile } from "../shared/domain";
+import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile } from "../shared/domain";
 import type { D1Database } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
+
+export async function getJournals(
+  db: D1Database,
+  user: UserProfile,
+  limit: number = 20,
+  offset: number = 0,
+): Promise<JournalEntry[]> {
+  const result = await db
+    .prepare("SELECT id, created_at as date, content, tags FROM journals WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?")
+    .bind(user.id, limit, offset)
+    .all<{ id: number; date: string; content: string; tags: string }>();
+  
+  return (result.results ?? []).map((entry) => ({
+    ...entry,
+    tags: entry.tags ? entry.tags.split(",") : []
+  }));
+}
+
+export async function getJournal(
+  db: D1Database,
+  user: UserProfile,
+  id: number,
+): Promise<JournalEntry | null> {
+  const result = await db
+    .prepare("SELECT id, created_at as date, content, tags FROM journals WHERE user_id = ? AND id = ?")
+    .bind(user.id, id)
+    .first<{ id: number; date: string; content: string; tags: string }>();
+  
+  if (!result) return null;
+  return {
+    ...result,
+    tags: result.tags ? result.tags.split(",") : []
+  };
+}
+
+export async function createJournal(
+  db: D1Database,
+  user: UserProfile,
+  content: string,
+  tags: string[],
+): Promise<{ ok: true }> {
+  const createdAt = new Date().toISOString().replace('T', ' ').slice(0, 16);
+  await db
+    .prepare("INSERT INTO journals (user_id, content, tags, created_at) VALUES (?, ?, ?, ?)")
+    .bind(user.id, content, tags.join(","), createdAt)
+    .run();
+  
+  return { ok: true };
+}
+
+export async function updateJournal(
+  db: D1Database,
+  id: number,
+  user: UserProfile,
+  content: string,
+  tags: string[],
+): Promise<{ ok: true }> {
+  await db
+    .prepare("UPDATE journals SET content = ?, tags = ? WHERE id = ? AND user_id = ?")
+    .bind(content, tags.join(","), id, user.id)
+    .run();
+  
+  return { ok: true };
+}
+
+export async function deleteJournal(
+  db: D1Database,
+  id: number,
+  user: UserProfile,
+): Promise<{ ok: true }> {
+  await db
+    .prepare("DELETE FROM journals WHERE id = ? AND user_id = ?")
+    .bind(id, user.id)
+    .run();
+  
+  return { ok: true };
+}
 
 export async function getDashboardSnapshot(
   db: D1Database,
@@ -142,4 +219,104 @@ export async function createVaultItem(
 export function maskSecret(secret: string): string {
   if (secret.length <= 4) return "****";
   return `${secret.slice(0, 2)}••••${secret.slice(-2)}`;
+}
+
+export async function getExpenses(
+  db: D1Database,
+  user: UserProfile,
+  limit: number = 20,
+  offset: number = 0,
+): Promise<Expense[]> {
+  const result = await db
+    .prepare("SELECT id, date, amount, category, note FROM expenses WHERE user_id = ? ORDER BY date DESC, id DESC LIMIT ? OFFSET ?")
+    .bind(user.id, limit, offset)
+    .all<Expense>();
+  return result.results ?? [];
+}
+
+export async function createExpense(
+  db: D1Database,
+  user: UserProfile,
+  entry: { amount: number; category: string; note: string; date: string },
+): Promise<{ ok: true }> {
+  await db
+    .prepare("INSERT INTO expenses (user_id, amount, category, note, date) VALUES (?, ?, ?, ?, ?)")
+    .bind(user.id, entry.amount, entry.category, entry.note, entry.date)
+    .run();
+  return { ok: true };
+}
+
+export async function updateExpense(
+  db: D1Database,
+  id: number,
+  user: UserProfile,
+  entry: { amount: number; category: string; note: string; date: string },
+): Promise<{ ok: true }> {
+  await db
+    .prepare("UPDATE expenses SET amount = ?, category = ?, note = ?, date = ? WHERE id = ? AND user_id = ?")
+    .bind(entry.amount, entry.category, entry.note, entry.date, id, user.id)
+    .run();
+  return { ok: true };
+}
+
+export async function deleteExpense(
+  db: D1Database,
+  id: number,
+  user: UserProfile,
+): Promise<{ ok: true }> {
+  await db
+    .prepare("DELETE FROM expenses WHERE id = ? AND user_id = ?")
+    .bind(id, user.id)
+    .run();
+  return { ok: true };
+}
+
+export async function getHealthRecords(
+  db: D1Database,
+  user: UserProfile,
+  limit: number = 30,
+  offset: number = 0,
+): Promise<HealthEntry[]> {
+  const result = await db
+    .prepare("SELECT id, recorded_at as date, sys, dia, hr, weight FROM health_daily WHERE user_id = ? ORDER BY recorded_at DESC, id DESC LIMIT ? OFFSET ?")
+    .bind(user.id, limit, offset)
+    .all<HealthEntry & { id: number }>();
+  return result.results ?? [];
+}
+
+export async function createHealthRecord(
+  db: D1Database,
+  user: UserProfile,
+  entry: { sys: number; dia: number; hr: number; weight?: number; date: string },
+): Promise<{ ok: true }> {
+  await db
+    .prepare("INSERT INTO health_daily (user_id, recorded_at, sys, dia, hr, weight) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(user.id, entry.date, entry.sys, entry.dia, entry.hr, entry.weight ?? null)
+    .run();
+  return { ok: true };
+}
+
+export async function updateHealthRecord(
+  db: D1Database,
+  id: number,
+  user: UserProfile,
+  entry: { sys: number; dia: number; hr: number; weight?: number; date: string },
+): Promise<{ ok: true }> {
+  await db
+    .prepare("UPDATE health_daily SET recorded_at = ?, sys = ?, dia = ?, hr = ?, weight = ? WHERE id = ? AND user_id = ?")
+    .bind(entry.date, entry.sys, entry.dia, entry.hr, entry.weight ?? null, id, user.id)
+    .run();
+  return { ok: true };
+}
+
+export async function deleteHealthRecord(
+  db: D1Database,
+  id: number,
+  user: UserProfile,
+): Promise<{ ok: true }> {
+  await db
+    .prepare("DELETE FROM health_daily WHERE id = ? AND user_id = ?")
+    .bind(id, user.id)
+    .run();
+  return { ok: true };
 }

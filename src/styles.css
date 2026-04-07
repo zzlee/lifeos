@@ -238,6 +238,19 @@ button {
   gap: 24px;
 }
 
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.section-title {
+  flex: 1;
+  min-width: 200px;
+}
+
 .hero-copy h3,
 .section-heading h3 {
   margin: 6px 0 10px;
@@ -413,17 +426,27 @@ button {
 .legend-list,
 .journal-stack,
 .tag-row {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: auto;
 }
 
-.legend-dot,
-.swatch {
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  flex: 0 0 auto;
+.card-actions {
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.table-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.icon-button.danger:hover {
+  background: #fee2e2;
 }
 
 .journal-card {
@@ -431,6 +454,7 @@ button {
   flex-direction: column;
   gap: 14px;
   min-height: 220px;
+  position: relative;
 }
 
 .journal-card.compact {
@@ -759,6 +783,16 @@ th {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.form-row .form-group {
+  flex: 1;
 }
 
 .form-group label {
@@ -776,6 +810,23 @@ th {
 }
 
 .form-group input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.form-group textarea {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 100px;
+  transition: all 0.2s;
+}
+
+.form-group textarea:focus {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);

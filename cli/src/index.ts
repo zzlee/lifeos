@@ -133,6 +133,249 @@ program.command('ls')
     }
   });
 
+// --- Journal Command ---
+const journal = program.command('journal').description('Journal management');
+
+journal.command('ls')
+  .description('List all journals')
+  .option('-l, --limit <number>', 'Limit number of entries', '20')
+  .option('-o, --offset <number>', 'Offset for pagination', '0')
+  .action(async (options) => {
+    try {
+      const res = await api.get(`/api/journals?limit=${options.limit}&offset=${options.offset}`);
+      const journals = res.data.journals;
+      if (!journals || journals.length === 0) {
+        console.log(chalk.yellow('No journals found.'));
+        return;
+      }
+      console.log(chalk.bold('\n--- JOURNALS ---'));
+      console.table(journals);
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+journal.command('get')
+  .description('Get a journal entry by ID')
+  .argument('<id>', 'Journal entry ID')
+  .action(async (id) => {
+    try {
+      const res = await api.get('/api/dashboard');
+      const journals = res.data.data.journals;
+      const entry = journals.find((j: any) => j.id === Number(id));
+      if (!entry) {
+        console.log(chalk.red(`Journal ${id} not found.`));
+        return;
+      }
+      console.log(chalk.bold(`\n--- JOURNAL ${id} ---`));
+      console.log(chalk.dim('Date:'), entry.date);
+      console.log(chalk.dim('Tags:'), entry.tags.join(', '));
+      console.log(chalk.dim('\nContent:'));
+      console.log(entry.content);
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+journal.command('create')
+  .description('Create a new journal entry')
+  .argument('<content>', 'Journal content')
+  .option('-t, --tags <tags>', 'Tags (comma separated)', '')
+  .action(async (content, options) => {
+    try {
+      const tags = options.tags ? options.tags.split(',').map((t: string) => t.trim()) : [];
+      await api.post('/api/journals', { content, tags });
+      console.log(chalk.green('✓ Journal entry created successfully!'));
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+journal.command('update')
+  .description('Update a journal entry')
+  .argument('<id>', 'Journal entry ID')
+  .argument('<content>', 'New journal content')
+  .option('-t, --tags <tags>', 'Tags (comma separated)', '')
+  .action(async (id, content, options) => {
+    try {
+      const tags = options.tags ? options.tags.split(',').map((t: string) => t.trim()) : [];
+      await api.put(`/api/journals/${id}`, { content, tags });
+      console.log(chalk.green(`✓ Journal entry ${id} updated successfully!`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+journal.command('delete')
+  .description('Delete a journal entry')
+  .argument('<id>', 'Journal entry ID')
+  .action(async (id) => {
+    try {
+      await api.delete(`/api/journals/${id}`);
+      console.log(chalk.green(`✓ Journal entry ${id} deleted successfully!`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+// --- Finance Command ---
+const finance = program.command('finance').description('Finance management');
+
+finance.command('ls')
+  .description('List all expenses')
+  .option('-l, --limit <number>', 'Limit number of entries', '20')
+  .option('-o, --offset <number>', 'Offset for pagination', '0')
+  .action(async (options) => {
+    try {
+      const res = await api.get(`/api/expenses?limit=${options.limit}&offset=${options.offset}`);
+      const expenses = res.data.expenses;
+      if (!expenses || expenses.length === 0) {
+        console.log(chalk.yellow('No expenses found.'));
+        return;
+      }
+      console.log(chalk.bold('\n--- EXPENSES ---'));
+      console.table(expenses);
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+finance.command('get')
+  .description('Get an expense by ID')
+  .argument('<id>', 'Expense ID')
+  .action(async (id) => {
+    try {
+      const res = await api.get('/api/dashboard');
+      const expenses = res.data.data.finance;
+      const entry = expenses.find((e: any) => e.id === Number(id));
+      if (!entry) {
+        console.log(chalk.red(`Expense ${id} not found.`));
+        return;
+      }
+      console.log(chalk.bold(`\n--- EXPENSE ${id} ---`));
+      console.log(chalk.dim('Date:'), entry.date);
+      console.log(chalk.dim('Category:'), entry.category);
+      console.log(chalk.dim('Amount:'), `NT$ ${entry.amount}`);
+      console.log(chalk.dim('Note:'), entry.note);
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+finance.command('create')
+  .description('Create a new expense')
+  .argument('<amount>', 'Amount')
+  .argument('<category>', 'Category')
+  .option('-n, --note <note>', 'Note', '')
+  .option('-d, --date <date>', 'Date (YYYY-MM-DD)', '')
+  .action(async (amount, category, options) => {
+    try {
+      const date = options.date || new Date().toISOString().slice(0, 10);
+      await api.post('/api/expenses', { amount: Number(amount), category, note: options.note, date });
+      console.log(chalk.green('✓ Expense created successfully!'));
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+finance.command('update')
+  .description('Update an expense')
+  .argument('<id>', 'Expense ID')
+  .argument('<amount>', 'New amount')
+  .argument('<category>', 'New category')
+  .option('-n, --note <note>', 'Note', '')
+  .option('-d, --date <date>', 'Date (YYYY-MM-DD)', '')
+  .action(async (id, amount, category, options) => {
+    try {
+      const date = options.date || new Date().toISOString().slice(0, 10);
+      await api.put(`/api/expenses/${id}`, { amount: Number(amount), category, note: options.note, date });
+      console.log(chalk.green(`✓ Expense ${id} updated successfully!`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+finance.command('delete')
+  .description('Delete an expense')
+  .argument('<id>', 'Expense ID')
+  .action(async (id) => {
+    try {
+      await api.delete(`/api/expenses/${id}`);
+      console.log(chalk.green(`✓ Expense ${id} deleted successfully!`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+// --- Health Command ---
+const health = program.command('health').description('Health management');
+
+health.command('ls')
+  .description('List all health records')
+  .option('-l, --limit <number>', 'Limit number of entries', '30')
+  .option('-o, --offset <number>', 'Offset for pagination', '0')
+  .action(async (options) => {
+    try {
+      const res = await api.get(`/api/health?limit=${options.limit}&offset=${options.offset}`);
+      const health = res.data.health;
+      if (!health || health.length === 0) {
+        console.log(chalk.yellow('No health records found.'));
+        return;
+      }
+      console.log(chalk.bold('\n--- HEALTH RECORDS ---'));
+      console.table(health);
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+health.command('create')
+  .description('Create a new health record')
+  .argument('<sys>', 'Systolic pressure')
+  .argument('<dia>', 'Diastolic pressure')
+  .argument('<hr>', 'Heart rate')
+  .option('-w, --weight <weight>', 'Weight (kg)', '')
+  .option('-d, --date <date>', 'Date (YYYY-MM-DD)', '')
+  .action(async (sys, dia, hr, options) => {
+    try {
+      const date = options.date || new Date().toISOString().slice(0, 10);
+      await api.post('/api/health', { sys: Number(sys), dia: Number(dia), hr: Number(hr), weight: options.weight ? Number(options.weight) : undefined, date });
+      console.log(chalk.green('✓ Health record created successfully!'));
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+health.command('update')
+  .description('Update a health record')
+  .argument('<id>', 'Health record ID (date)')
+  .argument('<sys>', 'Systolic pressure')
+  .argument('<dia>', 'Diastolic pressure')
+  .argument('<hr>', 'Heart rate')
+  .option('-w, --weight <weight>', 'Weight (kg)', '')
+  .option('-d, --date <date>', 'Date (YYYY-MM-DD)', '')
+  .action(async (id, sys, dia, hr, options) => {
+    try {
+      const date = options.date || new Date().toISOString().slice(0, 10);
+      await api.put(`/api/health/${id}`, { sys: Number(sys), dia: Number(dia), hr: Number(hr), weight: options.weight ? Number(options.weight) : undefined, date });
+      console.log(chalk.green(`✓ Health record ${id} updated successfully!`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
+health.command('delete')
+  .description('Delete a health record')
+  .argument('<id>', 'Health record ID (date)')
+  .action(async (id) => {
+    try {
+      await api.delete(`/api/health/${id}`);
+      console.log(chalk.green(`✓ Health record ${id} deleted successfully!`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
 // --- Vault Command ---
 const vault = program.command('vault').description('Vault management');
 
