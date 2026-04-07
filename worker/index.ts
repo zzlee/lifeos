@@ -223,6 +223,7 @@ app.post("/api/vault", async (c) => {
   const session = await resolveSession(c.env, c.req.raw.headers);
   if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
 
+  const result = await createVaultItem(c.env.DB, session.user, body, c.env.VAULT_MASTER_KEY);
   return c.json(result);
 });
 
