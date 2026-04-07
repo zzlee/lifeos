@@ -383,7 +383,7 @@ vault.command('get')
   .action(async (id) => {
     try {
       const res = await api.get(`/api/vault/${id}/secret`);
-      console.log(chalk.green(`Secret: ${res.data.secret}`));
+      console.log(res.data.secret);
     } catch (e: any) {
       console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
     }
