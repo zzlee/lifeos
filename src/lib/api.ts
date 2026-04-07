@@ -88,6 +88,26 @@ export async function createVaultItem(entry: { site: string; username: string; s
   return (await response.json()) as DashboardSnapshotResponse;
 }
 
+export async function updateVaultItem(id: number, entry: { site: string; username: string; secret: string }): Promise<{ ok: boolean }> {
+  const response = await fetch(`${apiBase}/api/vault/${id}`, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entry)
+  });
+  if (!response.ok) throw new Error(`update vault ${response.status}`);
+  return (await response.json()) as { ok: boolean };
+}
+
+export async function deleteVaultItem(id: number): Promise<{ ok: boolean }> {
+  const response = await fetch(`${apiBase}/api/vault/${id}`, {
+    method: "DELETE",
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error(`delete vault ${response.status}`);
+  return (await response.json()) as { ok: boolean };
+}
+
 export async function logout(): Promise<AuthMutationResponse> {
   const response = await fetch(`${apiBase}/api/auth/logout`, {
     method: "POST",

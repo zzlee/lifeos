@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
-import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey } from "./lib/api";
+import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem } from "./lib/api";
 import type { Expense, HealthEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -52,6 +52,7 @@ export default function App() {
   const [vaultQuery, setVaultQuery] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
+  const [editingVaultId, setEditingVaultId] = useState<number | null>(null);
   const [newVaultItem, setNewVaultItem] = useState({ site: "", username: "", secret: "" });
 
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
@@ -136,12 +137,43 @@ export default function App() {
 
   async function handleCreateVaultItem(e: React.FormEvent) {
     e.preventDefault();
-    if (!newVaultItem.site || !newVaultItem.secret) return;
-    const response = await createVaultItem(newVaultItem);
-    setData(response.data);
-    setNewVaultItem({ site: "", username: "", secret: "" });
-    setIsVaultModalOpen(false);
-    setToast({ visible: true, message: `已新增 ${newVaultItem.site} 的密碼` });
+    if (!newVaultItem.site || (editingVaultId === null && !newVaultItem.secret)) return;
+    
+    try {
+      if (editingVaultId !== null) {
+        await updateVaultItem(editingVaultId, newVaultItem);
+        setToast({ visible: true, message: `已更新 ${newVaultItem.site} 的資料` });
+      } else {
+        await createVaultItem(newVaultItem);
+        setToast({ visible: true, message: `已新增 ${newVaultItem.site} 的密碼` });
+      }
+      
+      const response = await fetchDashboardSnapshot();
+      setData(response.data);
+      setNewVaultItem({ site: "", username: "", secret: "" });
+      setIsVaultModalOpen(false);
+      setEditingVaultId(null);
+    } catch (err: any) {
+      alert(`儲存失敗: ${err.message}`);
+    }
+  }
+
+  async function handleDeleteVaultItem(id: number, site: string) {
+    if (!confirm(`確定要刪除 ${site} 的紀錄嗎？`)) return;
+    try {
+      await deleteVaultItem(id);
+      const snapshot = await fetchDashboardSnapshot();
+      setData(snapshot.data);
+      setToast({ visible: true, message: `已刪除 ${site} 的紀錄` });
+    } catch (err: any) {
+      alert(`刪除失敗: ${err.message}`);
+    }
+  }
+
+  function openEditVault(item: VaultItem) {
+    setNewVaultItem({ site: item.site, username: item.username, secret: "" });
+    setEditingVaultId(item.id);
+    setIsVaultModalOpen(true);
   }
 
   async function handleLogout() {
@@ -352,16 +384,24 @@ export default function App() {
                       placeholder="搜尋站點名稱..."
                     />
                   </label>
-                  <button className="secondary-button" type="button" onClick={() => setIsVaultModalOpen(true)}>新增密碼</button>
+                  <button className="secondary-button" type="button" onClick={() => {
+                    setEditingVaultId(null);
+                    setNewVaultItem({ site: "", username: "", secret: "" });
+                    setIsVaultModalOpen(true);
+                  }}>新增密碼</button>
                 </div>
                 <div className="card-grid vault-grid">
                   {filteredVault.map((item) => (
                     <div className="vault-card" key={item.id}>
                       <div className="vault-header">
                         <div className="vault-logo">🌐</div>
-                        <div>
+                        <div style={{ flex: 1 }}>
                           <strong>{item.site}</strong>
                           <p>{item.username}</p>
+                        </div>
+                        <div className="vault-actions">
+                          <button className="icon-button" title="編輯" onClick={() => openEditVault(item)}>✏️</button>
+                          <button className="icon-button" title="刪除" onClick={() => handleDeleteVaultItem(item.id, item.site)}>🗑️</button>
                         </div>
                       </div>
                       <div className="secret-row">
@@ -469,7 +509,7 @@ export default function App() {
         <div className="modal-overlay">
           <div className="panel modal-content">
             <div className="panel-header">
-              <h4>新增密碼紀錄</h4>
+              <h4>{editingVaultId ? "編輯密碼紀錄" : "新增密碼紀錄"}</h4>
               <button className="close-button" onClick={() => setIsVaultModalOpen(false)}>✕</button>
             </div>
             <form onSubmit={handleCreateVaultItem} className="modal-form">
@@ -492,18 +532,18 @@ export default function App() {
                 />
               </div>
               <div className="form-group">
-                <label>密碼</label>
+                <label>密碼 {editingVaultId && "(留空則不更動)"}</label>
                 <input 
-                  required 
+                  required={!editingVaultId}
                   type="password"
                   value={newVaultItem.secret} 
                   onChange={e => setNewVaultItem({...newVaultItem, secret: e.target.value})}
-                  placeholder="密碼明文 (存入後將加密)" 
+                  placeholder={editingVaultId ? "新密碼 (若不修改請留空)" : "密碼明文 (存入後將加密)"} 
                 />
               </div>
               <div className="modal-actions">
                 <button type="button" className="secondary-button" onClick={() => setIsVaultModalOpen(false)}>取消</button>
-                <button type="submit" className="primary-button">儲存密碼</button>
+                <button type="submit" className="primary-button">{editingVaultId ? "更新紀錄" : "儲存密碼"}</button>
               </div>
             </form>
           </div>
