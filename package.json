@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "deploy:worker": "wrangler deploy --env production",
     "deploy": "npm run deploy:worker && npm run build && npx wrangler pages deploy ./dist --project-name lifeos --branch master",
-    "cli:build": "cd cli && npm run build",
+    "cli:build": "cd cli && npm run build && npm link",
     "cli:start": "node cli/dist/cli.js"
   },
   "dependencies": {
