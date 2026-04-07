@@ -196,4 +196,26 @@ vault.command('revoke')
     }
   });
 
+vault.command('update')
+  .description('Update an existing vault secret from a raw text file')
+  .argument('<id>', 'Vault item ID to update')
+  .argument('<site>', 'The new site name')
+  .argument('<username>', 'The new username')
+  .argument('<filename>', 'Filename to import the new secret from')
+  .action(async (id, site, username, filename) => {
+    try {
+      if (!fs.existsSync(filename)) {
+        console.log(chalk.red(`File not found: ${filename}`));
+        return;
+      }
+      const secret = fs.readFileSync(filename, 'utf-8').trim();
+      
+      console.log(chalk.blue(`Updating secret ${id} for ${site} (${username})...`));
+      await api.put(`/api/vault/${id}`, { site, username, secret });
+      console.log(chalk.green(`✓ Successfully updated secret ${id}.`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error updating: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
 program.parse();
