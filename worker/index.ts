@@ -226,6 +226,20 @@ app.post("/api/vault", async (c) => {
   return c.json(result);
 });
 
+app.delete("/api/vault/:id", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  
+  const vaultId = Number(c.req.param("id"));
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  await c.env.DB.prepare(
+    "DELETE FROM vault_items WHERE id = ? AND user_id = ?"
+  ).bind(vaultId, session.user.id).run();
+
+  return c.json({ ok: true });
+});
+
 app.notFound((c) => {
   return c.text("LifeOS Worker: Route not found. Are you calling an API endpoint?", 404);
 });
