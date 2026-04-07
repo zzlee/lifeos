@@ -183,4 +183,17 @@ vault.command('import')
     }
   });
 
+vault.command('revoke')
+  .description('Revoke (delete) a secret from the vault')
+  .argument('<id>', 'Vault item ID to revoke')
+  .action(async (id) => {
+    try {
+      console.log(chalk.blue(`Revoking secret ${id}...`));
+      await api.delete(`/api/vault/${id}`);
+      console.log(chalk.green(`✓ Successfully revoked secret ${id}.`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error revoking: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
 program.parse();
