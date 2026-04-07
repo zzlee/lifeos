@@ -20,7 +20,8 @@
     "axios": "^1.14.0",
     "chalk": "^5.6.2",
     "commander": "^14.0.3",
-    "conf": "^15.1.0"
+    "conf": "^15.1.0",
+    "dotenv": "^17.4.1"
   },
   "devDependencies": {
     "@types/node": "^25.5.2",

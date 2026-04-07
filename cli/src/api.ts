@@ -1,15 +1,15 @@
 import axios from 'axios';
-import { config } from './config';
+import { getApiKey, getApiUrl } from './config';
 
 export const api = axios.create({
-  baseURL: config.get('apiUrl'),
+  baseURL: getApiUrl(),
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
 api.interceptors.request.use((req) => {
-  const key = config.get('apiKey');
+  const key = getApiKey();
   if (key) {
     req.headers.Authorization = `Bearer ${key}`;
   }

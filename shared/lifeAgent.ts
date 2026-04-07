@@ -28,9 +28,13 @@ export type SerializedAgentMutation =
       entry: { site: string; username: string; secret: string };
     };
 
-const today = "2026-03-27";
-const shortDate = "03-27";
-const now = "2026-03-27 09:30";
+function getCurrentUTC(): string {
+  return new Date().toISOString().replace('T', ' ').slice(0, 16);
+}
+
+const shortDate = new Date().toISOString().slice(5, 10);
+const today = new Date().toISOString().slice(0, 10);
+const now = getCurrentUTC();
 
 export function parseAgentInput(input: string, state: LifeOSState): AgentMutation {
   const text = input.trim();
