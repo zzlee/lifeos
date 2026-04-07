@@ -148,47 +148,38 @@ vault.command('get')
   });
 
 vault.command('export')
-  .description('Export all vault secrets to a JSON file')
-  .argument('<filename>', 'Filename to export to (e.g., secrets.json)')
-  .action(async (filename) => {
+  .description('Export a single vault secret to a raw text file')
+  .argument('<id>', 'Vault item ID to export')
+  .argument('<filename>', 'Filename to export to')
+  .action(async (id, filename) => {
     try {
-      console.log(chalk.blue(`Exporting secrets to ${filename}...`));
-      const res = await api.get('/api/vault/export');
-      fs.writeFileSync(filename, JSON.stringify(res.data.items, null, 2));
-      console.log(chalk.green(`✓ Successfully exported ${res.data.items.length} items.`));
+      console.log(chalk.blue(`Exporting secret ${id} to ${filename}...`));
+      const res = await api.get(`/api/vault/${id}/secret`);
+      fs.writeFileSync(filename, res.data.secret, 'utf-8');
+      console.log(chalk.green(`✓ Successfully exported secret to ${filename}.`));
     } catch (e: any) {
       console.log(chalk.red(`Error exporting: ${e.response?.data?.error || e.message}`));
     }
   });
 
 vault.command('import')
-  .description('Import vault secrets from a JSON file')
-  .argument('<filename>', 'Filename to import from')
-  .action(async (filename) => {
+  .description('Import a single vault secret from a raw text file')
+  .argument('<site>', 'The site name for this secret')
+  .argument('<username>', 'The username for this secret')
+  .argument('<filename>', 'Filename to import the secret from')
+  .action(async (site, username, filename) => {
     try {
       if (!fs.existsSync(filename)) {
         console.log(chalk.red(`File not found: ${filename}`));
         return;
       }
-      const data = JSON.parse(fs.readFileSync(filename, 'utf-8'));
-      if (!Array.isArray(data)) {
-        console.log(chalk.red('Invalid format: File must contain an array of vault items.'));
-        return;
-      }
-
-      console.log(chalk.blue(`Importing ${data.length} items...`));
-      let success = 0;
-      for (const item of data) {
-        try {
-          await api.post('/api/vault', item);
-          success++;
-        } catch (err: any) {
-          console.log(chalk.yellow(`! Failed to import ${item.site}: ${err.message}`));
-        }
-      }
-      console.log(chalk.green(`✓ Successfully imported ${success}/${data.length} items.`));
+      const secret = fs.readFileSync(filename, 'utf-8').trim();
+      
+      console.log(chalk.blue(`Importing secret for ${site} (${username})...`));
+      await api.post('/api/vault', { site, username, secret });
+      console.log(chalk.green(`✓ Successfully imported secret for ${site}.`));
     } catch (e: any) {
-      console.log(chalk.red(`Error importing: ${e.message}`));
+      console.log(chalk.red(`Error importing: ${e.response?.data?.error || e.message}`));
     }
   });
 
