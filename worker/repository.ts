@@ -139,7 +139,7 @@ export async function createVaultItem(
   return getDashboardSnapshot(db, user);
 }
 
-function maskSecret(secret: string): string {
+export function maskSecret(secret: string): string {
   if (secret.length <= 4) return "****";
   return `${secret.slice(0, 2)}••••${secret.slice(-2)}`;
 }

@@ -20,7 +20,8 @@ import {
   resolveSession,
 } from "./auth";
 import type { Env } from "./env";
-import { getDashboardSnapshot, getVaultSecret, persistAgentMutation, createVaultItem, exportVault } from "./repository";
+import { decryptSecret, encryptSecret } from "./crypto";
+import { getDashboardSnapshot, getVaultSecret, persistAgentMutation, createVaultItem, exportVault, maskSecret } from "./repository";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -222,8 +223,32 @@ app.post("/api/vault", async (c) => {
   const session = await resolveSession(c.env, c.req.raw.headers);
   if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
 
-  const result = await createVaultItem(c.env.DB, session.user, body, c.env.VAULT_MASTER_KEY);
   return c.json(result);
+});
+
+app.put("/api/vault/:id", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  if (!c.env.VAULT_MASTER_KEY) return c.json({ error: "Vault key not configured" }, 500);
+
+  const vaultId = Number(c.req.param("id"));
+  const body = (await c.req.json()) as { site: string; username: string; secret: string };
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const encrypted = await encryptSecret(body.secret, c.env.VAULT_MASTER_KEY);
+  await c.env.DB.prepare(
+    "UPDATE vault_items SET site = ?, username = ?, secret_ciphertext = ?, secret_iv = ?, secret_preview = ? WHERE id = ? AND user_id = ?"
+  ).bind(
+    body.site,
+    body.username,
+    encrypted.ciphertext,
+    encrypted.iv,
+    maskSecret(body.secret),
+    vaultId,
+    session.user.id
+  ).run();
+
+  return c.json({ ok: true });
 });
 
 app.delete("/api/vault/:id", async (c) => {
