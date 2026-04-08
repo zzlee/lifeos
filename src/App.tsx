@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
+import { FixedSizeList as List } from "react-window";
 import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./lib/api";
 import type { Expense, HealthEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
 
@@ -463,34 +464,45 @@ export default function App() {
                   <div className="panel-header">
                     <h4>交易明細</h4>
                   </div>
-                  <div className="table-wrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>日期</th>
-                          <th>類別</th>
-                          <th>備註</th>
-                          <th className="align-right">金額</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.finance.map((item) => (
-                          <tr key={item.id}>
-                            <td>{item.date}</td>
-                            <td><span className="tag neutral">{item.category}</span></td>
-                            <td>{item.note}</td>
-                            <td className="align-right strong">NT$ {item.amount}</td>
-                            <td>
+                  <div className="table-wrap" style={{ display: 'block' }}>
+                    <div className="table-header-row" style={{ display: 'flex', padding: '14px 12px', borderBottom: '1px solid #f1f5f9', color: '#64748b', fontSize: '0.84rem', fontWeight: 'bold' }}>
+                      <div style={{ flex: 1 }}>日期</div>
+                      <div style={{ flex: 1 }}>類別</div>
+                      <div style={{ flex: 2 }}>備註</div>
+                      <div style={{ flex: 1, textAlign: 'right' }}>金額</div>
+                      <div style={{ flex: 1 }}></div>
+                    </div>
+                    {data.finance.length > 0 ? (() => {
+                      const FinanceRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
+                        const item = data.finance[index];
+                        return (
+                          <div style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9' }}>
+                            <div style={{ flex: 1 }}>{item.date}</div>
+                            <div style={{ flex: 1 }}><span className="tag neutral">{item.category}</span></div>
+                            <div style={{ flex: 2 }}>{item.note}</div>
+                            <div style={{ flex: 1, textAlign: 'right' }} className="strong">NT$ {item.amount}</div>
+                            <div style={{ flex: 1 }}>
                               <div className="table-actions">
                                 <button className="icon-button" onClick={() => openEditExpense(item)} title="編輯">✏️</button>
                                 <button className="icon-button danger" onClick={() => handleDeleteExpense(item.id)} title="刪除">🗑️</button>
                               </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </div>
+                          </div>
+                        );
+                      };
+                      return (
+                        <List
+                          height={400}
+                          itemCount={data.finance.length}
+                          itemSize={60}
+                          width="100%"
+                        >
+                          {FinanceRow}
+                        </List>
+                      );
+                    })() : (
+                      <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>尚無資料</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -535,36 +547,47 @@ export default function App() {
                 <div className="panel-header">
                   <h4>健康紀錄</h4>
                 </div>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>日期</th>
-                        <th>收縮壓</th>
-                        <th>舒張壓</th>
-                        <th>心跳</th>
-                        <th>體重</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.health.map((item, idx) => (
-                        <tr key={idx}>
-                          <td>{item.date}</td>
-                          <td>{item.sys}</td>
-                          <td>{item.dia}</td>
-                          <td>{item.hr}</td>
-                          <td>{item.weight ?? "-"}</td>
-                          <td>
+                <div className="table-wrap" style={{ display: 'block' }}>
+                  <div className="table-header-row" style={{ display: 'flex', padding: '14px 12px', borderBottom: '1px solid #f1f5f9', color: '#64748b', fontSize: '0.84rem', fontWeight: 'bold' }}>
+                    <div style={{ flex: 1 }}>日期</div>
+                    <div style={{ flex: 1 }}>收縮壓</div>
+                    <div style={{ flex: 1 }}>舒張壓</div>
+                    <div style={{ flex: 1 }}>心跳</div>
+                    <div style={{ flex: 1 }}>體重</div>
+                    <div style={{ flex: 1 }}></div>
+                  </div>
+                  {data.health.length > 0 ? (() => {
+                    const HealthRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
+                      const item = data.health[index];
+                      return (
+                        <div style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9' }}>
+                          <div style={{ flex: 1 }}>{item.date}</div>
+                          <div style={{ flex: 1 }}>{item.sys}</div>
+                          <div style={{ flex: 1 }}>{item.dia}</div>
+                          <div style={{ flex: 1 }}>{item.hr}</div>
+                          <div style={{ flex: 1 }}>{item.weight ?? "-"}</div>
+                          <div style={{ flex: 1 }}>
                             <div className="table-actions">
                               <button className="icon-button" onClick={() => openEditHealth(item)} title="編輯">✏️</button>
                               <button className="icon-button danger" onClick={() => handleDeleteHealth(item.date)} title="刪除">🗑️</button>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+                        </div>
+                      );
+                    };
+                    return (
+                      <List
+                        height={400}
+                        itemCount={data.health.length}
+                        itemSize={60}
+                        width="100%"
+                      >
+                        {HealthRow}
+                      </List>
+                    );
+                  })() : (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>尚無資料</div>
+                  )}
                 </div>
               </div>
             </section>
