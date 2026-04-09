@@ -22,6 +22,7 @@ import {
 import type { Env } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { getDashboardSnapshot, getVaultSecret, persistAgentMutation, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./repository";
+import { getMcpTransportForUser } from "./mcp";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -405,6 +406,14 @@ app.delete("/api/health/:id", async (c) => {
 
   await deleteHealthRecord(c.env.DB, healthId, session.user);
   return c.json({ ok: true });
+});
+
+app.all("/api/mcp", async (c) => {
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const transport = getMcpTransportForUser(c.env, session.user);
+  return await transport.handleRequest(c);
 });
 
 app.notFound((c) => {
