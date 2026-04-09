@@ -1,48 +1,41 @@
 # Installing LifeOS MCP Server
 
-To use the LifeOS MCP Server with AI assistants like Claude Desktop, Cursor, or Gemini CLI, you can connect to the deployed Cloudflare worker. Since standard MCP clients support the Server-Sent Events (SSE) transport, you can configure them using the endpoint `/api/mcp`.
+To use the LifeOS MCP Server with AI assistants like Claude Desktop, Cursor, OpenCode, or Gemini CLI, you can connect to the deployed Cloudflare worker. Since standard MCP clients support the Server-Sent Events (SSE) transport, you can configure them using the endpoint `/api/mcp`.
 
-## Claude Desktop / Cursor Setup
+## Authentication
 
-Because LifeOS requires authentication via an HTTP cookie (`lifeos_session`), standard automated clients might struggle to connect if they do not support injecting cookies or headers out-of-the-box, or you'll need to use a proxy that injects your session cookie.
+LifeOS MCP endpoints are secured. It is highly recommended to authenticate using an **API Key**.
+1. Generate an API Key from your LifeOS web dashboard (Settings page) or via the CLI.
+2. Authenticate the CLI by running:
+   ```bash
+   lifeos auth login <YOUR_API_KEY>
+   ```
 
-For clients that support HTTP/SSE connection with headers, configure it as follows:
+## Claude Desktop / Cursor / OpenCode Setup
+
+Standard `mcpServers` configurations in Claude, Cursor, and OpenCode usually expect a local command that uses standard I/O (stdio). We provide a built-in proxy in the `lifeos` CLI tool to securely forward standard I/O to the remote HTTP SSE endpoint.
+
+Assuming you have installed the CLI globally (`npm link` from the `/cli` folder), configure your `mcpServers` JSON (e.g. `claude_desktop_config.json`) as follows:
 
 ```json
 {
   "mcpServers": {
     "lifeos": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/inspector", "http://your-lifeos-worker-url.workers.dev/api/mcp"]
+      "command": "lifeos",
+      "args": ["mcp"]
     }
   }
 }
 ```
 
-*Note: Since standard `mcpServers` configurations in Claude/Cursor usually expect a local command that uses standard I/O (stdio) rather than HTTP SSE directly, you may need an SSE-to-stdio proxy like `mcp-proxy` or `supergateway` that forwards standard IO from the CLI to your remote HTTP Server-Sent Events endpoint, along with the `Cookie: lifeos_session=YOUR_COOKIE` header.*
+The CLI will automatically use your saved API key to authenticate with the remote server.
 
-Example using an SSE-to-stdio proxy:
-```json
-{
-  "mcpServers": {
-    "lifeos": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "mcp-proxy",
-        "https://your-lifeos-worker-url.workers.dev/api/mcp",
-        "--header",
-        "Cookie: lifeos_session=YOUR_SESSION_COOKIE_HERE"
-      ]
-    }
-  }
-}
+## Direct SSE Clients
+
+If you are using a custom client that natively supports connecting directly to remote SSE MCP servers, simply point the client to the URL and provide the header manually:
+
+**URL:** `https://your-lifeos-worker-url.workers.dev/api/mcp`
+**Headers:**
 ```
-
-## Gemini CLI Setup
-
-If you are using Gemini CLI or a custom client that supports SSE directly, simply point the client to:
-
-`https://your-lifeos-worker-url.workers.dev/api/mcp`
-
-Ensure you pass your active `lifeos_session` cookie in the request headers for authentication.
+Authorization: Bearer YOUR_API_KEY_HERE
+```
