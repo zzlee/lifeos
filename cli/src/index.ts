@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import fs from 'fs';
 import { config } from './config';
 import { api } from './api';
+import { startMcpServer } from './mcp';
 
 const program = new Command();
 
@@ -11,6 +12,11 @@ program
   .name('lifeos')
   .description('LifeOS CLI for managing your digital life')
   .version('1.0.0');
+
+// --- MCP Command ---
+program.command('mcp')
+  .description('Start the MCP stdio server')
+  .action(startMcpServer);
 
 // --- Auth Commands ---
 const auth = program.command('auth').description('Authentication management');
