@@ -22,7 +22,6 @@ import {
 import type { Env } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { getDashboardSnapshot, getVaultSecret, persistAgentMutation, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./repository";
-import { getMcpTransport } from "./mcp";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -406,20 +405,6 @@ app.delete("/api/health/:id", async (c) => {
 
   await deleteHealthRecord(c.env.DB, healthId, session.user);
   return c.json({ ok: true });
-});
-
-app.all("/api/mcp", async (c) => {
-  const session = await resolveSession(c.env, c.req.raw.headers);
-  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
-
-  const sessionId = c.req.query("sessionId");
-  const transport = getMcpTransport(c.env, session.user, c.req.method, sessionId);
-
-  const response = await transport.handleRequest(c);
-  if (!response) {
-    return c.text("Invalid MCP request", 400);
-  }
-  return response;
 });
 
 app.notFound((c) => {
