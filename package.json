@@ -15,8 +15,6 @@
     "cli:start": "node cli/dist/cli.js"
   },
   "dependencies": {
-    "@hono/mcp": "^0.2.5",
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "dotenv": "^17.4.1",
     "hono": "^4.8.5",
     "react": "^19.1.0",

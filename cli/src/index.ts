@@ -12,15 +12,6 @@ program
   .description('LifeOS CLI for managing your digital life')
   .version('1.0.0');
 
-import { runMcpProxy } from './mcp';
-
-// --- MCP Proxy Command ---
-program.command('mcp')
-  .description('Run a stdio-to-SSE proxy to connect local MCP clients (like Cursor or Claude Desktop) to the remote LifeOS server')
-  .action(async () => {
-    await runMcpProxy();
-  });
-
 // --- Auth Commands ---
 const auth = program.command('auth').description('Authentication management');
 
