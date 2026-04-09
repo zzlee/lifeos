@@ -9,13 +9,21 @@ import {
 } from "./repository";
 import type { UserProfile } from "../shared/domain";
 
-const instances = new Map<string, { mcp: McpServer; transport: StreamableHTTPTransport }>();
+const sessions = new Map<string, StreamableHTTPTransport>();
 
-export const getMcpTransportForUser = (env: Env, user: UserProfile): StreamableHTTPTransport => {
-  if (instances.has(user.id)) {
-    return instances.get(user.id)!.transport;
+export const getMcpTransport = (env: Env, user: UserProfile, method: string, sessionId?: string): StreamableHTTPTransport => {
+  if (method === 'POST') {
+    if (sessionId && sessions.has(sessionId)) {
+      return sessions.get(sessionId)!;
+    }
+    // If we can't find it (maybe scaled to another isolate or disconnected),
+    // return a dummy transport that will fail cleanly to the client
+    const dummyTransport = new StreamableHTTPTransport();
+    return dummyTransport;
   }
 
+  // GET request (new SSE connection)
+  const newSessionId = crypto.randomUUID();
   const mcp = new McpServer({
     name: "LifeOS MCP",
     version: "1.0.0"
@@ -139,9 +147,19 @@ export const getMcpTransportForUser = (env: Env, user: UserProfile): StreamableH
     return { content: [{ type: "text", text: "Health record deleted successfully" }] };
   });
 
-  const transport = new StreamableHTTPTransport();
+  const transport = new StreamableHTTPTransport({
+    sessionIdGenerator: () => newSessionId,
+  });
+
+  transport.onclose = () => {
+    sessions.delete(newSessionId);
+  };
+  transport.onerror = () => {
+    sessions.delete(newSessionId);
+  };
+
   mcp.connect(transport);
 
-  instances.set(user.id, { mcp, transport });
+  sessions.set(newSessionId, transport);
   return transport;
 };
