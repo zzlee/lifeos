@@ -12,10 +12,11 @@ import type { UserProfile } from "../shared/domain";
 const sessions = new Map<string, StreamableHTTPTransport>();
 
 export const getMcpTransport = (env: Env, user: UserProfile, method: string, sessionId?: string): StreamableHTTPTransport => {
+  if (sessionId && sessions.has(sessionId)) {
+    return sessions.get(sessionId)!;
+  }
+
   if (method === 'POST') {
-    if (sessionId && sessions.has(sessionId)) {
-      return sessions.get(sessionId)!;
-    }
     // If we can't find it (maybe scaled to another isolate or disconnected),
     // return a dummy transport that will fail cleanly to the client
     const dummyTransport = new StreamableHTTPTransport();
@@ -23,7 +24,7 @@ export const getMcpTransport = (env: Env, user: UserProfile, method: string, ses
   }
 
   // GET request (new SSE connection)
-  const newSessionId = crypto.randomUUID();
+  const newSessionId = sessionId || crypto.randomUUID();
   const mcp = new McpServer({
     name: "LifeOS MCP",
     version: "1.0.0"
