@@ -7,12 +7,9 @@
       "enabled": true
     },
     "lifeos": {
-      "type": "remote",
-      "url": "https://lifeos-worker.zzlee-tw.workers.dev/api/mcp",
-      "enabled": true,
-      "headers": {
-        "Authorization": "Bearer 08260ac1-1d72-4633-b560-8928784d8ebb62137704-0642-4510-b838-de531806f23f"
-      }
+      "type": "local",
+      "command": ["lifeos", "mcp"],
+      "enabled": true
     }
   }
 }

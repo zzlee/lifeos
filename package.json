@@ -15,7 +15,6 @@
     "cli:start": "node cli/dist/cli.js"
   },
   "dependencies": {
-    "@hono/mcp": "^0.2.5",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "dotenv": "^17.4.1",
     "hono": "^4.8.5",
@@ -33,5 +32,21 @@
     "typescript": "^5.8.3",
     "vite": "^7.0.0",
     "wrangler": "^4.81.0"
-  }
+  },
+  "description": "LifeOS is a personal digital life dashboard that consolidates finance logs, journal entries, health records, and a lightweight vault behind a single AI-style input surface.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zzlee/lifeos.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zzlee/lifeos/issues"
+  },
+  "homepage": "https://github.com/zzlee/lifeos#readme"
 }

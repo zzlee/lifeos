@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import fs from 'fs';
 import { config } from './config';
 import { api } from './api';
+import { startMcpServer } from './mcp';
 
 const program = new Command();
 
@@ -12,14 +13,10 @@ program
   .description('LifeOS CLI for managing your digital life')
   .version('1.0.0');
 
-import { runMcpProxy } from './mcp';
-
-// --- MCP Proxy Command ---
+// --- MCP Command ---
 program.command('mcp')
-  .description('Run a stdio-to-SSE proxy to connect local MCP clients (like Cursor or Claude Desktop) to the remote LifeOS server')
-  .action(async () => {
-    await runMcpProxy();
-  });
+  .description('Start the MCP stdio server')
+  .action(startMcpServer);
 
 // --- Auth Commands ---
 const auth = program.command('auth').description('Authentication management');
