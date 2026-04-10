@@ -81,6 +81,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    fetchDashboardSnapshot()
+      .then((snapshot) => setData(snapshot.data))
+      .catch((err) => console.error("Failed to fetch dashboard data on view change:", err));
     if (view === "settings") {
       loadKeys();
     }
