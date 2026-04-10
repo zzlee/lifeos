@@ -333,6 +333,12 @@ export default function App() {
     setIsVaultModalOpen(true);
   }
 
+  async function handleRefresh() {
+    const snapshot = await fetchDashboardSnapshot();
+    setData(snapshot.data);
+    setToast({ visible: true, message: "資料已同步" });
+  }
+
   async function handleLogout() {
     await logout();
     setUser(defaultUser);
@@ -383,19 +389,22 @@ export default function App() {
       <main className="content-shell">
         <header className="topbar">
           <h2>{navItems.find((item) => item.id === view)?.title}</h2>
-          <div className="agent-bar">
-            <span className="agent-icon">🤖</span>
-            <input
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") void handlePromptSubmit();
-              }}
-              placeholder="LifeOS Agent: 輸入「剛花150吃午餐」、「血壓120/80」或「新增 GitHub 帳號 dev 密碼 xyz」..."
-            />
-            <button type="button" onClick={() => void handlePromptSubmit()}>
-              🚀
-            </button>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center", flex: 1, justifyContent: "flex-end" }}>
+            <div className="agent-bar">
+              <span className="agent-icon">🤖</span>
+              <input
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void handlePromptSubmit();
+                }}
+                placeholder="LifeOS Agent: 輸入「剛花150吃午餐」、「血壓120/80」或「新增 GitHub 帳號 dev 密碼 xyz」..."
+              />
+              <button type="button" onClick={() => void handlePromptSubmit()}>
+                🚀
+              </button>
+            </div>
+            <button className="secondary-button" onClick={() => void handleRefresh()} title="同步資料">🔄 重整</button>
           </div>
         </header>
 
