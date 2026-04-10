@@ -3,16 +3,16 @@
   "mcp": {
     "mcp-gemini": {
       "type": "local",
-      "command": ["node", "/home/zzlee/local-tools/bin/mcp-gemini"],
+      "command": ["mcp-gemini"],
       "enabled": true
     },
-    "lifeos-remote": {
+    "lifeos": {
       "type": "remote",
       "url": "https://lifeos-worker.zzlee-tw.workers.dev/api/mcp",
       "enabled": true,
       "headers": {
-        "Authorization": "Bearer 0aea6ddc-6be3-4bc4-8ec1-2cd12b3de921bfc0f943-92bf-42ea-8e72-52dc83bb7a14"
-      },
-    },
+        "Authorization": "Bearer 08260ac1-1d72-4633-b560-8928784d8ebb62137704-0642-4510-b838-de531806f23f"
+      }
+    }
   }
 }
