@@ -522,13 +522,14 @@ export default function App() {
                 title="隨手日記 (Journal)"
                 description="記錄日常瑣事與靈感。"
               />
-              <form onSubmit={handleCreateJournal} className="inline-journal-form panel" style={{ marginBottom: "20px" }}>
+              <form onSubmit={handleCreateJournal} className="inline-journal-form panel" style={{ marginBottom: "20px", backgroundColor: "#f8fafc", padding: "20px", borderRadius: "12px" }}>
                 <div className="form-group">
                   <textarea
                     required
+                    aria-label="日記內容"
                     value={newInlineJournalEntry.content}
                     onChange={(e) => setNewInlineJournalEntry({ ...newInlineJournalEntry, content: e.target.value })}
-                    placeholder="寫下你的想法..."
+                    placeholder="今天有什麼新鮮事？寫下你的想法..."
                     rows={3}
                   />
                 </div>
@@ -536,11 +537,12 @@ export default function App() {
                   <input
                     style={{ flex: 1 }}
                     type="text"
+                    aria-label="日記標籤"
                     value={newInlineJournalEntry.tags}
                     onChange={(e) => setNewInlineJournalEntry({ ...newInlineJournalEntry, tags: e.target.value })}
-                    placeholder="標籤 (用逗號分隔)"
+                    placeholder="標籤 (用逗號分隔，例如: 工作, 想法)"
                   />
-                  <button type="submit" className="primary-button">新增</button>
+                  <button type="submit" className="primary-button" style={{ fontWeight: "bold", padding: "8px 16px" }}>新增</button>
                 </div>
               </form>
               <div className="card-grid">
@@ -1021,6 +1023,7 @@ function JournalCard({ entry, compact = false, onUpdate, onDelete }: { entry: { 
         <div className="form-group" style={{ marginBottom: "12px" }}>
           <textarea
             required
+            aria-label="編輯日記內容"
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             rows={3}
@@ -1030,13 +1033,14 @@ function JournalCard({ entry, compact = false, onUpdate, onDelete }: { entry: { 
         <div className="form-group" style={{ marginBottom: "12px" }}>
           <input
             type="text"
+            aria-label="編輯日記標籤"
             value={editTags}
             onChange={(e) => setEditTags(e.target.value)}
             placeholder="標籤 (用逗號分隔)"
             style={{ width: "100%", boxSizing: "border-box" }}
           />
         </div>
-        <div className="card-actions" style={{ justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "8px" }}>
           <button className="primary-button" onClick={handleSave} style={{ padding: "6px 12px", fontSize: "0.9rem" }}>儲存</button>
           <button className="secondary-button" onClick={handleCancel} style={{ padding: "6px 12px", fontSize: "0.9rem" }}>取消</button>
         </div>
