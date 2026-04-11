@@ -37,10 +37,6 @@ app.use("/api/*", async (c, next) => {
   return corsHandler(c, next);
 });
 
-app.get("/", (c) =>
-  c.text("LifeOS API is running. Use /api/health to verify service status."),
-);
-
 app.get("/api/health", (c) =>
   c.json({
     ok: true,
@@ -407,8 +403,16 @@ app.delete("/api/health/:id", async (c) => {
   return c.json({ ok: true });
 });
 
-app.notFound((c) => {
-  return c.text("LifeOS Worker: Route not found. Are you calling an API endpoint?", 404);
+app.notFound(async (c) => {
+  if (c.req.path.startsWith("/api/")) {
+    return c.text("LifeOS Worker: Route not found. Are you calling an API endpoint?", 404);
+  }
+  
+  // Serve index.html for SPA routing
+  const response = await c.env.ASSETS.fetch(new Request(new URL("/index.html", c.req.url)));
+  if (response.ok) return response;
+  
+  return c.text("LifeOS: Page not found", 404);
 });
 
 export default app;

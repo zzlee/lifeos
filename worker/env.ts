@@ -13,6 +13,9 @@ export type D1Database = {
 
 export type Env = {
   DB?: D1Database;
+  ASSETS: {
+    fetch: (request: Request) => Promise<Response>;
+  };
   OPENAI_API_KEY?: string;
   OPENAI_MODEL?: string;
   VAULT_MASTER_KEY?: string;

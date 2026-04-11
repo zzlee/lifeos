@@ -9,8 +9,7 @@
     "build": "tsc -b && vite build",
     "check:worker": "tsc --noEmit -p tsconfig.worker.json",
     "preview": "vite preview",
-    "deploy:worker": "wrangler deploy --env production",
-    "deploy": "npm run deploy:worker && npm run build && npx wrangler pages deploy ./dist --project-name lifeos --branch master",
+    "deploy": "wrangler deploy --env production",
     "cli:build": "cd cli && npm run build && npm link",
     "cli:start": "node cli/dist/cli.js"
   },
@@ -32,7 +31,7 @@
     "ts-morph": "^27.0.2",
     "typescript": "^5.9.3",
     "vite": "^7.0.0",
-    "wrangler": "^4.81.0"
+    "wrangler": "^4.81.1"
   },
   "description": "LifeOS is a personal digital life dashboard that consolidates finance logs, journal entries, health records, and a lightweight vault behind a single AI-style input surface.",
   "main": "index.js",

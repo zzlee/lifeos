@@ -14,7 +14,7 @@ import type {
 } from "../../shared/contracts";
 import type { VaultItem } from "./types";
 
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? "https://lifeos-worker.zzlee-tw.workers.dev";
+const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
 
 if (!apiBase && import.meta.env.PROD) {
   console.error(
@@ -25,7 +25,7 @@ if (!apiBase && import.meta.env.PROD) {
 }
 
 export function isApiConfigured(): boolean {
-  return apiBase.startsWith("https");
+  return apiBase === "" || apiBase.startsWith("https");
 }
 
 export async function fetchDashboardSnapshot(): Promise<DashboardSnapshotResponse> {

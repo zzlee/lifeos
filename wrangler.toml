@@ -1,6 +1,7 @@
 name = "lifeos"
 main = "worker/index.ts"
 compatibility_date = "2026-03-27"
+assets = { directory = "./dist" }
 workers_dev = true
 
 [vars]
