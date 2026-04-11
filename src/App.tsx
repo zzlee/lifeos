@@ -484,10 +484,10 @@ export default function App() {
                         const item = data.finance[index];
                         return (
                           <div style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9' }}>
-                            <div style={{ flex: 1 }}>{item.date}</div>
-                            <div style={{ flex: 1 }}><span className="tag neutral">{item.category}</span></div>
-                            <div style={{ flex: 2 }}>{item.note}</div>
-                            <div style={{ flex: 1, textAlign: 'right' }} className="strong">NT$ {item.amount}</div>
+                            <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.date}</div>
+                            <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><span className="tag neutral">{item.category}</span></div>
+                            <div style={{ flex: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.note}>{item.note}</div>
+                            <div style={{ flex: 1, textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} className="strong">NT$ {item.amount}</div>
                             <div style={{ flex: 1 }}>
                               <div className="table-actions">
                                 <button className="icon-button" onClick={() => openEditExpense(item)} title="編輯">✏️</button>
@@ -588,11 +588,11 @@ export default function App() {
                       const item = data.health[index];
                       return (
                         <div style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9' }}>
-                          <div style={{ flex: 1 }}>{item.date}</div>
-                          <div style={{ flex: 1 }}>{item.sys}</div>
-                          <div style={{ flex: 1 }}>{item.dia}</div>
-                          <div style={{ flex: 1 }}>{item.hr}</div>
-                          <div style={{ flex: 1 }}>{item.weight ?? "-"}</div>
+                          <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.date}</div>
+                          <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.sys}</div>
+                          <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.dia}</div>
+                          <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.hr}</div>
+                          <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.weight ?? "-"}</div>
                           <div style={{ flex: 1 }}>
                             <div className="table-actions">
                               <button className="icon-button" onClick={() => openEditHealth(item)} title="編輯">✏️</button>
