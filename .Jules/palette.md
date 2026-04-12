@@ -1,0 +1,3 @@
+## 2024-03-01 - Missing Visual Feedback for AI Operations
+**Learning:** Found that the primary "LifeOS Agent" command bar completely lacks visual feedback during its async operation. This leaves users wondering if their input was received, leading to potential duplicate submissions or confusion. Also discovered that several modal close buttons are missing `aria-label`s.
+**Action:** Added a loading state (`⏳` and `disabled`) to the AI submit button, disabled the input field while processing, and added `aria-label="關閉"` to modal close (`✕`) buttons to improve screen reader accessibility. Ensure all future async interactions have a loading state to prevent user friction.
