@@ -66,6 +66,8 @@ export default function App() {
   const [editingHealthId, setEditingHealthId] = useState<number | null>(null);
   const [newHealthEntry, setNewHealthEntry] = useState({ sys: 120, dia: 80, hr: 72, weight: 0, date: "" });
 
+  const [isAgentThinking, setIsAgentThinking] = useState(false);
+
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
@@ -135,11 +137,16 @@ export default function App() {
     const text = prompt.trim();
     if (!text) return;
 
-    const response = await sendAgentCommand(text);
-    const mutation = response.mutation;
-    setData(response.data);
-    setPrompt("");
-    setToast({ visible: true, message: mutation.message });
+    setIsAgentThinking(true);
+    try {
+      const response = await sendAgentCommand(text);
+      const mutation = response.mutation;
+      setData(response.data);
+      setPrompt("");
+      setToast({ visible: true, message: mutation.message });
+    } finally {
+      setIsAgentThinking(false);
+    }
   }
 
   async function handleCopy(item: VaultItem) {
@@ -392,14 +399,20 @@ export default function App() {
               <span className="agent-icon">🤖</span>
               <input
                 value={prompt}
+                disabled={isAgentThinking}
                 onChange={(event) => setPrompt(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") void handlePromptSubmit();
+                  if (event.key === "Enter" && !isAgentThinking) void handlePromptSubmit();
                 }}
                 placeholder="LifeOS Agent: 輸入「剛花150吃午餐」、「血壓120/80」或「新增 GitHub 帳號 dev 密碼 xyz」..."
               />
-              <button type="button" onClick={() => void handlePromptSubmit()}>
-                🚀
+              <button
+                type="button"
+                disabled={isAgentThinking}
+                onClick={() => void handlePromptSubmit()}
+                aria-label={isAgentThinking ? "AI 處理中" : "傳送給 AI 代理"}
+              >
+                {isAgentThinking ? "⏳" : "🚀"}
               </button>
             </div>
             <button className="secondary-button" onClick={() => void handleRefresh()} title="同步資料">🔄 重整</button>
@@ -764,7 +777,7 @@ export default function App() {
           <div className="panel modal-content">
             <div className="panel-header">
               <h4>{editingVaultId ? "編輯密碼紀錄" : "新增密碼紀錄"}</h4>
-              <button className="close-button" onClick={() => setIsVaultModalOpen(false)}>✕</button>
+              <button className="close-button" aria-label="關閉" onClick={() => setIsVaultModalOpen(false)}>✕</button>
             </div>
             <form onSubmit={handleCreateVaultItem} className="modal-form">
               <div className="form-group">
@@ -810,7 +823,7 @@ export default function App() {
           <div className="panel modal-content">
             <div className="panel-header">
               <h4>{editingExpenseId ? "編輯消費" : "新增消費"}</h4>
-              <button className="close-button" onClick={() => setIsExpenseModalOpen(false)}>✕</button>
+              <button className="close-button" aria-label="關閉" onClick={() => setIsExpenseModalOpen(false)}>✕</button>
             </div>
             <form onSubmit={handleSaveExpense} className="modal-form">
               <div className="form-group">
@@ -863,7 +876,7 @@ export default function App() {
           <div className="panel modal-content">
             <div className="panel-header">
               <h4>{editingHealthId ? "編輯健康紀錄" : "新增健康紀錄"}</h4>
-              <button className="close-button" onClick={() => setIsHealthModalOpen(false)}>✕</button>
+              <button className="close-button" aria-label="關閉" onClick={() => setIsHealthModalOpen(false)}>✕</button>
             </div>
             <form onSubmit={handleSaveHealth} className="modal-form">
               <div className="form-group">
