@@ -426,9 +426,19 @@ button {
 .legend-list,
 .journal-stack,
 .tag-row {
+  display: flex;
   flex-direction: row;
   flex-wrap: wrap;
+  gap: 12px;
   margin-top: auto;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .card-actions {
