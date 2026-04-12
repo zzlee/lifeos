@@ -471,47 +471,44 @@ export default function App() {
                   <div className="panel-header">
                     <h4>交易明細</h4>
                   </div>
-                  <div className="table-wrap" style={{ display: 'block' }}>
-                    <div style={{ minWidth: '600px' }}>
-                      <div className="table-header-row" style={{ display: 'flex', padding: '14px 12px', borderBottom: '1px solid #f1f5f9', color: '#64748b', fontSize: '0.84rem', fontWeight: 'bold' }}>
-                        <div style={{ flex: 1 }}>日期</div>
-                        <div style={{ flex: 1 }}>類別</div>
-                        <div style={{ flex: 2 }}>備註</div>
-                        <div style={{ flex: 1, textAlign: 'right' }}>金額</div>
-                        <div style={{ flex: 1 }}></div>
-                      </div>
-                      {data.finance.length > 0 ? (() => {
-                        const FinanceRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
-                          const item = data.finance[index];
-                          return (
-                            <div style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9' }}>
-                              <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.date}</div>
-                              <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><span className="tag neutral">{item.category}</span></div>
-                              <div style={{ flex: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={item.note}>{item.note}</div>
-                              <div style={{ flex: 1, textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} className="strong">NT$ {item.amount}</div>
-                              <div style={{ flex: 1 }}>
-                                <div className="table-actions">
-                                  <button className="icon-button" onClick={() => openEditExpense(item)} title="編輯">✏️</button>
-                                  <button className="icon-button danger" onClick={() => handleDeleteExpense(item.id)} title="刪除">🗑️</button>
-                                </div>
+                  <div className="list-wrap" style={{ display: 'block', width: '100%' }}>
+                    {data.finance.length > 0 ? (() => {
+                      const FinanceRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
+                        const item = data.finance[index];
+                        return (
+                          <div style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9' }}>
+                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
+                                <span className="tag neutral" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>{item.category}</span>
+                                <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{item.date}</span>
+                              </div>
+                              <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.9rem', color: '#334155' }} title={item.note}>
+                                {item.note || '無備註'}
                               </div>
                             </div>
-                          );
-                        };
-                        return (
-                          <List
-                            height={400}
-                            itemCount={data.finance.length}
-                            itemSize={60}
-                            width="100%"
-                          >
-                            {FinanceRow}
-                          </List>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                              <div className="strong" style={{ fontSize: '1rem' }}>NT$ {item.amount}</div>
+                              <div className="table-actions">
+                                <button className="icon-button" onClick={() => openEditExpense(item)} title="編輯">✏️</button>
+                                <button className="icon-button danger" onClick={() => handleDeleteExpense(item.id)} title="刪除">🗑️</button>
+                              </div>
+                            </div>
+                          </div>
                         );
-                      })() : (
-                        <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>尚無資料</div>
-                      )}
-                    </div>
+                      };
+                      return (
+                        <List
+                          height={400}
+                          itemCount={data.finance.length}
+                          itemSize={70}
+                          width="100%"
+                        >
+                          {FinanceRow}
+                        </List>
+                      );
+                    })() : (
+                      <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>尚無資料</div>
+                    )}
                   </div>
                 </div>
               </div>
