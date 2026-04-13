@@ -28,13 +28,13 @@ export type SerializedAgentMutation =
       entry: { site: string; username: string; secret: string };
     };
 
-function getCurrentUTC(): string {
-  return new Date().toISOString().replace('T', ' ').slice(0, 16);
+function getCurrentLocalTime(): string {
+  const now = new Date();
+  const tzOffset = now.getTimezoneOffset() * 60000;
+  return (new Date(now.getTime() - tzOffset)).toISOString().replace('T', ' ').slice(0, 16);
 }
 
 const shortDate = new Date().toISOString().slice(5, 10);
-const today = new Date().toISOString().slice(0, 10);
-const now = getCurrentUTC();
 
 export function parseAgentInput(input: string, state: LifeOSState): AgentMutation {
   const text = input.trim();
@@ -57,7 +57,7 @@ export function parseAgentInput(input: string, state: LifeOSState): AgentMutatio
       message: `已記錄消費：NT$ ${amount || 0}`,
       entry: {
         id: Date.now(),
-        date: today,
+        date: getCurrentLocalTime(),
         amount: amount || 0,
         category,
         note: text
@@ -106,7 +106,7 @@ export function parseAgentInput(input: string, state: LifeOSState): AgentMutatio
     message: "已新增隨手日記",
     entry: {
       id: Date.now(),
-      date: now,
+      date: getCurrentLocalTime(),
       content: text,
       tags: inferTags(text)
     }
@@ -121,7 +121,7 @@ export function hydrateAgentMutation(value: SerializedAgentMutation, state: Life
         message: value.message ?? `已記錄消費：NT$ ${value.entry.amount}`,
         entry: {
           id: Date.now(),
-          date: value.entry.date ?? today,
+          date: value.entry.date ?? getCurrentLocalTime(),
           amount: Number(value.entry.amount) || 0,
           category: value.entry.category || "AI 自動",
           note: value.entry.note || "",
@@ -147,7 +147,7 @@ export function hydrateAgentMutation(value: SerializedAgentMutation, state: Life
         message: value.message ?? "已新增隨手日記",
         entry: {
           id: Date.now(),
-          date: value.entry.date ?? now,
+          date: value.entry.date ?? getCurrentLocalTime(),
           content: value.entry.content,
           tags: value.entry.tags?.length ? value.entry.tags : ["隨記"],
         },

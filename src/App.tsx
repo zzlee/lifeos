@@ -240,12 +240,17 @@ export default function App() {
     e.preventDefault();
     if (!newExpenseEntry.amount || !newExpenseEntry.category) return;
 
+    const entryToSave = {
+      ...newExpenseEntry,
+      date: newExpenseEntry.date.replace('T', ' ')
+    };
+
     try {
       if (editingExpenseId !== null) {
-        await updateExpense(editingExpenseId, newExpenseEntry);
+        await updateExpense(editingExpenseId, entryToSave);
         setToast({ visible: true, message: "消費紀錄已更新" });
       } else {
-        await createExpense(newExpenseEntry);
+        await createExpense(entryToSave);
         setToast({ visible: true, message: "消費紀錄已新增" });
       }
 
@@ -272,14 +277,26 @@ export default function App() {
   }
 
   function openEditExpense(entry: { id: number; amount: number; category: string; note: string; date: string }) {
-    setNewExpenseEntry({ amount: entry.amount, category: entry.category, note: entry.note, date: entry.date });
+    // Backend formats might be YYYY-MM-DD HH:mm or just YYYY-MM-DD.
+    // We want the input to be YYYY-MM-DDTHH:mm.
+    let formattedDate = entry.date.replace(' ', 'T');
+    if (formattedDate.length === 10) {
+      formattedDate += 'T00:00';
+    } else if (formattedDate.length > 16) {
+        formattedDate = formattedDate.slice(0, 16);
+    }
+
+    setNewExpenseEntry({ amount: entry.amount, category: entry.category, note: entry.note, date: formattedDate });
     setEditingExpenseId(entry.id);
     setIsExpenseModalOpen(true);
   }
 
   function openNewExpense() {
-    const today = new Date().toISOString().slice(0, 10);
-    setNewExpenseEntry({ amount: 0, category: "", note: "", date: today });
+    const now = new Date();
+    // Format to YYYY-MM-DDTHH:mm
+    const tzOffset = now.getTimezoneOffset() * 60000; // offset in milliseconds
+    const localISOTime = (new Date(now.getTime() - tzOffset)).toISOString().slice(0, 16);
+    setNewExpenseEntry({ amount: 0, category: "", note: "", date: localISOTime });
     setEditingExpenseId(null);
     setIsExpenseModalOpen(true);
   }
@@ -493,7 +510,7 @@ export default function App() {
                             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
                                 <span className="tag neutral" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>{item.category}</span>
-                                <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{item.date}</span>
+                                <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{item.date.replace('T', ' ')}</span>
                               </div>
                               <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.9rem', color: '#334155' }} title={item.note}>
                                 {item.note || '無備註'}
@@ -846,9 +863,9 @@ export default function App() {
                 />
               </div>
               <div className="form-group">
-                <label>日期</label>
+                <label>日期與時間</label>
                 <input 
-                  type="date"
+                  type="datetime-local"
                   required 
                   value={newExpenseEntry.date} 
                   onChange={e => setNewExpenseEntry({...newExpenseEntry, date: e.target.value})}
