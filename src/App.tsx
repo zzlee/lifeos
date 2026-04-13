@@ -121,7 +121,7 @@ export default function App() {
     [data.finance],
   );
 
-  const latestHealth = data.health[data.health.length - 1];
+  const latestHealth = data.health[0];
   const financeGroups = useMemo(() => groupFinance(data.finance), [data.finance]);
   const filteredVault = useMemo(
     () => data.vault.filter((item) => item.site.toLowerCase().includes(vaultQuery.toLowerCase())),
@@ -576,7 +576,7 @@ export default function App() {
                   <h4>血壓與心跳趨勢分析</h4>
                   <span>最近 7 次紀錄</span>
                 </div>
-                <HealthChart entries={data.health} />
+                <HealthChart entries={[...data.health.slice(0, 7)].reverse()} />
               </div>
               <div className="stats-grid health-grid">
                 <MetricCard title="平均收縮壓" value={`${healthStats.avgSys}`} accent="rose" icon="💓" />
