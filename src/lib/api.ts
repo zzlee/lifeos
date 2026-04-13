@@ -238,3 +238,14 @@ export function getGoogleLoginUrl(): string {
   const origin = window.location.origin;
   return `${apiBase}/api/auth/google/start?from=${encodeURIComponent(origin)}`;
 }
+
+export async function updateUserProfile(timezone: string): Promise<{ ok: boolean }> {
+  const response = await fetch(`${apiBase}/api/auth/profile`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ timezone }),
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to update profile");
+  return response.json();
+}

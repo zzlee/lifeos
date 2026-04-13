@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
 import { FixedSizeList as List } from "react-window";
-import { fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./lib/api";
+import { toLocalDisplayDate, toLocalDisplayTime, toLocalInputString, getCurrentLocalInputString, localInputToUtcString } from "./lib/timeUtils";
+import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./lib/api";
 import type { Expense, HealthEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -16,7 +17,7 @@ const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string 
 type ToastState = { visible: boolean; message: string };
 
 const emptyState: LifeOSState = { finance: [], journals: [], health: [], vault: [] };
-const defaultUser: UserProfile = { id: "", email: "", name: "" };
+const defaultUser: UserProfile = { id: "", email: "", name: "", timezone: "UTC" };
 
 export default function App() {
   if (!isApiConfigured()) {
@@ -249,7 +250,7 @@ export default function App() {
 
     const entryToSave = {
       ...newExpenseEntry,
-      date: newExpenseEntry.date.replace('T', ' ')
+      date: localInputToUtcString(newExpenseEntry.date, user.timezone)
     };
 
     try {
@@ -299,10 +300,7 @@ export default function App() {
   }
 
   function openNewExpense() {
-    const now = new Date();
-    // Format to YYYY-MM-DDTHH:mm
-    const tzOffset = now.getTimezoneOffset() * 60000; // offset in milliseconds
-    const localISOTime = (new Date(now.getTime() - tzOffset)).toISOString().slice(0, 16);
+    const localISOTime = getCurrentLocalInputString(user.timezone, 'datetime-local');
     setNewExpenseEntry({ amount: 0, category: "", note: "", date: localISOTime });
     setEditingExpenseId(null);
     setIsExpenseModalOpen(true);
@@ -312,12 +310,17 @@ export default function App() {
     e.preventDefault();
     if (!newHealthEntry.sys || !newHealthEntry.dia) return;
 
+    const entryToSave = {
+      ...newHealthEntry,
+      date: localInputToUtcString(newHealthEntry.date, user.timezone)
+    };
+
     try {
       if (editingHealthId !== null) {
-        await updateHealthRecord(editingHealthId, newHealthEntry);
+        await updateHealthRecord(editingHealthId as any, entryToSave);
         setToast({ visible: true, message: "健康紀錄已更新" });
       } else {
-        await createHealthRecord(newHealthEntry);
+        await createHealthRecord(entryToSave);
         setToast({ visible: true, message: "健康紀錄已新增" });
       }
 
@@ -343,14 +346,16 @@ export default function App() {
     }
   }
 
-  function openEditHealth(entry: { date: string; sys: number; dia: number; hr: number; weight?: number }) {
-    setNewHealthEntry({ sys: entry.sys, dia: entry.dia, hr: entry.hr, weight: entry.weight ?? 0, date: entry.date });
-    setEditingHealthId(entry.date as any);
+  function openEditHealth(entry: { date: string; sys: number; dia: number; hr: number; weight?: number; id?: number } | any) {
+    const formattedDate = toLocalInputString(entry.date, user.timezone, 'date');
+    setNewHealthEntry({ sys: entry.sys, dia: entry.dia, hr: entry.hr, weight: entry.weight ?? 0, date: formattedDate });
+    // In Health we edit by id if it exists, otherwise fallback to date (although date shouldn't be used as ID in new logic)
+    setEditingHealthId(entry.id || entry.date as any);
     setIsHealthModalOpen(true);
   }
 
   function openNewHealth() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getCurrentLocalInputString(user.timezone, 'date');
     setNewHealthEntry({ sys: 120, dia: 80, hr: 72, weight: 0, date: today });
     setEditingHealthId(null);
     setIsHealthModalOpen(true);
@@ -481,7 +486,7 @@ export default function App() {
                   </div>
                   <div className="journal-stack">
                     {data.journals.slice(0, 3).map((entry) => (
-                      <JournalCard key={entry.id} entry={entry} compact />
+                      <JournalCard key={entry.id} entry={entry} compact timezone={user.timezone} />
                     ))}
                   </div>
                 </div>
@@ -517,7 +522,7 @@ export default function App() {
                             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
                                 <span className="tag neutral" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>{item.category}</span>
-                                <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{item.date.replace('T', ' ')}</span>
+                                <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{toLocalDisplayTime(item.date, user.timezone)}</span>
                               </div>
                               <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.9rem', color: '#334155' }} title={item.note}>
                                 {item.note || '無備註'}
@@ -560,7 +565,7 @@ export default function App() {
               />
               <div className="card-grid">
                 {data.journals.map((entry) => (
-                  <JournalCard key={entry.id} entry={entry} onClick={() => openEditJournal(entry)} onDelete={(e) => { e.stopPropagation(); handleDeleteJournal(entry.id); }} />
+                  <JournalCard key={entry.id} entry={entry} onClick={() => openEditJournal(entry)} onDelete={(e) => { e.stopPropagation(); handleDeleteJournal(entry.id); }} timezone={user.timezone} />
                 ))}
               </div>
             </section>
@@ -578,7 +583,7 @@ export default function App() {
                   <h4>血壓與心跳趨勢分析</h4>
                   <span>最近 7 次紀錄</span>
                 </div>
-                <HealthChart entries={[...data.health.slice(0, 7)].reverse()} />
+                <HealthChart entries={[...data.health.slice(0, 7)].reverse()} timezone={user.timezone} />
               </div>
               <div className="stats-grid health-grid">
                 <MetricCard title="平均收縮壓" value={`${healthStats.avgSys}`} accent="rose" icon="💓" />
@@ -693,6 +698,42 @@ export default function App() {
                 description="管理您的 API Keys 以便在 CLI 或第三方工具中使用 LifeOS。"
               />
               
+
+              <div className="panel" style={{ marginBottom: "2rem" }}>
+                <div className="panel-header">
+                  <h4>時間設定</h4>
+                  <p className="text-sm text-slate-500">選擇您所在的時區，確保所有時間顯示與您的當地時間一致。</p>
+                </div>
+                <div className="settings-content" style={{ marginTop: "1.5rem" }}>
+                  <div className="form-group" style={{ maxWidth: "300px" }}>
+                    <label>時區 (Timezone)</label>
+                    <select
+                      value={user.timezone}
+                      onChange={async (e) => {
+                        const newTz = e.target.value;
+                        setUser({ ...user, timezone: newTz });
+                        try {
+                          await updateUserProfile(newTz);
+                          setToast({ visible: true, message: "時區已更新" });
+                        } catch(err) {
+                          setToast({ visible: true, message: "時區更新重試失敗" });
+                        }
+                      }}
+                      className="input-field"
+                      style={{ width: "100%", padding: "0.5rem", borderRadius: "4px", border: "1px solid #cbd5e1" }}
+                    >
+                      <option value="UTC">UTC</option>
+                      <option value="Asia/Taipei">Asia/Taipei (UTC+8)</option>
+                      <option value="America/New_York">America/New_York</option>
+                      <option value="America/Los_Angeles">America/Los_Angeles</option>
+                      <option value="Europe/London">Europe/London</option>
+                      <option value="Europe/Paris">Europe/Paris</option>
+                      <option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
+                      <option value="Australia/Sydney">Australia/Sydney</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
               <div className="panel">
                 <div className="panel-header">
                   <h4>API Key 管理</h4>
@@ -1052,10 +1093,10 @@ function MetricCard({ title, value, accent, icon }: { title: string; value: stri
   );
 }
 
-function JournalCard({ entry, compact = false, onClick, onDelete }: { entry: { id: number; date: string; content: string; tags: string[] }; compact?: boolean; onClick?: () => void; onDelete?: (e: React.MouseEvent) => void }) {
+function JournalCard({ entry, compact = false, onClick, onDelete, timezone }: { entry: { id: number; date: string; content: string; tags: string[] }; compact?: boolean; onClick?: () => void; onDelete?: (e: React.MouseEvent) => void; timezone: string }) {
   return (
     <article className={`journal-card ${compact ? "compact" : ""}`} onClick={onClick} style={{ cursor: onClick ? "pointer" : "default" }}>
-      <p className="journal-date">{entry.date}</p>
+      <p className="journal-date">{toLocalDisplayTime(entry.date, timezone)}</p>
       <p className="journal-content">{entry.content}</p>
       <div className="tag-row">
         {entry.tags.map((tag) => (
@@ -1116,7 +1157,7 @@ function DonutChart({ groups }: { groups: Array<{ category: string; amount: numb
   );
 }
 
-function HealthChart({ entries }: { entries: HealthEntry[] }) {
+function HealthChart({ entries, timezone }: { entries: HealthEntry[]; timezone: string }) {
   if (entries.length === 0) return <div>沒有健康數據</div>;
   const width = 780;
   const height = 280;
@@ -1153,8 +1194,8 @@ function HealthChart({ entries }: { entries: HealthEntry[] }) {
         {entries.map((entry, index) => {
           const x = padding + (innerWidth / Math.max(entries.length - 1, 1)) * index;
           return (
-            <text key={entry.date} x={x} y={height - 6} textAnchor="middle" className="chart-label">
-              {entry.date}
+            <text key={toLocalDisplayDate(entry.date, timezone)} x={x} y={height - 6} textAnchor="middle" className="chart-label">
+              {toLocalDisplayDate(entry.date, timezone)}
             </text>
           );
         })}

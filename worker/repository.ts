@@ -43,7 +43,7 @@ export async function createJournal(
   content: string,
   tags: string[],
 ): Promise<{ ok: true }> {
-  const createdAt = new Date().toISOString().replace('T', ' ').slice(0, 16);
+  const createdAt = new Date().toISOString();
   await db
     .prepare("INSERT INTO journals (user_id, content, tags, created_at) VALUES (?, ?, ?, ?)")
     .bind(user.id, content, tags.join(","), createdAt)
