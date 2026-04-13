@@ -87,7 +87,7 @@ export async function getDashboardSnapshot(
   const [expenses, journals, health, vault] = await Promise.all([
     db.prepare("SELECT id, date, amount, category, note FROM expenses WHERE user_id = ? ORDER BY date DESC, id DESC LIMIT 20").bind(user.id).all<LifeOSState["finance"][number]>(),
     db.prepare("SELECT id, created_at as date, content, tags FROM journals WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 12").bind(user.id).all<{ id: number; date: string; content: string; tags: string }>(),
-    db.prepare("SELECT recorded_at as date, sys, dia, hr, weight FROM health_daily WHERE user_id = ? ORDER BY recorded_at ASC, id ASC LIMIT 30").bind(user.id).all<LifeOSState["health"][number]>(),
+    db.prepare("SELECT recorded_at as date, sys, dia, hr, weight FROM health_daily WHERE user_id = ? ORDER BY recorded_at DESC, id DESC LIMIT 30").bind(user.id).all<LifeOSState["health"][number]>(),
     db.prepare("SELECT id, site, username, secret_preview as secret FROM vault_items WHERE user_id = ? ORDER BY site ASC LIMIT 20").bind(user.id).all<LifeOSState["vault"][number]>()
   ]);
 
