@@ -596,28 +596,24 @@ export default function App() {
                 </div>
                 <div className="table-wrap" style={{ display: 'block' }}>
                   <div style={{ minWidth: '600px' }}>
-                    <div className="table-header-row" style={{ display: 'flex', padding: '14px 12px', borderBottom: '1px solid #f1f5f9', color: '#64748b', fontSize: '0.84rem', fontWeight: 'bold' }}>
-                      <div style={{ flex: 1 }}>日期</div>
-                      <div style={{ flex: 1 }}>收縮壓</div>
-                      <div style={{ flex: 1 }}>舒張壓</div>
-                      <div style={{ flex: 1 }}>心跳</div>
-                      <div style={{ flex: 1 }}>體重</div>
-                      <div style={{ flex: 1 }}></div>
-                    </div>
                     {data.health.length > 0 ? (() => {
                       const HealthRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
                         const item = data.health[index];
                         return (
-                          <div style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9' }}>
-                            <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.date}</div>
-                            <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.sys}</div>
-                            <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.dia}</div>
-                            <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.hr}</div>
-                            <div style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.weight ?? "-"}</div>
-                            <div style={{ flex: 1 }}>
+                          <div onClick={() => openEditHealth(item)} style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                              <div style={{ color: '#64748b', fontSize: '0.8rem', marginBottom: '4px' }}>
+                                {toLocalDisplayTime(item.date, user.timezone)}
+                              </div>
+                              <div style={{ display: 'flex', gap: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.9rem', color: '#334155' }}>
+                                <span>血壓: {item.sys}/{item.dia}</span>
+                                <span>心跳: {item.hr}</span>
+                                <span>體重: {item.weight ?? "-"}</span>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                               <div className="table-actions">
-                                <button className="icon-button" onClick={() => openEditHealth(item)} title="編輯">✏️</button>
-                                <button className="icon-button danger" onClick={() => handleDeleteHealth(item.date)} title="刪除">🗑️</button>
+                                <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteHealth(item.date); }} title="刪除">🗑️</button>
                               </div>
                             </div>
                           </div>
@@ -627,7 +623,7 @@ export default function App() {
                         <List
                           height={400}
                           itemCount={data.health.length}
-                          itemSize={60}
+                          itemSize={70}
                           width="100%"
                         >
                           {HealthRow}
