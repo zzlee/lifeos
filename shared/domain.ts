@@ -29,6 +29,7 @@ export type JournalEntry = {
 };
 
 export type HealthEntry = {
+  id: number;
   date: string;
   sys: number;
   dia: number;

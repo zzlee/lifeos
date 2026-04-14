@@ -85,6 +85,7 @@ export function parseAgentInput(input: string, state: LifeOSState, timeZone: str
     const pairs = text.match(/\d+(?:\.\d+)?/g) ?? [];
     const latest = state.health[state.health.length - 1];
     const next: HealthEntry = {
+      id: Date.now(),
       date: getShortDate(timeZone),
       sys: latest?.sys ?? 120,
       dia: latest?.dia ?? 80,
@@ -149,6 +150,7 @@ export function hydrateAgentMutation(value: SerializedAgentMutation, state: Life
         kind: "health",
         message: value.message ?? `已更新健康資料：${value.entry.sys}/${value.entry.dia}，心跳 ${value.entry.hr}`,
         entry: {
+          id: Date.now(),
           date: value.entry.date ?? getShortDate(timeZone),
           sys: Number(value.entry.sys) || latest?.sys || 120,
           dia: Number(value.entry.dia) || latest?.dia || 80,
