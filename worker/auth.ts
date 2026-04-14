@@ -72,7 +72,16 @@ export async function resolveSession(
     : null;
 
   const provider = headerUser ? "google-ready" : sessionFromCookie?.provider ?? "none";
-  const user = headerUser ?? sessionFromCookie?.user ?? null;
+  let user = headerUser ?? sessionFromCookie?.user ?? null;
+
+  if (user && env.DB) {
+    const dbUser = await env.DB.prepare(
+      "SELECT id, email, name, timezone FROM users WHERE id = ?"
+    ).bind(user.id).first<UserProfile>();
+    if (dbUser) {
+      user = dbUser;
+    }
+  }
 
   return {
     authenticated: !!user,
