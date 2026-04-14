@@ -109,6 +109,19 @@ app.delete("/api/auth/keys/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+
+app.put("/api/auth/profile", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const body = await c.req.json() as any;
+  if (body && body.timezone) {
+    await c.env.DB.prepare("UPDATE users SET timezone = ? WHERE id = ?").bind(body.timezone, session.user.id).run();
+  }
+  return c.json({ ok: true });
+});
+
 app.post("/api/auth/logout", async (c) => {
   deleteCookie(c, "lifeos_session", { path: "/" });
   c.header("Set-Cookie", clearSessionCookie());
@@ -169,7 +182,7 @@ app.post("/api/agent", async (c) => {
   if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
 
   const snapshot = await getDashboardSnapshot(c.env.DB, session.user);
-  const agentResult = await resolveAgentMutation(c.env, body.command, snapshot.data);
+  const agentResult = await resolveAgentMutation(c.env, session.user, body.command, snapshot.data);
   const mutation = agentResult.mutation;
   const persisted = await persistAgentMutation(c.env.DB, session.user, mutation, c.env.VAULT_MASTER_KEY);
 

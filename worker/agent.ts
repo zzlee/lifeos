@@ -9,23 +9,25 @@ import {
 
 const DEFAULT_MODEL = "gpt-4o-mini";
 
+import type { UserProfile } from "../shared/domain";
 export async function resolveAgentMutation(
   env: Env,
+  user: UserProfile,
   command: string,
   snapshot: LifeOSState,
 ): Promise<{ mutation: AgentMutation; source: "openai" | "heuristic" }> {
   if (!env.OPENAI_API_KEY) {
-    return { mutation: parseAgentInput(command, snapshot), source: "heuristic" };
+    return { mutation: parseAgentInput(command, snapshot, user.timezone), source: "heuristic" };
   }
 
   try {
     const serialized = await requestOpenAIMutation(env, command, snapshot);
     return {
-      mutation: hydrateAgentMutation(serialized, snapshot),
+      mutation: hydrateAgentMutation(serialized, snapshot, user.timezone),
       source: "openai",
     };
   } catch {
-    return { mutation: parseAgentInput(command, snapshot), source: "heuristic" };
+    return { mutation: parseAgentInput(command, snapshot, user.timezone), source: "heuristic" };
   }
 }
 

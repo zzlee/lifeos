@@ -28,15 +28,31 @@ export type SerializedAgentMutation =
       entry: { site: string; username: string; secret: string };
     };
 
-function getCurrentLocalTime(): string {
-  const now = new Date();
-  const tzOffset = now.getTimezoneOffset() * 60000;
-  return (new Date(now.getTime() - tzOffset)).toISOString().replace('T', ' ').slice(0, 16);
+function getCurrentLocalTime(timeZone: string): string {
+  const d = new Date();
+  const localStr = d.toLocaleString('sv-SE', { timeZone }).replace(' ', 'T').slice(0, 16);
+  try {
+    const strToParse = localStr;
+    const tempUtc = new Date(strToParse + "Z");
+    const targetLocalStr = tempUtc.toLocaleString('sv-SE', { timeZone }).replace(' ', 'T');
+    const targetLocalTime = new Date(targetLocalStr + "Z").getTime();
+    const offset = targetLocalTime - tempUtc.getTime();
+    const realUtc = new Date(tempUtc.getTime() - offset);
+    return realUtc.toISOString();
+  } catch (e) {
+    return d.toISOString();
+  }
 }
 
-const shortDate = new Date().toISOString().slice(5, 10);
+function getShortDate(timeZone: string): string {
+  try {
+    return new Date().toLocaleString('sv-SE', { timeZone }).split(' ')[0];
+  } catch (e) {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
 
-export function parseAgentInput(input: string, state: LifeOSState): AgentMutation {
+export function parseAgentInput(input: string, state: LifeOSState, timeZone: string = 'UTC'): AgentMutation {
   const text = input.trim();
 
   if (/(密碼|password|帳號|account)/i.test(text) && /(新增|加入|保存|記住|vault|密碼庫)/i.test(text)) {
@@ -57,7 +73,7 @@ export function parseAgentInput(input: string, state: LifeOSState): AgentMutatio
       message: `已記錄消費：NT$ ${amount || 0}`,
       entry: {
         id: Date.now(),
-        date: getCurrentLocalTime(),
+        date: getCurrentLocalTime(timeZone),
         amount: amount || 0,
         category,
         note: text
@@ -69,7 +85,7 @@ export function parseAgentInput(input: string, state: LifeOSState): AgentMutatio
     const pairs = text.match(/\d+(?:\.\d+)?/g) ?? [];
     const latest = state.health[state.health.length - 1];
     const next: HealthEntry = {
-      date: shortDate,
+      date: getShortDate(timeZone),
       sys: latest?.sys ?? 120,
       dia: latest?.dia ?? 80,
       hr: latest?.hr ?? 72,
@@ -106,14 +122,14 @@ export function parseAgentInput(input: string, state: LifeOSState): AgentMutatio
     message: "已新增隨手日記",
     entry: {
       id: Date.now(),
-      date: getCurrentLocalTime(),
+      date: getCurrentLocalTime(timeZone),
       content: text,
       tags: inferTags(text)
     }
   };
 }
 
-export function hydrateAgentMutation(value: SerializedAgentMutation, state: LifeOSState): AgentMutation {
+export function hydrateAgentMutation(value: SerializedAgentMutation, state: LifeOSState, timeZone: string = 'UTC'): AgentMutation {
   switch (value.kind) {
     case "expense":
       return {
@@ -121,7 +137,7 @@ export function hydrateAgentMutation(value: SerializedAgentMutation, state: Life
         message: value.message ?? `已記錄消費：NT$ ${value.entry.amount}`,
         entry: {
           id: Date.now(),
-          date: value.entry.date ?? getCurrentLocalTime(),
+          date: value.entry.date ?? getCurrentLocalTime(timeZone),
           amount: Number(value.entry.amount) || 0,
           category: value.entry.category || "AI 自動",
           note: value.entry.note || "",
@@ -133,7 +149,7 @@ export function hydrateAgentMutation(value: SerializedAgentMutation, state: Life
         kind: "health",
         message: value.message ?? `已更新健康資料：${value.entry.sys}/${value.entry.dia}，心跳 ${value.entry.hr}`,
         entry: {
-          date: value.entry.date ?? shortDate,
+          date: value.entry.date ?? getShortDate(timeZone),
           sys: Number(value.entry.sys) || latest?.sys || 120,
           dia: Number(value.entry.dia) || latest?.dia || 80,
           hr: Number(value.entry.hr) || latest?.hr || 72,
@@ -147,7 +163,7 @@ export function hydrateAgentMutation(value: SerializedAgentMutation, state: Life
         message: value.message ?? "已新增隨手日記",
         entry: {
           id: Date.now(),
-          date: value.entry.date ?? getCurrentLocalTime(),
+          date: value.entry.date ?? getCurrentLocalTime(timeZone),
           content: value.entry.content,
           tags: value.entry.tags?.length ? value.entry.tags : ["隨記"],
         },

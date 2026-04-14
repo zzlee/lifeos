@@ -49,7 +49,7 @@ export async function resolveSession(
 
       if (apiKey) {
         const user = await env.DB.prepare(
-          "SELECT id, email, name FROM users WHERE id = ?"
+          "SELECT id, email, name, timezone FROM users WHERE id = ?"
         ).bind(apiKey.user_id).first<UserProfile>();
 
         if (user) {
@@ -175,6 +175,7 @@ export async function completeGoogleOAuth(
     id: `google-${googleUser.sub}`,
     email: googleUser.email,
     name: googleUser.name,
+    timezone: "UTC",
   };
 
   if (env.DB) {
@@ -251,8 +252,8 @@ async function signString(value: string, secret: string): Promise<string> {
 
 async function ensureUser(db: D1Database, user: UserProfile): Promise<void> {
   await db
-    .prepare("INSERT OR IGNORE INTO users (id, email, name) VALUES (?, ?, ?)")
-    .bind(user.id, user.email, user.name)
+    .prepare("INSERT OR IGNORE INTO users (id, email, name, timezone) VALUES (?, ?, ?, ?)")
+    .bind(user.id, user.email, user.name, user.timezone || "UTC")
     .run();
 }
 
@@ -261,7 +262,7 @@ function readUserFromHeaders(headers: Headers): UserProfile | null {
   const email = headers.get("x-lifeos-user-email");
   const name = headers.get("x-lifeos-user-name");
   if (!id || !email || !name) return null;
-  return { id, email, name };
+  return { id, email, name, timezone: headers.get("x-lifeos-user-timezone") || "UTC" };
 }
 
 function readCookie(headers: Headers, name: string): string | null {
