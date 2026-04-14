@@ -217,8 +217,7 @@ export async function createVaultItem(
 }
 
 export function maskSecret(secret: string): string {
-  if (secret.length <= 4) return "****";
-  return `${secret.slice(0, 2)}••••${secret.slice(-2)}`;
+  return "********";
 }
 
 export async function getExpenses(
