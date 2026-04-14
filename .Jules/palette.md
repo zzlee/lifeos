@@ -3,3 +3,6 @@
 **Action:** Added a loading state (`⏳` and `disabled`) to the AI submit button, disabled the input field while processing, and added `aria-label="關閉"` to modal close (`✕`) buttons to improve screen reader accessibility. Ensure all future async interactions have a loading state to prevent user friction.## 2024-04-12 - Input Overflow and Default Values in Modals
 **Learning:** Inputs within flexbox containers (`.form-row` -> `.form-group`) can overflow the modal boundaries if they lack a defined width, especially on mobile viewports. Additionally, numeric inputs initializing with non-zero defaults (like `120`/`80` for blood pressure) force users to manually clear them before entering new data, causing friction.
 **Action:** Added `width: 100%` to `.form-group input` to constrain them within their flex containers. Updated initial states to `0` and bound input values to show empty (`value={state || ""}`) to allow quick data entry, and added `onFocus={e => e.target.select()}` for faster modification of existing values.
+## 2026-04-14 - Modal form group flex shrinkage
+**Learning:** In a flex container context, inputs and textareas can overflow their parent container boundaries on small viewports unless explicitly constrained.
+**Action:** Applied `min-width: 0` to `.form-group` flex children and `width: 100%` to inputs and textareas to enforce proper shrinkage.
