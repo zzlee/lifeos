@@ -347,7 +347,7 @@ export default function App() {
   }
 
   function openEditHealth(entry: { date: string; sys: number; dia: number; hr: number; weight?: number; id?: number } | any) {
-    const formattedDate = toLocalInputString(entry.date, user.timezone, 'date');
+    const formattedDate = toLocalInputString(entry.date, user.timezone, 'datetime-local');
     setNewHealthEntry({ sys: entry.sys, dia: entry.dia, hr: entry.hr, weight: entry.weight ?? 0, date: formattedDate });
     // In Health we edit by id if it exists, otherwise fallback to date (although date shouldn't be used as ID in new logic)
     setEditingHealthId(entry.id || entry.date as any);
@@ -355,7 +355,7 @@ export default function App() {
   }
 
   function openNewHealth() {
-    const today = getCurrentLocalInputString(user.timezone, 'date');
+    const today = getCurrentLocalInputString(user.timezone, 'datetime-local');
     setNewHealthEntry({ sys: 120, dia: 80, hr: 72, weight: 0, date: today });
     setEditingHealthId(null);
     setIsHealthModalOpen(true);
@@ -595,44 +595,42 @@ export default function App() {
                   <h4>健康紀錄</h4>
                 </div>
                 <div className="table-wrap" style={{ display: 'block' }}>
-                  <div style={{ minWidth: '600px' }}>
-                    {data.health.length > 0 ? (() => {
-                      const HealthRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
-                        const item = data.health[index];
-                        return (
-                          <div onClick={() => openEditHealth(item)} style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
-                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                              <div style={{ color: '#64748b', fontSize: '0.8rem', marginBottom: '4px' }}>
-                                {toLocalDisplayTime(item.date, user.timezone)}
-                              </div>
-                              <div style={{ display: 'flex', gap: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.9rem', color: '#334155' }}>
-                                <span>血壓: {item.sys}/{item.dia}</span>
-                                <span>心跳: {item.hr}</span>
-                                <span>體重: {item.weight ?? "-"}</span>
-                              </div>
+                  {data.health.length > 0 ? (() => {
+                    const HealthRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
+                      const item = data.health[index];
+                      return (
+                        <div onClick={() => openEditHealth(item)} style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <div style={{ color: '#64748b', fontSize: '0.8rem', marginBottom: '4px' }}>
+                              {toLocalDisplayTime(item.date, user.timezone)}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                              <div className="table-actions">
-                                <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteHealth(item.date); }} title="刪除">🗑️</button>
-                              </div>
+                            <div style={{ display: 'flex', gap: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.9rem', color: '#334155' }}>
+                              <span>血壓: {item.sys}/{item.dia}</span>
+                              <span>心跳: {item.hr}</span>
+                              <span>體重: {item.weight ?? "-"}</span>
                             </div>
                           </div>
-                        );
-                      };
-                      return (
-                        <List
-                          height={400}
-                          itemCount={data.health.length}
-                          itemSize={70}
-                          width="100%"
-                        >
-                          {HealthRow}
-                        </List>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                            <div className="table-actions">
+                              <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteHealth(item.date); }} title="刪除">🗑️</button>
+                            </div>
+                          </div>
+                        </div>
                       );
-                    })() : (
-                      <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>尚無資料</div>
-                    )}
-                  </div>
+                    };
+                    return (
+                      <List
+                        height={400}
+                        itemCount={data.health.length}
+                        itemSize={70}
+                        width="100%"
+                      >
+                        {HealthRow}
+                      </List>
+                    );
+                  })() : (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>尚無資料</div>
+                  )}
                 </div>
               </div>
             </section>
@@ -957,9 +955,9 @@ export default function App() {
             </div>
             <form onSubmit={handleSaveHealth} className="modal-form">
               <div className="form-group">
-                <label>日期</label>
+                <label>日期與時間</label>
                 <input 
-                  type="date"
+                  type="datetime-local"
                   required 
                   value={newHealthEntry.date} 
                   onChange={e => setNewHealthEntry({...newHealthEntry, date: e.target.value})}
