@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
 import { FixedSizeList as List } from "react-window";
 import { toLocalDisplayDate, toLocalDisplayTime, toLocalInputString, getCurrentLocalInputString, localInputToUtcString } from "./lib/timeUtils";
-import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./lib/api";
-import type { Expense, HealthEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
+import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals } from "./lib/api";
+import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
   { id: "overview", title: "總覽面板", mobile: "總覽", icon: "🏠" },
@@ -60,6 +60,11 @@ export default function App() {
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
   const [editingJournalId, setEditingJournalId] = useState<number | null>(null);
   const [newJournalEntry, setNewJournalEntry] = useState({ content: "", tags: "" });
+  const [journalList, setJournalList] = useState<JournalEntry[]>([]);
+  const [journalPage, setJournalPage] = useState(0);
+  const [hasMoreJournals, setHasMoreJournals] = useState(false);
+  const [isLoadingJournals, setIsLoadingJournals] = useState(false);
+  const [journalRefreshTrigger, setJournalRefreshTrigger] = useState(0);
 
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<number | null>(null);
@@ -91,6 +96,29 @@ export default function App() {
       loadKeys();
     }
   }, [view]);
+
+  useEffect(() => {
+    if (view === "journal") {
+      setIsLoadingJournals(true);
+      const limit = 20;
+      fetchJournals(limit, journalPage * limit)
+        .then((res) => {
+          setJournalList((prev) => {
+            if (journalPage === 0) return res.journals;
+            const newJournals = [...prev];
+            res.journals.forEach(j => {
+              if (!newJournals.some(existingJournal => existingJournal.id === j.id)) {
+                newJournals.push(j);
+              }
+            });
+            return newJournals;
+          });
+          setHasMoreJournals(res.journals.length === limit);
+        })
+        .catch((err) => console.error("Failed to fetch journals:", err))
+        .finally(() => setIsLoadingJournals(false));
+    }
+  }, [view, journalPage, journalRefreshTrigger]);
 
   async function loadKeys() {
     const res = await fetchApiKeys();
@@ -210,6 +238,10 @@ export default function App() {
       }
       const snapshot = await fetchDashboardSnapshot();
       setData(snapshot.data);
+      if (view === "journal") {
+        setJournalPage(0);
+        setJournalRefreshTrigger((t) => t + 1);
+      }
       setNewJournalEntry({ content: "", tags: "" });
       setIsJournalModalOpen(false);
       setEditingJournalId(null);
@@ -236,6 +268,10 @@ export default function App() {
       await deleteJournal(id);
       const snapshot = await fetchDashboardSnapshot();
       setData(snapshot.data);
+      if (view === "journal") {
+        setJournalPage(0);
+        setJournalRefreshTrigger((t) => t + 1);
+      }
       setToast({ visible: true, message: "日記已刪除" });
     } catch (err: any) {
       alert(`刪除失敗: ${err.message}`);
@@ -563,10 +599,21 @@ export default function App() {
                 action={<button className="primary-button" onClick={openNewJournal}>+ 新增日記</button>}
               />
               <div className="card-grid">
-                {data.journals.map((entry) => (
+                {journalList.map((entry) => (
                   <JournalCard key={entry.id} entry={entry} onClick={() => openEditJournal(entry)} onDelete={(e) => { e.stopPropagation(); handleDeleteJournal(entry.id); }} timezone={user.timezone} />
                 ))}
               </div>
+              {hasMoreJournals && (
+                <div style={{ textAlign: "center", marginTop: "1rem" }}>
+                  <button
+                    className="secondary-button"
+                    onClick={() => setJournalPage(p => p + 1)}
+                    disabled={isLoadingJournals}
+                  >
+                    {isLoadingJournals ? "載入中..." : "載入更多"}
+                  </button>
+                </div>
+              )}
             </section>
           )}
 
