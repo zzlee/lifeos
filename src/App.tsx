@@ -334,10 +334,10 @@ export default function App() {
     }
   }
 
-  async function handleDeleteHealth(date: string) {
+  async function handleDeleteHealth(id: number) {
     if (!confirm("確定要刪除此健康紀錄嗎？")) return;
     try {
-      await deleteHealthRecord(date as any);
+      await deleteHealthRecord(id);
       const snapshot = await fetchDashboardSnapshot();
       setData(snapshot.data);
       setToast({ visible: true, message: "健康紀錄已刪除" });
@@ -346,11 +346,10 @@ export default function App() {
     }
   }
 
-  function openEditHealth(entry: { date: string; sys: number; dia: number; hr: number; weight?: number; id?: number } | any) {
+  function openEditHealth(entry: HealthEntry) {
     const formattedDate = toLocalInputString(entry.date, user.timezone, 'datetime-local');
     setNewHealthEntry({ sys: entry.sys, dia: entry.dia, hr: entry.hr, weight: entry.weight ?? 0, date: formattedDate });
-    // In Health we edit by id if it exists, otherwise fallback to date (although date shouldn't be used as ID in new logic)
-    setEditingHealthId(entry.id || entry.date as any);
+    setEditingHealthId(entry.id);
     setIsHealthModalOpen(true);
   }
 
@@ -612,7 +611,7 @@ export default function App() {
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                             <div className="table-actions">
-                              <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteHealth(item.date); }} title="刪除">🗑️</button>
+                              <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteHealth(item.id); }} title="刪除">🗑️</button>
                             </div>
                           </div>
                         </div>
