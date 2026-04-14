@@ -156,7 +156,10 @@ export async function completeGoogleOAuth(
 
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "LifeOS/1.0"
+    },
     body: new URLSearchParams({
       code,
       client_id: env.GOOGLE_CLIENT_ID,
@@ -172,7 +175,10 @@ export async function completeGoogleOAuth(
 
   const tokens = (await tokenResponse.json()) as GoogleTokenResponse;
   const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
-    headers: { Authorization: `Bearer ${tokens.access_token}` },
+    headers: {
+      Authorization: `Bearer ${tokens.access_token}`,
+      "User-Agent": "LifeOS/1.0"
+    },
   });
 
   if (!profileResponse.ok) {
