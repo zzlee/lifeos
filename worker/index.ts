@@ -403,7 +403,55 @@ app.delete("/api/health/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+app.post("/api/line/webhook", async (c) => {
+  if (!c.env.LINE_CHANNEL_SECRET || !c.env.LINE_CHANNEL_ACCESS_TOKEN) {
+    return c.json({ error: "Line configuration missing" }, 500);
+  }
+
+  const signature = c.req.header("x-line-signature");
+  const body = await c.req.text();
+
+  if (!signature) return c.text("No signature", 400);
+
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(c.env.LINE_CHANNEL_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const signatureBuffer = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
+  const calculatedSignature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+
+  if (signature !== calculatedSignature) {
+    return c.text("Invalid signature", 401);
+  }
+
+  const events = JSON.parse(body).events;
+  for (const event of events) {
+    if (event.type === "message" && event.message.type === "text") {
+      const userMessage = event.message.text;
+      await fetch("https://api.line.me/v2/bot/message/reply", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${c.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+        },
+        body: JSON.stringify({
+          replyToken: event.replyToken,
+          messages: [{ type: "text", text: `ECHO ${userMessage}` }],
+        }),
+      });
+    }
+  }
+
+  return c.text("OK");
+});
+
 app.notFound(async (c) => {
+
   if (c.req.path.startsWith("/api/")) {
     return c.text("LifeOS Worker: Route not found. Are you calling an API endpoint?", 404);
   }
