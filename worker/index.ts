@@ -435,8 +435,7 @@ app.post("/api/line/webhook", async (c) => {
     ["sign"]
   );
   const signatureBuffer = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
-  const calculatedSignature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  const calculatedSignature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
 
   if (signature !== calculatedSignature) {
     return c.text("Invalid signature", 401);
