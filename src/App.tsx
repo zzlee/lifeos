@@ -81,11 +81,19 @@ export default function App() {
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchSession().then((session) => {
-      setUser(session.user ?? defaultUser);
-      setIsAuthenticated(session.authenticated);
-    });
-    fetchDashboardSnapshot().then((snapshot) => setData(snapshot.data));
+    fetchSession()
+      .then((session) => {
+        setUser(session.user ?? defaultUser);
+        setIsAuthenticated(session.authenticated);
+      })
+      .catch(() => {
+        setIsAuthenticated(false);
+      });
+    fetchDashboardSnapshot()
+      .then((snapshot) => setData(snapshot.data))
+      .catch(() => {
+        // Silently fail dashboard fetch if not authenticated
+      });
   }, []);
 
   useEffect(() => {
@@ -409,10 +417,15 @@ export default function App() {
   }
 
   async function handleLogout() {
-    await logout();
-    setUser(defaultUser);
-    setIsAuthenticated(false);
-    setData(emptyState);
+    try {
+      await logout();
+    } catch (err) {
+      console.error("Logout API failed:", err);
+    } finally {
+      setUser(defaultUser);
+      setIsAuthenticated(false);
+      setData(emptyState);
+    }
   }
 
   return (
