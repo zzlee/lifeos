@@ -123,8 +123,7 @@ app.put("/api/auth/profile", async (c) => {
 });
 
 app.post("/api/auth/logout", async (c) => {
-  deleteCookie(c, "lifeos_session", { path: "/" });
-  c.header("Set-Cookie", clearSessionCookie());
+  deleteCookie(c, "lifeos_session", { path: "/", secure: true, httpOnly: true, sameSite: "Lax" });
   return c.json(createLogoutResponse() satisfies AuthMutationResponse);
 });
 
