@@ -104,12 +104,13 @@ export function createLogoutResponse(): AuthMutationResponse {
 }
 
 export function serializeSessionCookie(token: string): string {
-  // Use SameSite=None and Secure for cross-site cookie support between pages.dev and workers.dev
-  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=604800`;
+  // Use SameSite=Lax and Secure for standard use. 
+  // Since frontend and backend are now unified on the same domain, SameSite=Lax is sufficient and’s safer.
+  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=604800`;
 }
 
 export function clearSessionCookie(): string {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=0`;
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=0`;
 }
 
 export async function getGoogleAuthStartUrl(env: Env, requestUrl: string): Promise<string | null> {
