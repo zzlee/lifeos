@@ -16,32 +16,26 @@ import type { VaultItem } from "./types";
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
 
-if (!apiBase && import.meta.env.PROD) {
-  console.error(
-    "Critical Configuration Error: VITE_API_BASE_URL is not defined.\n" +
-    "The frontend will not be able to connect to the backend Worker.\n" +
-    "Please set this environment variable in the Cloudflare Pages Dashboard."
-  );
-}
+const getUrl = (path: string) => (apiBase ? `${apiBase}${path}` : path);
 
 export function isApiConfigured(): boolean {
   return apiBase === "" || apiBase.startsWith("https");
 }
 
 export async function fetchDashboardSnapshot(): Promise<DashboardSnapshotResponse> {
-  const response = await fetch(`${apiBase}/api/dashboard`, { credentials: "include" });
+  const response = await fetch(getUrl("/api/dashboard"), { credentials: "include" });
   if (!response.ok) throw new Error(`dashboard ${response.status}`);
   return (await response.json()) as DashboardSnapshotResponse;
 }
 
 export async function fetchSession(): Promise<SessionResponse> {
-  const response = await fetch(`${apiBase}/api/session`, { credentials: "include" });
+  const response = await fetch(getUrl("/api/session"), { credentials: "include" });
   if (!response.ok) throw new Error(`session ${response.status}`);
   return (await response.json()) as SessionResponse;
 }
 
 export async function sendAgentCommand(command: string): Promise<AgentCommandResponse> {
-  const response = await fetch(`${apiBase}/api/agent`, {
+  const response = await fetch(getUrl("/api/agent"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -52,13 +46,13 @@ export async function sendAgentCommand(command: string): Promise<AgentCommandRes
 }
 
 export async function fetchApiKeys(): Promise<ApiKeyListResponse> {
-  const response = await fetch(`${apiBase}/api/auth/keys`, { credentials: "include" });
+  const response = await fetch(getUrl("/api/auth/keys"), { credentials: "include" });
   if (!response.ok) throw new Error(`fetch keys ${response.status}`);
   return (await response.json()) as ApiKeyListResponse;
 }
 
 export async function createApiKey(name: string): Promise<{ ok: boolean; key: string }> {
-  const response = await fetch(`${apiBase}/api/auth/keys`, {
+  const response = await fetch(getUrl("/api/auth/keys"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -69,7 +63,7 @@ export async function createApiKey(name: string): Promise<{ ok: boolean; key: st
 }
 
 export async function deleteApiKey(id: string): Promise<{ ok: boolean }> {
-  const response = await fetch(`${apiBase}/api/auth/keys/${id}`, {
+  const response = await fetch(getUrl(`/api/auth/keys/${id}`), {
     method: "DELETE",
     credentials: "include"
   });
@@ -78,13 +72,13 @@ export async function deleteApiKey(id: string): Promise<{ ok: boolean }> {
 }
 
 export async function fetchVaultSecret(item: VaultItem): Promise<VaultSecretResponse> {
-  const response = await fetch(`${apiBase}/api/vault/${item.id}/secret`, { credentials: "include" });
+  const response = await fetch(getUrl(`/api/vault/${item.id}/secret`), { credentials: "include" });
   if (!response.ok) throw new Error(`vault ${response.status}`);
   return (await response.json()) as VaultSecretResponse;
 }
 
 export async function createVaultItem(entry: { site: string; username: string; secret: string }): Promise<DashboardSnapshotResponse> {
-  const response = await fetch(`${apiBase}/api/vault`, {
+  const response = await fetch(getUrl("/api/vault"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -95,7 +89,7 @@ export async function createVaultItem(entry: { site: string; username: string; s
 }
 
 export async function updateVaultItem(id: number, entry: { site: string; username: string; secret: string }): Promise<{ ok: boolean }> {
-  const response = await fetch(`${apiBase}/api/vault/${id}`, {
+  const response = await fetch(getUrl(`/api/vault/${id}`), {
     method: "PUT",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -106,7 +100,7 @@ export async function updateVaultItem(id: number, entry: { site: string; usernam
 }
 
 export async function deleteVaultItem(id: number): Promise<{ ok: boolean }> {
-  const response = await fetch(`${apiBase}/api/vault/${id}`, {
+  const response = await fetch(getUrl(`/api/vault/${id}`), {
     method: "DELETE",
     credentials: "include"
   });
@@ -115,13 +109,13 @@ export async function deleteVaultItem(id: number): Promise<{ ok: boolean }> {
 }
 
 export async function fetchJournals(limit: number = 20, offset: number = 0): Promise<JournalListResponse> {
-  const response = await fetch(`${apiBase}/api/journals?limit=${limit}&offset=${offset}`, { credentials: "include" });
+  const response = await fetch(getUrl(`/api/journals?limit=${limit}&offset=${offset}`), { credentials: "include" });
   if (!response.ok) throw new Error(`fetch journals ${response.status}`);
   return (await response.json()) as JournalListResponse;
 }
 
 export async function createJournal(entry: { content: string; tags: string[] }): Promise<JournalMutationResponse> {
-  const response = await fetch(`${apiBase}/api/journals`, {
+  const response = await fetch(getUrl("/api/journals"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -132,7 +126,7 @@ export async function createJournal(entry: { content: string; tags: string[] }):
 }
 
 export async function updateJournal(id: number, entry: { content: string; tags: string[] }): Promise<JournalMutationResponse> {
-  const response = await fetch(`${apiBase}/api/journals/${id}`, {
+  const response = await fetch(getUrl(`/api/journals/${id}`), {
     method: "PUT",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -143,7 +137,7 @@ export async function updateJournal(id: number, entry: { content: string; tags: 
 }
 
 export async function deleteJournal(id: number): Promise<JournalMutationResponse> {
-  const response = await fetch(`${apiBase}/api/journals/${id}`, {
+  const response = await fetch(getUrl(`/api/journals/${id}`), {
     method: "DELETE",
     credentials: "include"
   });
@@ -152,13 +146,13 @@ export async function deleteJournal(id: number): Promise<JournalMutationResponse
 }
 
 export async function fetchExpenses(limit: number = 20, offset: number = 0): Promise<ExpenseListResponse> {
-  const response = await fetch(`${apiBase}/api/expenses?limit=${limit}&offset=${offset}`, { credentials: "include" });
+  const response = await fetch(getUrl(`/api/expenses?limit=${limit}&offset=${offset}`), { credentials: "include" });
   if (!response.ok) throw new Error(`fetch expenses ${response.status}`);
   return (await response.json()) as ExpenseListResponse;
 }
 
 export async function createExpense(entry: { amount: number; category: string; note: string; date: string }): Promise<ExpenseMutationResponse> {
-  const response = await fetch(`${apiBase}/api/expenses`, {
+  const response = await fetch(getUrl("/api/expenses"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -169,7 +163,7 @@ export async function createExpense(entry: { amount: number; category: string; n
 }
 
 export async function updateExpense(id: number, entry: { amount: number; category: string; note: string; date: string }): Promise<ExpenseMutationResponse> {
-  const response = await fetch(`${apiBase}/api/expenses/${id}`, {
+  const response = await fetch(getUrl(`/api/expenses/${id}`), {
     method: "PUT",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -180,7 +174,7 @@ export async function updateExpense(id: number, entry: { amount: number; categor
 }
 
 export async function deleteExpense(id: number): Promise<ExpenseMutationResponse> {
-  const response = await fetch(`${apiBase}/api/expenses/${id}`, {
+  const response = await fetch(getUrl(`/api/expenses/${id}`), {
     method: "DELETE",
     credentials: "include"
   });
@@ -189,13 +183,13 @@ export async function deleteExpense(id: number): Promise<ExpenseMutationResponse
 }
 
 export async function fetchHealthRecords(limit: number = 30, offset: number = 0): Promise<HealthListResponse> {
-  const response = await fetch(`${apiBase}/api/health?limit=${limit}&offset=${offset}`, { credentials: "include" });
+  const response = await fetch(getUrl(`/api/health?limit=${limit}&offset=${offset}`), { credentials: "include" });
   if (!response.ok) throw new Error(`fetch health ${response.status}`);
   return (await response.json()) as HealthListResponse;
 }
 
 export async function createHealthRecord(entry: { sys: number; dia: number; hr: number; weight?: number; date: string }): Promise<HealthMutationResponse> {
-  const response = await fetch(`${apiBase}/api/health`, {
+  const response = await fetch(getUrl("/api/health"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -206,7 +200,7 @@ export async function createHealthRecord(entry: { sys: number; dia: number; hr: 
 }
 
 export async function updateHealthRecord(id: number, entry: { sys: number; dia: number; hr: number; weight?: number; date: string }): Promise<HealthMutationResponse> {
-  const response = await fetch(`${apiBase}/api/health/${id}`, {
+  const response = await fetch(getUrl(`/api/health/${id}`), {
     method: "PUT",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -217,7 +211,7 @@ export async function updateHealthRecord(id: number, entry: { sys: number; dia: 
 }
 
 export async function deleteHealthRecord(id: number): Promise<HealthMutationResponse> {
-  const response = await fetch(`${apiBase}/api/health/${id}`, {
+  const response = await fetch(getUrl(`/api/health/${id}`), {
     method: "DELETE",
     credentials: "include"
   });
@@ -226,7 +220,7 @@ export async function deleteHealthRecord(id: number): Promise<HealthMutationResp
 }
 
 export async function logout(): Promise<AuthMutationResponse> {
-  const response = await fetch(`${apiBase}/api/auth/logout`, {
+  const response = await fetch(getUrl("/api/auth/logout"), {
     method: "POST",
     credentials: "include",
   });
@@ -235,12 +229,11 @@ export async function logout(): Promise<AuthMutationResponse> {
 }
 
 export function getGoogleLoginUrl(): string {
-  const origin = window.location.origin;
-  return `${apiBase}/api/auth/google/start?from=${encodeURIComponent(origin)}`;
+  return getUrl(`/api/auth/google/start?from=${encodeURIComponent(window.location.origin)}`);
 }
 
 export async function updateUserProfile(timezone: string): Promise<{ ok: boolean }> {
-  const response = await fetch(`${apiBase}/api/auth/profile`, {
+  const response = await fetch(getUrl("/api/auth/profile"), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ timezone }),
