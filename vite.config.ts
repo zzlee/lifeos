@@ -8,6 +8,9 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icon-192.png", "icon-512.png"],
+      workbox: {
+        navigateFallbackDenylist: [/^\/api/]
+      },
       manifest: {
         name: "LifeOS",
         short_name: "LifeOS",

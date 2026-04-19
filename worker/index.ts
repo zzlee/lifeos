@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { deleteCookie } from "hono/cookie";
 import type {
   AgentCommandRequest,
   AgentCommandResponse,
@@ -123,7 +122,7 @@ app.put("/api/auth/profile", async (c) => {
 });
 
 app.post("/api/auth/logout", async (c) => {
-  deleteCookie(c, "lifeos_session", { path: "/", secure: true, httpOnly: true, sameSite: "Lax" });
+  c.header("Set-Cookie", clearSessionCookie(), { append: true });
   return c.json(createLogoutResponse() satisfies AuthMutationResponse);
 });
 
@@ -151,7 +150,7 @@ app.get("/api/auth/google/callback", async (c) => {
 
   try {
     const result = await completeGoogleOAuth(c.env, code, state);
-    c.header("Set-Cookie", result.cookie);
+    c.header("Set-Cookie", result.cookie, { append: true });
     return c.redirect(result.redirectUrl, 302);
   } catch (oauthError) {
     const message = oauthError instanceof Error ? oauthError.message : "OAuth callback failed";
