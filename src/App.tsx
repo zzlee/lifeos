@@ -967,6 +967,7 @@ export default function App() {
                   required 
                   value={newExpenseEntry.amount} 
                   onChange={e => setNewExpenseEntry({...newExpenseEntry, amount: Number(e.target.value)})}
+                  onFocus={e => e.target.select()}
                   placeholder="NT$ 金額"
                 />
               </div>
@@ -1030,6 +1031,7 @@ export default function App() {
                     required 
                     value={newHealthEntry.sys} 
                     onChange={e => setNewHealthEntry({...newHealthEntry, sys: Number(e.target.value)})}
+                    onFocus={e => e.target.select()}
                     placeholder="120"
                   />
                 </div>
@@ -1040,6 +1042,7 @@ export default function App() {
                     required 
                     value={newHealthEntry.dia} 
                     onChange={e => setNewHealthEntry({...newHealthEntry, dia: Number(e.target.value)})}
+                    onFocus={e => e.target.select()}
                     placeholder="80"
                   />
                 </div>
@@ -1052,6 +1055,7 @@ export default function App() {
                     required 
                     value={newHealthEntry.hr} 
                     onChange={e => setNewHealthEntry({...newHealthEntry, hr: Number(e.target.value)})}
+                    onFocus={e => e.target.select()}
                     placeholder="72"
                   />
                 </div>
@@ -1062,6 +1066,7 @@ export default function App() {
                     step="0.1"
                     value={newHealthEntry.weight || ""} 
                     onChange={e => setNewHealthEntry({...newHealthEntry, weight: e.target.value ? Number(e.target.value) : 0})}
+                    onFocus={e => e.target.select()}
                     placeholder="選填"
                   />
                 </div>
