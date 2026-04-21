@@ -243,18 +243,29 @@ app.put("/api/vault/:id", async (c) => {
   const session = await resolveSession(c.env, c.req.raw.headers);
   if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
 
-  const encrypted = await encryptSecret(body.secret, c.env.VAULT_MASTER_KEY);
-  await c.env.DB.prepare(
-    "UPDATE vault_items SET site = ?, username = ?, secret_ciphertext = ?, secret_iv = ?, secret_preview = ? WHERE id = ? AND user_id = ?"
-  ).bind(
-    body.site,
-    body.username,
-    encrypted.ciphertext,
-    encrypted.iv,
-    maskSecret(body.secret),
-    vaultId,
-    session.user.id
-  ).run();
+  if (body.secret) {
+    const encrypted = await encryptSecret(body.secret, c.env.VAULT_MASTER_KEY);
+    await c.env.DB.prepare(
+      "UPDATE vault_items SET site = ?, username = ?, secret_ciphertext = ?, secret_iv = ?, secret_preview = ? WHERE id = ? AND user_id = ?"
+    ).bind(
+      body.site,
+      body.username,
+      encrypted.ciphertext,
+      encrypted.iv,
+      maskSecret(body.secret),
+      vaultId,
+      session.user.id
+    ).run();
+  } else {
+    await c.env.DB.prepare(
+      "UPDATE vault_items SET site = ?, username = ? WHERE id = ? AND user_id = ?"
+    ).bind(
+      body.site,
+      body.username,
+      vaultId,
+      session.user.id
+    ).run();
+  }
 
   return c.json({ ok: true });
 });
