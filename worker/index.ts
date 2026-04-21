@@ -36,7 +36,7 @@ app.use("/api/*", async (c, next) => {
   return corsHandler(c, next);
 });
 
-app.get("/api/health", (c) =>
+app.get("/api/ping", (c) =>
   c.json({
     ok: true,
     service: "lifeos-worker",
