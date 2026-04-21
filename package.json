@@ -33,7 +33,7 @@
     "typescript": "^5.9.3",
     "vite": "^7.0.0",
     "vite-plugin-pwa": "^1.2.0",
-    "wrangler": "^4.81.1"
+    "wrangler": "^4.83.0"
   },
   "description": "LifeOS is a personal digital life dashboard that consolidates finance logs, journal entries, health records, and a lightweight vault behind a single AI-style input surface.",
   "main": "index.js",
