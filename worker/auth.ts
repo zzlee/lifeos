@@ -213,13 +213,13 @@ export async function completeGoogleOAuth(
   };
 }
 
-async function signSessionToken(payload: SessionTokenPayload, secret: string): Promise<string> {
+export async function signSessionToken(payload: SessionTokenPayload, secret: string): Promise<string> {
   const body = base64UrlEncode(JSON.stringify(payload));
   const signature = await signString(body, secret);
   return `${body}.${signature}`;
 }
 
-async function verifySessionToken(token: string, secret: string): Promise<SessionTokenPayload | null> {
+export async function verifySessionToken(token: string, secret: string): Promise<SessionTokenPayload | null> {
   const [body, signature] = token.split(".");
   if (!body || !signature) return null;
 
@@ -231,7 +231,7 @@ async function verifySessionToken(token: string, secret: string): Promise<Sessio
   return parsed;
 }
 
-async function createOAuthState(origin: string, secret: string): Promise<string> {
+export async function createOAuthState(origin: string, secret: string): Promise<string> {
   const payload: OAuthStatePayload = {
     origin,
     exp: Date.now() + OAUTH_STATE_TTL_MS,
@@ -242,7 +242,7 @@ async function createOAuthState(origin: string, secret: string): Promise<string>
   return `${body}.${signature}`;
 }
 
-async function verifyOAuthState(state: string, secret: string): Promise<OAuthStatePayload | null> {
+export async function verifyOAuthState(state: string, secret: string): Promise<OAuthStatePayload | null> {
   const [body, signature] = state.split(".");
   if (!body || !signature) return null;
 

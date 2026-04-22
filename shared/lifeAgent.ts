@@ -106,8 +106,8 @@ export function parseAgentInput(input: string, state: LifeOSState, timeZone: str
       next.hr = Number(pairs[2]);
     }
 
-    if (/(體重|kg|KG)/.test(text)) {
-      const weightMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:kg|KG|公斤)?/);
+    if (/(體重|kg|KG)/i.test(text)) {
+      const weightMatch = text.match(/(?:體重)\D*?(\d+(?:\.\d+)?)/) || text.match(/(\d+(?:\.\d+)?)\s*(?:kg|KG|公斤)/i);
       if (weightMatch) next.weight = Number(weightMatch[1]);
     }
 
