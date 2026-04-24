@@ -566,7 +566,17 @@ export default function App() {
                       const FinanceRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
                         const item = data.finance[index];
                         return (
-                          <div onClick={() => openEditExpense(item)} style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => openEditExpense(item)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                openEditExpense(item);
+                              }
+                            }}
+                            style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
                             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
                                 <span className="tag neutral" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>{item.category}</span>
@@ -579,7 +589,7 @@ export default function App() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                               <div className="strong" style={{ fontSize: '1rem' }}>NT$ {item.amount}</div>
                               <div className="table-actions">
-                                <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteExpense(item.id); }} title="刪除">🗑️</button>
+                                <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteExpense(item.id); }} title="刪除" aria-label="刪除消費">🗑️</button>
                               </div>
                             </div>
                           </div>
@@ -658,7 +668,17 @@ export default function App() {
                     const HealthRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
                       const item = data.health[index];
                       return (
-                        <div onClick={() => openEditHealth(item)} style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openEditHealth(item)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              openEditHealth(item);
+                            }
+                          }}
+                          style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
                           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                             <div style={{ color: '#64748b', fontSize: '0.8rem', marginBottom: '4px' }}>
                               {toLocalDisplayTime(item.date, user.timezone)}
@@ -671,7 +691,7 @@ export default function App() {
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                             <div className="table-actions">
-                              <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteHealth(item.id); }} title="刪除">🗑️</button>
+                              <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteHealth(item.id); }} title="刪除" aria-label="刪除健康紀錄">🗑️</button>
                             </div>
                           </div>
                         </div>
@@ -727,13 +747,13 @@ export default function App() {
                           <p>{item.username}</p>
                         </div>
                         <div className="vault-actions">
-                          <button className="icon-button" title="編輯" onClick={() => openEditVault(item)}>✏️</button>
-                          <button className="icon-button" title="刪除" onClick={() => handleDeleteVaultItem(item.id, item.site)}>🗑️</button>
+                          <button className="icon-button" title="編輯" aria-label={`編輯 ${item.site}`} onClick={() => openEditVault(item)}>✏️</button>
+                          <button className="icon-button" title="刪除" aria-label={`刪除 ${item.site}`} onClick={() => handleDeleteVaultItem(item.id, item.site)}>🗑️</button>
                         </div>
                       </div>
                       <div className="secret-row">
                         <code>{copiedId === item.id ? "已複製到剪貼簿" : "••••••••"}</code>
-                        <button type="button" onClick={() => void handleCopy(item)}>
+                        <button type="button" aria-label={`複製 ${item.site} 密碼`} onClick={() => void handleCopy(item)}>
                           {copiedId === item.id ? "已複製" : "📋"}
                         </button>
                       </div>
@@ -1153,7 +1173,18 @@ function MetricCard({ title, value, accent, icon }: { title: string; value: stri
 
 function JournalCard({ entry, compact = false, onClick, onDelete, timezone }: { entry: { id: number; date: string; content: string; tags: string[] }; compact?: boolean; onClick?: () => void; onDelete?: (e: React.MouseEvent) => void; timezone: string }) {
   return (
-    <article className={`journal-card ${compact ? "compact" : ""}`} onClick={onClick} style={{ cursor: onClick ? "pointer" : "default" }}>
+    <article
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`journal-card ${compact ? "compact" : ""}`}
+      onClick={onClick}
+      style={{ cursor: onClick ? "pointer" : "default" }}>
       <p className="journal-date">{toLocalDisplayTime(entry.date, timezone)}</p>
       <p className="journal-content">{entry.content}</p>
       <div className="tag-row">
@@ -1165,7 +1196,7 @@ function JournalCard({ entry, compact = false, onClick, onDelete, timezone }: { 
       </div>
       {onDelete && (
         <div className="card-actions">
-          <button className="icon-button danger" onClick={onDelete} title="刪除">🗑️</button>
+          <button className="icon-button danger" onClick={onDelete} title="刪除" aria-label="刪除日記">🗑️</button>
         </div>
       )}
     </article>

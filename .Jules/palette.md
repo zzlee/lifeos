@@ -6,3 +6,10 @@
 ## 2026-04-14 - Modal form group flex shrinkage
 **Learning:** In a flex container context, inputs and textareas can overflow their parent container boundaries on small viewports unless explicitly constrained.
 **Action:** Applied `min-width: 0` to `.form-group` flex children and `width: 100%` to inputs and textareas to enforce proper shrinkage.
+## 2025-02-18 - Modal Readability
+**Learning:** Semi-transparent or omitted background colors on modal overlays can cause underlying page content to bleed through, making inputs hard to read.
+**Action:** Always ensure modal containers (e.g., `.modal-content`) have an explicit opaque background color (e.g., `background: #ffffff;`).
+
+## 2025-02-18 - Interactive Row Accessibility
+**Learning:** Custom interactive elements like clickable rows or cards using `onClick` must be navigable via keyboard to support accessibility.
+**Action:** Add `role="button"`, `tabIndex={0}`, and `onKeyDown` handlers (listening for Enter or Space) to ensure they function like native buttons.
