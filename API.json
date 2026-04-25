@@ -1,0 +1,863 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "LifeOS API",
+    "version": "1.0.0",
+    "description": "API for LifeOS personal digital dashboard"
+  },
+  "paths": {
+    "/api/ping": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "service": { "type": "string" },
+                    "now": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/session": {
+      "get": {
+        "summary": "Get current session",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SessionResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/keys": {
+      "get": {
+        "summary": "List API keys",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiKeyListResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "post": {
+        "summary": "Create API key",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiKeyCreateResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/auth/keys/{id}": {
+      "delete": {
+        "summary": "Delete API key",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/auth/profile": {
+      "put": {
+        "summary": "Update profile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "timezone": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "Logout",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthMutationResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/google/start": {
+      "get": {
+        "summary": "Start Google OAuth",
+        "parameters": [
+          { "name": "from", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "302": { "description": "Redirect to Google" },
+          "501": { "description": "Not implemented" }
+        }
+      }
+    },
+    "/api/auth/google/callback": {
+      "get": {
+        "summary": "Google OAuth callback",
+        "parameters": [
+          { "name": "code", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "state", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "error", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "302": { "description": "Redirect to app" },
+          "400": { "description": "Bad request" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    },
+    "/api/dashboard": {
+      "get": {
+        "summary": "Get dashboard snapshot",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DashboardSnapshotResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/agent": {
+      "post": {
+        "summary": "Execute agent command",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AgentCommandRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AgentCommandResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/vault/{id}/secret": {
+      "get": {
+        "summary": "Get vault secret",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VaultSecretResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/vault/export": {
+      "get": {
+        "summary": "Export vault",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VaultExportResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/vault": {
+      "post": {
+        "summary": "Create vault item",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "site": { "type": "string" },
+                  "username": { "type": "string" },
+                  "secret": { "type": "string" }
+                },
+                "required": ["site", "username", "secret"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VaultItem" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/vault/{id}": {
+      "put": {
+        "summary": "Update vault item",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "site": { "type": "string" },
+                  "username": { "type": "string" },
+                  "secret": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "delete": {
+        "summary": "Delete vault item",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/journals": {
+      "get": {
+        "summary": "List journals",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } },
+          { "name": "startDate", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "endDate", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "query", "in": "query", "schema": { "type": "string" } },
+          { "name": "tag", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/JournalListResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "post": {
+        "summary": "Create journal entry",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": { "type": "string" },
+                  "tags": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["content"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/journals/{id}": {
+      "put": {
+        "summary": "Update journal entry",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": { "type": "string" },
+                  "tags": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["content"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "delete": {
+        "summary": "Delete journal entry",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/expenses": {
+      "get": {
+        "summary": "List expenses",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } },
+          { "name": "startDate", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "endDate", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "minAmount", "in": "query", "schema": { "type": "number" } },
+          { "name": "maxAmount", "in": "query", "schema": { "type": "number" } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "query", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExpenseListResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "post": {
+        "summary": "Create expense",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": { "type": "number" },
+                  "category": { "type": "string" },
+                  "note": { "type": "string" },
+                  "date": { "type": "string", "format": "date" }
+                },
+                "required": ["amount", "category", "date"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/expenses/{id}": {
+      "put": {
+        "summary": "Update expense",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount": { "type": "number" },
+                  "category": { "type": "string" },
+                  "note": { "type": "string" },
+                  "date": { "type": "string", "format": "date" }
+                },
+                "required": ["amount", "category", "date"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "delete": {
+        "summary": "Delete expense",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "summary": "List health records",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 30 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0 } },
+          { "name": "startDate", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "endDate", "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthListResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "post": {
+        "summary": "Create health record",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sys": { "type": "number" },
+                  "dia": { "type": "number" },
+                  "hr": { "type": "number" },
+                  "weight": { "type": "number" },
+                  "date": { "type": "string", "format": "date" }
+                },
+                "required": ["sys", "dia", "hr", "date"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/health/{id}": {
+      "put": {
+        "summary": "Update health record",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sys": { "type": "number" },
+                  "dia": { "type": "number" },
+                  "hr": { "type": "number" },
+                  "weight": { "type": "number" },
+                  "date": { "type": "string", "format": "date" }
+                },
+                "required": ["sys", "dia", "hr", "date"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "delete": {
+        "summary": "Delete health record",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" } }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/line/webhook": {
+      "post": {
+        "summary": "LINE Webhook",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string", "example": "OK" }
+              }
+            }
+          },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Invalid signature" },
+          "500": { "description": "Internal server error" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UserProfile": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "email": { "type": "string" },
+          "name": { "type": "string" },
+          "timezone": { "type": "string" }
+        }
+      },
+      "SessionResponse": {
+        "type": "object",
+        "properties": {
+          "authenticated": { "type": "boolean" },
+          "provider": { "type": "string", "enum": ["none", "google-ready", "api-key"] },
+          "user": { "$ref": "#/components/schemas/UserProfile" },
+          "googleAuthEnabled": { "type": "boolean" }
+        }
+      },
+      "ApiKey": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ApiKeyListResponse": {
+        "type": "object",
+        "properties": {
+          "keys": { "type": "array", "items": { "$ref": "#/components/schemas/ApiKey" } }
+        }
+      },
+      "ApiKeyCreateResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "key": { "type": "string" }
+        }
+      },
+      "AuthMutationResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "session": { "$ref": "#/components/schemas/SessionResponse" }
+        }
+      },
+      "LifeOSState": {
+        "type": "object",
+        "properties": {
+          "finance": { "type": "array", "items": { "$ref": "#/components/schemas/Expense" } },
+          "journals": { "type": "array", "items": { "$ref": "#/components/schemas/JournalEntry" } },
+          "health": { "type": "array", "items": { "$ref": "#/components/schemas/HealthEntry" } },
+          "vault": { "type": "array", "items": { "$ref": "#/components/schemas/VaultItem" } }
+        }
+      },
+      "DashboardSnapshotResponse": {
+        "type": "object",
+        "properties": {
+          "data": { "$ref": "#/components/schemas/LifeOSState" },
+          "source": { "type": "string", "enum": ["d1"] },
+          "generatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AgentCommandRequest": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string" }
+        },
+        "required": ["command"]
+      },
+      "AgentCommandResponse": {
+        "type": "object",
+        "properties": {
+          "accepted": { "type": "boolean" },
+          "mutation": { "type": "object" },
+          "data": { "$ref": "#/components/schemas/LifeOSState" },
+          "source": { "type": "string", "enum": ["d1"] }
+        }
+      },
+      "VaultSecretResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "secret": { "type": "string" },
+          "source": { "type": "string", "enum": ["d1"] }
+        }
+      },
+      "VaultExportResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/VaultItem" }
+          }
+        }
+      },
+      "VaultItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "site": { "type": "string" },
+          "username": { "type": "string" },
+          "secret": { "type": "string" }
+        }
+      },
+      "Expense": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "date": { "type": "string", "format": "date" },
+          "amount": { "type": "number" },
+          "category": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      },
+      "ExpenseListResponse": {
+        "type": "object",
+        "properties": {
+          "expenses": { "type": "array", "items": { "$ref": "#/components/schemas/Expense" } }
+        }
+      },
+      "JournalEntry": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "date": { "type": "string", "format": "date" },
+          "content": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "JournalListResponse": {
+        "type": "object",
+        "properties": {
+          "journals": { "type": "array", "items": { "$ref": "#/components/schemas/JournalEntry" } }
+        }
+      },
+      "HealthEntry": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "date": { "type": "string", "format": "date" },
+          "sys": { "type": "number" },
+          "dia": { "type": "number" },
+          "hr": { "type": "number" },
+          "weight": { "type": "number" }
+        }
+      },
+      "HealthListResponse": {
+        "type": "object",
+        "properties": {
+          "health": { "type": "array", "items": { "$ref": "#/components/schemas/HealthEntry" } }
+        }
+      }
+    }
+  }
+}
