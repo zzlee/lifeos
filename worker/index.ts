@@ -293,7 +293,12 @@ app.get("/api/journals", async (c) => {
   const limit = Number(c.req.query("limit") || 20);
   const offset = Number(c.req.query("offset") || 0);
   
-  const journals = await getJournals(c.env.DB, session.user, limit, offset);
+  const startDate = c.req.query("startDate");
+  const endDate = c.req.query("endDate");
+  const query = c.req.query("query");
+  const tag = c.req.query("tag");
+
+  const journals = await getJournals(c.env.DB, session.user, limit, offset, { startDate, endDate, query, tag });
   return c.json({ journals });
 });
 
@@ -340,7 +345,17 @@ app.get("/api/expenses", async (c) => {
   const limit = Number(c.req.query("limit") || 20);
   const offset = Number(c.req.query("offset") || 0);
   
-  const expenses = await getExpenses(c.env.DB, session.user, limit, offset);
+  const startDate = c.req.query("startDate");
+  const endDate = c.req.query("endDate");
+  const minAmountStr = c.req.query("minAmount");
+  const maxAmountStr = c.req.query("maxAmount");
+  const category = c.req.query("category");
+  const query = c.req.query("query");
+
+  const minAmount = minAmountStr !== undefined ? Number(minAmountStr) : undefined;
+  const maxAmount = maxAmountStr !== undefined ? Number(maxAmountStr) : undefined;
+
+  const expenses = await getExpenses(c.env.DB, session.user, limit, offset, { startDate, endDate, minAmount, maxAmount, category, query });
   return c.json({ expenses });
 });
 
@@ -387,7 +402,10 @@ app.get("/api/health", async (c) => {
   const limit = Number(c.req.query("limit") || 30);
   const offset = Number(c.req.query("offset") || 0);
   
-  const health = await getHealthRecords(c.env.DB, session.user, limit, offset);
+  const startDate = c.req.query("startDate");
+  const endDate = c.req.query("endDate");
+
+  const health = await getHealthRecords(c.env.DB, session.user, limit, offset, { startDate, endDate });
   return c.json({ health });
 });
 
