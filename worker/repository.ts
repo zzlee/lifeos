@@ -8,10 +8,34 @@ export async function getJournals(
   user: UserProfile,
   limit: number = 20,
   offset: number = 0,
+  filters: { startDate?: string; endDate?: string; query?: string; tag?: string } = {},
 ): Promise<JournalEntry[]> {
+  let sql = "SELECT id, created_at as date, content, tags FROM journals WHERE user_id = ?";
+  const params: any[] = [user.id];
+
+  if (filters.startDate) {
+    sql += " AND created_at >= ?";
+    params.push(filters.startDate);
+  }
+  if (filters.endDate) {
+    sql += " AND created_at <= ?";
+    params.push(filters.endDate);
+  }
+  if (filters.query) {
+    sql += " AND content LIKE ?";
+    params.push(`%${filters.query}%`);
+  }
+  if (filters.tag) {
+    sql += " AND (tags LIKE ? OR tags LIKE ? OR tags LIKE ? OR tags = ?)";
+    params.push(`${filters.tag},%`, `%,${filters.tag},%`, `%,${filters.tag}`, filters.tag);
+  }
+
+  sql += " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?";
+  params.push(limit, offset);
+
   const result = await db
-    .prepare("SELECT id, created_at as date, content, tags FROM journals WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?")
-    .bind(user.id, limit, offset)
+    .prepare(sql)
+    .bind(...params)
     .all<{ id: number; date: string; content: string; tags: string }>();
   
   return (result.results ?? []).map((entry) => ({
@@ -226,10 +250,42 @@ export async function getExpenses(
   user: UserProfile,
   limit: number = 20,
   offset: number = 0,
+  filters: { startDate?: string; endDate?: string; minAmount?: number; maxAmount?: number; category?: string; query?: string } = {},
 ): Promise<Expense[]> {
+  let sql = "SELECT id, date, amount, category, note FROM expenses WHERE user_id = ?";
+  const params: any[] = [user.id];
+
+  if (filters.startDate) {
+    sql += " AND date >= ?";
+    params.push(filters.startDate);
+  }
+  if (filters.endDate) {
+    sql += " AND date <= ?";
+    params.push(filters.endDate);
+  }
+  if (filters.minAmount !== undefined) {
+    sql += " AND amount >= ?";
+    params.push(filters.minAmount);
+  }
+  if (filters.maxAmount !== undefined) {
+    sql += " AND amount <= ?";
+    params.push(filters.maxAmount);
+  }
+  if (filters.category) {
+    sql += " AND category = ?";
+    params.push(filters.category);
+  }
+  if (filters.query) {
+    sql += " AND note LIKE ?";
+    params.push(`%${filters.query}%`);
+  }
+
+  sql += " ORDER BY date DESC, id DESC LIMIT ? OFFSET ?";
+  params.push(limit, offset);
+
   const result = await db
-    .prepare("SELECT id, date, amount, category, note FROM expenses WHERE user_id = ? ORDER BY date DESC, id DESC LIMIT ? OFFSET ?")
-    .bind(user.id, limit, offset)
+    .prepare(sql)
+    .bind(...params)
     .all<Expense>();
   return result.results ?? [];
 }
@@ -276,10 +332,26 @@ export async function getHealthRecords(
   user: UserProfile,
   limit: number = 30,
   offset: number = 0,
+  filters: { startDate?: string; endDate?: string } = {},
 ): Promise<HealthEntry[]> {
+  let sql = "SELECT id, recorded_at as date, sys, dia, hr, weight FROM health_daily WHERE user_id = ?";
+  const params: any[] = [user.id];
+
+  if (filters.startDate) {
+    sql += " AND recorded_at >= ?";
+    params.push(filters.startDate);
+  }
+  if (filters.endDate) {
+    sql += " AND recorded_at <= ?";
+    params.push(filters.endDate);
+  }
+
+  sql += " ORDER BY recorded_at DESC, id DESC LIMIT ? OFFSET ?";
+  params.push(limit, offset);
+
   const result = await db
-    .prepare("SELECT id, recorded_at as date, sys, dia, hr, weight FROM health_daily WHERE user_id = ? ORDER BY recorded_at DESC, id DESC LIMIT ? OFFSET ?")
-    .bind(user.id, limit, offset)
+    .prepare(sql)
+    .bind(...params)
     .all<HealthEntry & { id: number }>();
   return result.results ?? [];
 }
