@@ -20,7 +20,7 @@ import {
 } from "./auth";
 import type { Env } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
-import { getDashboardSnapshot, getVaultSecret, persistAgentMutation, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./repository";
+import { getDashboardSnapshot, getVaultSecret, getVaultItems, persistAgentMutation, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./repository";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -209,6 +209,20 @@ app.get("/api/vault/:id/secret", async (c) => {
     source: result.source
   };
   return c.json(response);
+});
+
+app.get("/api/vault", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const limit = Number(c.req.query("limit") || 20);
+  const offset = Number(c.req.query("offset") || 0);
+  const query = c.req.query("query");
+
+  const items = await getVaultItems(c.env.DB, session.user, limit, offset, { query });
+  return c.json({ items });
 });
 
 app.get("/api/vault/export", async (c) => {

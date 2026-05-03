@@ -1,4 +1,4 @@
-import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile } from "./domain";
+import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem } from "./domain";
 import type { AgentMutation } from "./lifeAgent";
 
 export type JournalListResponse = {
@@ -46,6 +46,10 @@ export type VaultSecretResponse = {
   id: number;
   secret: string;
   source: "d1";
+};
+
+export type VaultListResponse = {
+  items: VaultItem[];
 };
 
 export type VaultExportResponse = {

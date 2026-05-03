@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
 import { FixedSizeList as List } from "react-window";
 import { toLocalDisplayDate, toLocalDisplayTime, toLocalInputString, getCurrentLocalInputString, localInputToUtcString } from "./lib/timeUtils";
-import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals } from "./lib/api";
+import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems } from "./lib/api";
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -56,6 +56,11 @@ export default function App() {
   const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
   const [editingVaultId, setEditingVaultId] = useState<number | null>(null);
   const [newVaultItem, setNewVaultItem] = useState({ site: "", username: "", secret: "" });
+  const [vaultList, setVaultList] = useState<VaultItem[]>([]);
+  const [vaultPage, setVaultPage] = useState(0);
+  const [hasMoreVault, setHasMoreVault] = useState(false);
+  const [isLoadingVault, setIsLoadingVault] = useState(false);
+  const [vaultRefreshTrigger, setVaultRefreshTrigger] = useState(0);
 
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
   const [editingJournalId, setEditingJournalId] = useState<number | null>(null);
@@ -69,10 +74,20 @@ export default function App() {
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState<number | null>(null);
   const [newExpenseEntry, setNewExpenseEntry] = useState({ amount: 0, category: "", note: "", date: "" });
+  const [expenseList, setExpenseList] = useState<Expense[]>([]);
+  const [expensePage, setExpensePage] = useState(0);
+  const [hasMoreExpenses, setHasMoreExpenses] = useState(false);
+  const [isLoadingExpenses, setIsLoadingExpenses] = useState(false);
+  const [expenseRefreshTrigger, setExpenseRefreshTrigger] = useState(0);
 
   const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
   const [editingHealthId, setEditingHealthId] = useState<number | null>(null);
   const [newHealthEntry, setNewHealthEntry] = useState({ sys: 120, dia: 80, hr: 72, weight: 0, date: "" });
+  const [healthList, setHealthList] = useState<HealthEntry[]>([]);
+  const [healthPage, setHealthPage] = useState(0);
+  const [hasMoreHealth, setHasMoreHealth] = useState(false);
+  const [isLoadingHealth, setIsLoadingHealth] = useState(false);
+  const [healthRefreshTrigger, setHealthRefreshTrigger] = useState(0);
 
   const [isAgentThinking, setIsAgentThinking] = useState(false);
 
@@ -104,6 +119,75 @@ export default function App() {
       loadKeys();
     }
   }, [view]);
+
+  useEffect(() => {
+    if (view === "finance") {
+      setIsLoadingExpenses(true);
+      const limit = 20;
+      fetchExpenses(limit, expensePage * limit)
+        .then((res) => {
+          setExpenseList((prev) => {
+            if (expensePage === 0) return res.expenses;
+            const newExpenses = [...prev];
+            res.expenses.forEach(e => {
+              if (!newExpenses.some(existingExpense => existingExpense.id === e.id)) {
+                newExpenses.push(e);
+              }
+            });
+            return newExpenses;
+          });
+          setHasMoreExpenses(res.expenses.length === limit);
+        })
+        .catch((err) => console.error("Failed to fetch expenses:", err))
+        .finally(() => setIsLoadingExpenses(false));
+    }
+  }, [view, expensePage, expenseRefreshTrigger]);
+
+  useEffect(() => {
+    if (view === "vault") {
+      setIsLoadingVault(true);
+      const limit = 20;
+      fetchVaultItems(limit, vaultPage * limit, vaultQuery)
+        .then((res) => {
+          setVaultList((prev) => {
+            if (vaultPage === 0) return res.items;
+            const newVaults = [...prev];
+            res.items.forEach(e => {
+              if (!newVaults.some(existingVault => existingVault.id === e.id)) {
+                newVaults.push(e);
+              }
+            });
+            return newVaults;
+          });
+          setHasMoreVault(res.items.length === limit);
+        })
+        .catch((err) => console.error("Failed to fetch vault items:", err))
+        .finally(() => setIsLoadingVault(false));
+    }
+  }, [view, vaultPage, vaultRefreshTrigger, vaultQuery]);
+
+  useEffect(() => {
+    if (view === "health") {
+      setIsLoadingHealth(true);
+      const limit = 30;
+      fetchHealthRecords(limit, healthPage * limit)
+        .then((res) => {
+          setHealthList((prev) => {
+            if (healthPage === 0) return res.health;
+            const newHealth = [...prev];
+            res.health.forEach(e => {
+              if (!newHealth.some(existingHealth => existingHealth.id === e.id)) {
+                newHealth.push(e);
+              }
+            });
+            return newHealth;
+          });
+          setHasMoreHealth(res.health.length === limit);
+        })
+        .catch((err) => console.error("Failed to fetch health records:", err))
+        .finally(() => setIsLoadingHealth(false));
+    }
+  }, [view, healthPage, healthRefreshTrigger]);
 
   useEffect(() => {
     if (view === "journal") {
@@ -162,10 +246,7 @@ export default function App() {
 
   const latestHealth = data.health[0];
   const financeGroups = useMemo(() => groupFinance(data.finance), [data.finance]);
-  const filteredVault = useMemo(
-    () => data.vault.filter((item) => item.site.toLowerCase().includes(vaultQuery.toLowerCase())),
-    [data.vault, vaultQuery],
-  );
+
   const healthStats = useMemo(() => getHealthStats(data.health), [data.health]);
 
   if (!isAuthenticated) {
@@ -210,6 +291,10 @@ export default function App() {
       
       const response = await fetchDashboardSnapshot();
       setData(response.data);
+      if (view === "vault") {
+        setVaultPage(0);
+        setVaultRefreshTrigger((t) => t + 1);
+      }
       setNewVaultItem({ site: "", username: "", secret: "" });
       setIsVaultModalOpen(false);
       setEditingVaultId(null);
@@ -224,6 +309,10 @@ export default function App() {
       await deleteVaultItem(id);
       const snapshot = await fetchDashboardSnapshot();
       setData(snapshot.data);
+      if (view === "vault") {
+        setVaultPage(0);
+        setVaultRefreshTrigger((t) => t + 1);
+      }
       setToast({ visible: true, message: `已刪除 ${site} 的紀錄` });
     } catch (err: any) {
       alert(`刪除失敗: ${err.message}`);
@@ -308,6 +397,10 @@ export default function App() {
 
       const snapshot = await fetchDashboardSnapshot();
       setData(snapshot.data);
+      if (view === "finance") {
+        setExpensePage(0);
+        setExpenseRefreshTrigger((t) => t + 1);
+      }
       setNewExpenseEntry({ amount: 0, category: "", note: "", date: "" });
       setIsExpenseModalOpen(false);
       setEditingExpenseId(null);
@@ -322,6 +415,10 @@ export default function App() {
       await deleteExpense(id);
       const snapshot = await fetchDashboardSnapshot();
       setData(snapshot.data);
+      if (view === "finance") {
+        setExpensePage(0);
+        setExpenseRefreshTrigger((t) => t + 1);
+      }
       setToast({ visible: true, message: "消費紀錄已刪除" });
     } catch (err: any) {
       alert(`刪除失敗: ${err.message}`);
@@ -370,6 +467,10 @@ export default function App() {
 
       const snapshot = await fetchDashboardSnapshot();
       setData(snapshot.data);
+      if (view === "health") {
+        setHealthPage(0);
+        setHealthRefreshTrigger((t) => t + 1);
+      }
       setNewHealthEntry({ sys: 120, dia: 80, hr: 72, weight: 0, date: "" });
       setIsHealthModalOpen(false);
       setEditingHealthId(null);
@@ -384,6 +485,10 @@ export default function App() {
       await deleteHealthRecord(id);
       const snapshot = await fetchDashboardSnapshot();
       setData(snapshot.data);
+      if (view === "health") {
+        setHealthPage(0);
+        setHealthRefreshTrigger((t) => t + 1);
+      }
       setToast({ visible: true, message: "健康紀錄已刪除" });
     } catch (err: any) {
       alert(`刪除失敗: ${err.message}`);
@@ -562,9 +667,9 @@ export default function App() {
                     <h4>交易明細</h4>
                   </div>
                   <div className="list-wrap" style={{ display: 'block', width: '100%' }}>
-                    {data.finance.length > 0 ? (() => {
+                    {expenseList.length > 0 ? (() => {
                       const FinanceRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
-                        const item = data.finance[index];
+                        const item = expenseList[index];
                         return (
                           <div
                             role="button"
@@ -598,7 +703,7 @@ export default function App() {
                       return (
                         <List
                           height={400}
-                          itemCount={data.finance.length}
+                          itemCount={expenseList.length}
                           itemSize={70}
                           width="100%"
                         >
@@ -609,6 +714,17 @@ export default function App() {
                       <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>尚無資料</div>
                     )}
                   </div>
+                  {hasMoreExpenses && (
+                    <div style={{ textAlign: "center", marginTop: "1rem", paddingBottom: "1rem" }}>
+                      <button
+                        className="secondary-button"
+                        onClick={() => setExpensePage(p => p + 1)}
+                        disabled={isLoadingExpenses}
+                      >
+                        {isLoadingExpenses ? "載入中..." : "載入更多"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
@@ -664,9 +780,9 @@ export default function App() {
                   <h4>健康紀錄</h4>
                 </div>
                 <div className="table-wrap" style={{ display: 'block' }}>
-                  {data.health.length > 0 ? (() => {
+                  {healthList.length > 0 ? (() => {
                     const HealthRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
-                      const item = data.health[index];
+                      const item = healthList[index];
                       return (
                         <div
                           role="button"
@@ -700,7 +816,7 @@ export default function App() {
                     return (
                       <List
                         height={400}
-                        itemCount={data.health.length}
+                        itemCount={healthList.length}
                         itemSize={70}
                         width="100%"
                       >
@@ -711,6 +827,17 @@ export default function App() {
                     <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>尚無資料</div>
                   )}
                 </div>
+                {hasMoreHealth && (
+                  <div style={{ textAlign: "center", marginTop: "1rem", paddingBottom: "1rem" }}>
+                    <button
+                      className="secondary-button"
+                      onClick={() => setHealthPage(p => p + 1)}
+                      disabled={isLoadingHealth}
+                    >
+                      {isLoadingHealth ? "載入中..." : "載入更多"}
+                    </button>
+                  </div>
+                )}
               </div>
             </section>
           )}
@@ -727,7 +854,7 @@ export default function App() {
                     <span>🔍</span>
                     <input
                       value={vaultQuery}
-                      onChange={(event) => setVaultQuery(event.target.value)}
+                      onChange={(event) => { setVaultQuery(event.target.value); setVaultPage(0); }}
                       placeholder="搜尋站點名稱..."
                     />
                   </label>
@@ -738,7 +865,7 @@ export default function App() {
                   }}>新增密碼</button>
                 </div>
                 <div className="card-grid vault-grid">
-                  {filteredVault.map((item) => (
+                  {vaultList.map((item) => (
                     <div className="vault-card" key={item.id}>
                       <div className="vault-header">
                         <div className="vault-logo">🌐</div>
@@ -760,6 +887,17 @@ export default function App() {
                     </div>
                   ))}
                 </div>
+                {hasMoreVault && (
+                  <div style={{ textAlign: "center", marginTop: "1rem", paddingBottom: "1rem" }}>
+                    <button
+                      className="secondary-button"
+                      onClick={() => setVaultPage(p => p + 1)}
+                      disabled={isLoadingVault}
+                    >
+                      {isLoadingVault ? "載入中..." : "載入更多"}
+                    </button>
+                  </div>
+                )}
               </div>
             </section>
           )}
