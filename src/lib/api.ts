@@ -11,6 +11,7 @@ import type {
   JournalMutationResponse,
   SessionResponse,
   VaultSecretResponse,
+  VaultListResponse,
 } from "../../shared/contracts";
 import type { VaultItem } from "./types";
 
@@ -69,6 +70,17 @@ export async function deleteApiKey(id: string): Promise<{ ok: boolean }> {
   });
   if (!response.ok) throw new Error(`delete key ${response.status}`);
   return (await response.json()) as { ok: boolean };
+}
+
+export async function fetchVaultItems(limit: number = 20, offset: number = 0, query: string = ""): Promise<VaultListResponse> {
+  const url = new URL(getUrl("/api/vault"));
+  url.searchParams.set("limit", limit.toString());
+  url.searchParams.set("offset", offset.toString());
+  if (query) url.searchParams.set("query", query);
+
+  const response = await fetch(url.toString(), { credentials: "include" });
+  if (!response.ok) throw new Error(`fetch vault ${response.status}`);
+  return (await response.json()) as VaultListResponse;
 }
 
 export async function fetchVaultSecret(item: VaultItem): Promise<VaultSecretResponse> {
