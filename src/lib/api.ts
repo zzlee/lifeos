@@ -73,7 +73,7 @@ export async function deleteApiKey(id: string): Promise<{ ok: boolean }> {
 }
 
 export async function fetchVaultItems(limit: number = 20, offset: number = 0, query: string = ""): Promise<VaultListResponse> {
-  const url = new URL(getUrl("/api/vault"));
+  const url = new URL(getUrl("/api/vault"), window.location.origin);
   url.searchParams.set("limit", limit.toString());
   url.searchParams.set("offset", offset.toString());
   if (query) url.searchParams.set("query", query);
