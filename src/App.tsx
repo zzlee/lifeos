@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
 import { FixedSizeList as List } from "react-window";
 import { toLocalDisplayDate, toLocalDisplayTime, toLocalInputString, getCurrentLocalInputString, localInputToUtcString } from "./lib/timeUtils";
-import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems } from "./lib/api";
+import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction } from "./lib/api";
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -79,6 +79,11 @@ export default function App() {
   const [hasMoreExpenses, setHasMoreExpenses] = useState(false);
   const [isLoadingExpenses, setIsLoadingExpenses] = useState(false);
   const [expenseRefreshTrigger, setExpenseRefreshTrigger] = useState(0);
+  const [accountingTransactions, setAccountingTransactions] = useState<any[]>([]);
+  const [accountingUserId, setAccountingUserId] = useState("1");
+  const [isAccountingModalOpen, setIsAccountingModalOpen] = useState(false);
+  const [editingAccountingId, setEditingAccountingId] = useState<number | null>(null);
+  const [newAccountingEntry, setNewAccountingEntry] = useState({ transaction_date: "", item_name: "", item_category_id: 1, payment_category_id: 1, amount: 0, notes: "" });
 
   const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
   const [editingHealthId, setEditingHealthId] = useState<number | null>(null);
@@ -96,6 +101,7 @@ export default function App() {
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
 
   useEffect(() => {
+    setAccountingUserId(window.localStorage.getItem("lifeos-accounting-user-id") ?? "1");
     fetchSession()
       .then((session) => {
         setUser(session.user ?? defaultUser);
@@ -140,6 +146,7 @@ export default function App() {
         })
         .catch((err) => console.error("Failed to fetch expenses:", err))
         .finally(() => setIsLoadingExpenses(false));
+      fetchAccountingTransactions().then(setAccountingTransactions).catch((err) => console.error("Failed to fetch accounting transactions:", err));
     }
   }, [view, expensePage, expenseRefreshTrigger]);
 
@@ -447,6 +454,44 @@ export default function App() {
     setIsExpenseModalOpen(true);
   }
 
+  async function handleSaveAccounting(e: React.FormEvent) {
+    e.preventDefault();
+    const payload = { ...newAccountingEntry, transaction_date: newAccountingEntry.transaction_date.slice(0, 10) };
+    try {
+      if (editingAccountingId !== null) {
+        await updateAccountingTransaction(editingAccountingId, payload);
+        setToast({ visible: true, message: "外部記帳紀錄已更新" });
+      } else {
+        await createAccountingTransaction(payload);
+        setToast({ visible: true, message: "外部記帳紀錄已新增" });
+      }
+      setAccountingTransactions(await fetchAccountingTransactions());
+      setIsAccountingModalOpen(false);
+      setEditingAccountingId(null);
+    } catch (err: any) {
+      alert(`儲存失敗: ${err.message}`);
+    }
+  }
+
+  function openNewAccounting() {
+    setEditingAccountingId(null);
+    setNewAccountingEntry({ transaction_date: new Date().toISOString().slice(0,16), item_name: "", item_category_id: 1, payment_category_id: 1, amount: 0, notes: "" });
+    setIsAccountingModalOpen(true);
+  }
+
+  function openEditAccounting(entry: any) {
+    setEditingAccountingId(entry.transaction_id);
+    setNewAccountingEntry({
+      transaction_date: (entry.transaction_date || "").slice(0,16),
+      item_name: entry.item_name || "",
+      item_category_id: entry.item_category_id || 1,
+      payment_category_id: entry.payment_category_id || 1,
+      amount: entry.amount || 0,
+      notes: entry.notes || ""
+    });
+    setIsAccountingModalOpen(true);
+  }
+
   async function handleSaveHealth(e: React.FormEvent) {
     e.preventDefault();
     if (!newHealthEntry.sys || !newHealthEntry.dia) return;
@@ -652,7 +697,7 @@ export default function App() {
               <SectionHeading
                 title="生活消費記錄 (Finance)"
                 description="透過 AI 自動歸類的消費數據分析。"
-                action={<button className="primary-button" onClick={openNewExpense}>+ 新增消費</button>}
+                action={<div style={{display:"flex",gap:"0.5rem"}}><button className="primary-button" onClick={openNewExpense}>+ 新增消費</button><button className="secondary-button" onClick={openNewAccounting}>+ 新增外部記帳</button></div>}
               />
               <div className="panel-grid finance-layout">
                 <div className="panel">
@@ -714,6 +759,7 @@ export default function App() {
                       <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>尚無資料</div>
                     )}
                   </div>
+                  {accountingTransactions.length > 0 && <div style={{padding:"1rem"}}><h4>外部記帳 API 紀錄</h4>{accountingTransactions.map((item:any)=><div key={item.transaction_id} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #e2e8f0"}}><span>{item.transaction_date.slice(0,10)} {item.item_name} ({item.item_category}/{item.payment_category})</span><span><strong>${item.amount}</strong> <button className="icon-button" onClick={()=>openEditAccounting(item)}>✏️</button></span></div>)}</div>}
                   {hasMoreExpenses && (
                     <div style={{ textAlign: "center", marginTop: "1rem", paddingBottom: "1rem" }}>
                       <button
@@ -945,6 +991,14 @@ export default function App() {
                   </div>
                 </div>
               </div>
+              <div className="panel" style={{ marginBottom: "2rem" }}>
+                <div className="panel-header"><h4>外部記帳設定</h4><p className="text-sm text-slate-500">設定 accounting API 使用的 user id。</p></div>
+                <div className="settings-content" style={{ marginTop: "1rem", maxWidth: "300px" }}>
+                  <label>Accounting User ID</label>
+                  <input className="input-field" value={accountingUserId} onChange={(e)=>setAccountingUserId(e.target.value)} />
+                  <button className="secondary-button" style={{marginTop:"0.5rem"}} onClick={()=>{window.localStorage.setItem("lifeos-accounting-user-id", accountingUserId || "1"); setToast({visible:true,message:"Accounting user id 已儲存"});}}>儲存</button>
+                </div>
+              </div>
               <div className="panel">
                 <div className="panel-header">
                   <h4>API Key 管理</h4>
@@ -1164,6 +1218,10 @@ export default function App() {
         </div>
       )}
 
+
+      {isAccountingModalOpen && (
+        <div className="modal-overlay"><div className="panel modal-content"><div className="panel-header"><h4>{editingAccountingId ? "編輯外部記帳" : "新增外部記帳"}</h4><button className="close-button" onClick={() => setIsAccountingModalOpen(false)}>✕</button></div><form onSubmit={handleSaveAccounting} className="modal-form"><div className="form-group"><label>品項</label><input required value={newAccountingEntry.item_name} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_name:e.target.value})} /></div><div className="form-row"><div className="form-group"><label>金額</label><input type="number" required value={newAccountingEntry.amount} onChange={e=>setNewAccountingEntry({...newAccountingEntry,amount:Number(e.target.value)})} /></div><div className="form-group"><label>日期</label><input type="datetime-local" required value={newAccountingEntry.transaction_date} onChange={e=>setNewAccountingEntry({...newAccountingEntry,transaction_date:e.target.value})} /></div></div><div className="form-row"><div className="form-group"><label>item_category_id</label><input type="number" required value={newAccountingEntry.item_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_category_id:Number(e.target.value)})} /></div><div className="form-group"><label>payment_category_id</label><input type="number" required value={newAccountingEntry.payment_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,payment_category_id:Number(e.target.value)})} /></div></div><div className="form-group"><label>備註</label><input value={newAccountingEntry.notes} onChange={e=>setNewAccountingEntry({...newAccountingEntry,notes:e.target.value})} /></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setIsAccountingModalOpen(false)}>取消</button><button type="submit" className="primary-button">儲存</button></div></form></div></div>
+      )}
       {isHealthModalOpen && (
         <div className="modal-overlay">
           <div className="panel modal-content">

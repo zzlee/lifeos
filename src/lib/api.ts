@@ -16,6 +16,7 @@ import type {
 import type { VaultItem } from "./types";
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
+const accountingApiBase = "https://purple-water-b776.zzlee-tw.workers.dev";
 
 const getUrl = (path: string) => (apiBase ? `${apiBase}${path}` : path);
 
@@ -253,4 +254,59 @@ export async function updateUserProfile(timezone: string): Promise<{ ok: boolean
   });
   if (!response.ok) throw new Error("Failed to update profile");
   return response.json();
+}
+
+export type AccountingTransaction = {
+  transaction_id: number;
+  transaction_date: string;
+  item_name: string;
+  item_category: string;
+  payment_category: string;
+  amount: number;
+  notes?: string | null;
+  item_category_id: number;
+  payment_category_id: number;
+};
+
+type AccountingTransactionInput = {
+  transaction_date: string;
+  item_name: string;
+  item_category_id: number;
+  amount: number;
+  payment_category_id: number;
+  notes?: string;
+};
+
+function getAccountingUserId(): number {
+  const raw = window.localStorage.getItem("lifeos-accounting-user-id") ?? "1";
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+export async function fetchAccountingTransactions(): Promise<AccountingTransaction[]> {
+  const url = new URL(`${accountingApiBase}/api/transactions`);
+  url.searchParams.set("user-id", String(getAccountingUserId()));
+  const response = await fetch(url.toString());
+  if (!response.ok) throw new Error(`accounting tx ${response.status}`);
+  return (await response.json()) as AccountingTransaction[];
+}
+
+export async function createAccountingTransaction(entry: AccountingTransactionInput): Promise<AccountingTransaction> {
+  const response = await fetch(`${accountingApiBase}/api/transactions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...entry, user_id: getAccountingUserId() })
+  });
+  if (!response.ok) throw new Error(`create accounting tx ${response.status}`);
+  return (await response.json()) as AccountingTransaction;
+}
+
+export async function updateAccountingTransaction(id: number, entry: AccountingTransactionInput): Promise<{ message: string }> {
+  const response = await fetch(`${accountingApiBase}/api/transactions/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...entry, user_id: getAccountingUserId() })
+  });
+  if (!response.ok) throw new Error(`update accounting tx ${response.status}`);
+  return (await response.json()) as { message: string };
 }
