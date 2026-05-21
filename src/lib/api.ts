@@ -283,6 +283,60 @@ function getAccountingUserId(): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
+
+
+export type AccountingCategory = {
+  id: number;
+  name: string;
+};
+
+export type AccountingCategoryOptions = {
+  itemCategories: AccountingCategory[];
+  paymentCategories: AccountingCategory[];
+};
+
+async function fetchCategoryEndpoint(path: string): Promise<AccountingCategory[]> {
+  const response = await fetch(`${accountingApiBase}${path}`);
+  if (!response.ok) throw new Error(`accounting categories ${response.status}`);
+  const payload = await response.json() as any[];
+  return payload
+    .map((item) => ({
+      id: Number(item.id ?? item.item_category_id ?? item.payment_category_id),
+      name: String(item.name ?? item.item_category ?? item.payment_category ?? "")
+    }))
+    .filter((item) => Number.isFinite(item.id) && item.id > 0 && item.name.trim().length > 0);
+}
+
+export async function fetchAccountingCategoryOptions(): Promise<AccountingCategoryOptions> {
+  const [itemResult, paymentResult] = await Promise.allSettled([
+    fetchCategoryEndpoint('/api/item-categories'),
+    fetchCategoryEndpoint('/api/payment-categories')
+  ]);
+
+  if (itemResult.status === 'fulfilled' && paymentResult.status === 'fulfilled') {
+    return { itemCategories: itemResult.value, paymentCategories: paymentResult.value };
+  }
+
+  const transactions = await fetchAccountingTransactions();
+  const itemMap = new Map<number, string>();
+  const paymentMap = new Map<number, string>();
+
+  for (const tx of transactions) {
+    if (tx.item_category_id > 0 && tx.item_category) itemMap.set(tx.item_category_id, tx.item_category);
+    if (tx.payment_category_id > 0 && tx.payment_category) paymentMap.set(tx.payment_category_id, tx.payment_category);
+  }
+
+  const toList = (m: Map<number, string>): AccountingCategory[] =>
+    Array.from(m.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.id - b.id);
+
+  return {
+    itemCategories: itemResult.status === 'fulfilled' ? itemResult.value : toList(itemMap),
+    paymentCategories: paymentResult.status === 'fulfilled' ? paymentResult.value : toList(paymentMap)
+  };
+}
+
 export async function fetchAccountingTransactions(): Promise<AccountingTransaction[]> {
   const url = new URL(`${accountingApiBase}/api/transactions`);
   url.searchParams.set("user-id", String(getAccountingUserId()));

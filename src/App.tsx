@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import LoginPage from "./components/LoginPage";
 import { FixedSizeList as List } from "react-window";
 import { toLocalDisplayDate, toLocalDisplayTime, toLocalInputString, getCurrentLocalInputString, localInputToUtcString } from "./lib/timeUtils";
-import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction } from "./lib/api";
+import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction, fetchAccountingCategoryOptions, type AccountingCategory } from "./lib/api";
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -84,6 +84,8 @@ export default function App() {
   const [isAccountingModalOpen, setIsAccountingModalOpen] = useState(false);
   const [editingAccountingId, setEditingAccountingId] = useState<number | null>(null);
   const [newAccountingEntry, setNewAccountingEntry] = useState({ transaction_date: "", item_name: "", item_category_id: 1, payment_category_id: 1, amount: 0, notes: "" });
+  const [itemCategoryOptions, setItemCategoryOptions] = useState<AccountingCategory[]>([]);
+  const [paymentCategoryOptions, setPaymentCategoryOptions] = useState<AccountingCategory[]>([]);
 
   const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
   const [editingHealthId, setEditingHealthId] = useState<number | null>(null);
@@ -147,6 +149,17 @@ export default function App() {
         .catch((err) => console.error("Failed to fetch expenses:", err))
         .finally(() => setIsLoadingExpenses(false));
       fetchAccountingTransactions().then(setAccountingTransactions).catch((err) => console.error("Failed to fetch accounting transactions:", err));
+      fetchAccountingCategoryOptions()
+        .then(({ itemCategories, paymentCategories }) => {
+          setItemCategoryOptions(itemCategories);
+          setPaymentCategoryOptions(paymentCategories);
+          setNewAccountingEntry((prev) => ({
+            ...prev,
+            item_category_id: prev.item_category_id || itemCategories[0]?.id || 1,
+            payment_category_id: prev.payment_category_id || paymentCategories[0]?.id || 1
+          }));
+        })
+        .catch((err) => console.error("Failed to fetch accounting category options:", err));
     }
   }, [view, expensePage, expenseRefreshTrigger]);
 
@@ -475,7 +488,7 @@ export default function App() {
 
   function openNewAccounting() {
     setEditingAccountingId(null);
-    setNewAccountingEntry({ transaction_date: new Date().toISOString().slice(0,16), item_name: "", item_category_id: 1, payment_category_id: 1, amount: 0, notes: "" });
+    setNewAccountingEntry({ transaction_date: new Date().toISOString().slice(0,16), item_name: "", item_category_id: itemCategoryOptions[0]?.id || 1, payment_category_id: paymentCategoryOptions[0]?.id || 1, amount: 0, notes: "" });
     setIsAccountingModalOpen(true);
   }
 
@@ -1220,7 +1233,7 @@ export default function App() {
 
 
       {isAccountingModalOpen && (
-        <div className="modal-overlay"><div className="panel modal-content"><div className="panel-header"><h4>{editingAccountingId ? "編輯外部記帳" : "新增外部記帳"}</h4><button className="close-button" onClick={() => setIsAccountingModalOpen(false)}>✕</button></div><form onSubmit={handleSaveAccounting} className="modal-form"><div className="form-group"><label>品項</label><input required value={newAccountingEntry.item_name} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_name:e.target.value})} /></div><div className="form-row"><div className="form-group"><label>金額</label><input type="number" required value={newAccountingEntry.amount} onChange={e=>setNewAccountingEntry({...newAccountingEntry,amount:Number(e.target.value)})} /></div><div className="form-group"><label>日期</label><input type="datetime-local" required value={newAccountingEntry.transaction_date} onChange={e=>setNewAccountingEntry({...newAccountingEntry,transaction_date:e.target.value})} /></div></div><div className="form-row"><div className="form-group"><label>item_category_id</label><input type="number" required value={newAccountingEntry.item_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_category_id:Number(e.target.value)})} /></div><div className="form-group"><label>payment_category_id</label><input type="number" required value={newAccountingEntry.payment_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,payment_category_id:Number(e.target.value)})} /></div></div><div className="form-group"><label>備註</label><input value={newAccountingEntry.notes} onChange={e=>setNewAccountingEntry({...newAccountingEntry,notes:e.target.value})} /></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setIsAccountingModalOpen(false)}>取消</button><button type="submit" className="primary-button">儲存</button></div></form></div></div>
+        <div className="modal-overlay"><div className="panel modal-content"><div className="panel-header"><h4>{editingAccountingId ? "編輯外部記帳" : "新增外部記帳"}</h4><button className="close-button" onClick={() => setIsAccountingModalOpen(false)}>✕</button></div><form onSubmit={handleSaveAccounting} className="modal-form"><div className="form-group"><label>品項</label><input required value={newAccountingEntry.item_name} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_name:e.target.value})} /></div><div className="form-row"><div className="form-group"><label>金額</label><input type="number" required value={newAccountingEntry.amount} onChange={e=>setNewAccountingEntry({...newAccountingEntry,amount:Number(e.target.value)})} /></div><div className="form-group"><label>日期</label><input type="datetime-local" required value={newAccountingEntry.transaction_date} onChange={e=>setNewAccountingEntry({...newAccountingEntry,transaction_date:e.target.value})} /></div></div><div className="form-row"><div className="form-group"><label>item_category_id</label><select required value={newAccountingEntry.item_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_category_id:Number(e.target.value)})}>{itemCategoryOptions.length > 0 ? itemCategoryOptions.map((option)=><option key={option.id} value={option.id}>{option.id} - {option.name}</option>) : <option value={newAccountingEntry.item_category_id}>{newAccountingEntry.item_category_id}</option>}</select></div><div className="form-group"><label>payment_category_id</label><select required value={newAccountingEntry.payment_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,payment_category_id:Number(e.target.value)})}>{paymentCategoryOptions.length > 0 ? paymentCategoryOptions.map((option)=><option key={option.id} value={option.id}>{option.id} - {option.name}</option>) : <option value={newAccountingEntry.payment_category_id}>{newAccountingEntry.payment_category_id}</option>}</select></div></div><div className="form-group"><label>備註</label><input value={newAccountingEntry.notes} onChange={e=>setNewAccountingEntry({...newAccountingEntry,notes:e.target.value})} /></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setIsAccountingModalOpen(false)}>取消</button><button type="submit" className="primary-button">儲存</button></div></form></div></div>
       )}
       {isHealthModalOpen && (
         <div className="modal-overlay">
