@@ -79,6 +79,10 @@ export default function App() {
   const [hasMoreExpenses, setHasMoreExpenses] = useState(false);
   const [isLoadingExpenses, setIsLoadingExpenses] = useState(false);
   const [expenseRefreshTrigger, setExpenseRefreshTrigger] = useState(0);
+  const [financeMonth, setFinanceMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [accountingTransactions, setAccountingTransactions] = useState<any[]>([]);
   const [accountingUserId, setAccountingUserId] = useState("1");
   const [isAccountingModalOpen, setIsAccountingModalOpen] = useState(false);
@@ -265,7 +269,27 @@ export default function App() {
   );
 
   const latestHealth = data.health[0];
-  const financeGroups = useMemo(() => groupFinance(data.finance), [data.finance]);
+
+  const allTransactions = useMemo(() => {
+    const combined: any[] = [
+      ...expenseList.map(e => ({ ...e, type: "internal" })),
+      ...accountingTransactions.map(a => ({
+        id: a.transaction_id,
+        date: a.transaction_date,
+        amount: a.amount,
+        category: a.item_category || "未分類",
+        note: a.item_name + (a.notes ? ` - ${a.notes}` : ""),
+        type: "external",
+        original: a
+      }))
+    ];
+
+    return combined
+      .filter(t => t.date.startsWith(financeMonth))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [expenseList, accountingTransactions, financeMonth]);
+
+  const financeGroups = useMemo(() => groupFinance(allTransactions), [allTransactions]);
 
   const healthStats = useMemo(() => getHealthStats(data.health), [data.health]);
 
@@ -710,7 +734,18 @@ export default function App() {
               <SectionHeading
                 title="生活消費記錄 (Finance)"
                 description="透過 AI 自動歸類的消費數據分析。"
-                action={<div style={{display:"flex",gap:"0.5rem"}}><button className="primary-button" onClick={openNewExpense}>+ 新增消費</button><button className="secondary-button" onClick={openNewAccounting}>+ 新增外部記帳</button></div>}
+                action={
+                  <div style={{display:"flex",gap:"0.5rem", alignItems:"center"}}>
+                    <input
+                      type="month"
+                      value={financeMonth}
+                      onChange={e => setFinanceMonth(e.target.value)}
+                      style={{ padding: "0.5rem", borderRadius: "0.375rem", border: "1px solid #cbd5e1" }}
+                    />
+                    <button className="primary-button" onClick={openNewExpense}>+ 新增消費</button>
+                    <button className="secondary-button" onClick={openNewAccounting}>+ 新增外部記帳</button>
+                  </div>
+                }
               />
               <div className="panel-grid finance-layout">
                 <div className="panel">
@@ -725,24 +760,24 @@ export default function App() {
                     <h4>交易明細</h4>
                   </div>
                   <div className="list-wrap" style={{ display: 'block', width: '100%' }}>
-                    {expenseList.length > 0 ? (() => {
+                    {allTransactions.length > 0 ? (() => {
                       const FinanceRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
-                        const item = expenseList[index];
+                        const item = allTransactions[index];
                         return (
                           <div
                             role="button"
                             tabIndex={0}
-                            onClick={() => openEditExpense(item)}
+                            onClick={() => item.type === "internal" ? openEditExpense(item) : openEditAccounting(item.original)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
-                                openEditExpense(item);
+                                item.type === "internal" ? openEditExpense(item) : openEditAccounting(item.original);
                               }
                             }}
                             style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
                             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
-                                <span className="tag neutral" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>{item.category}</span>
+                                <span className={`tag ${item.type === 'external' ? 'secondary' : 'neutral'}`} style={{ padding: '2px 8px', fontSize: '0.75rem' }}>{item.category}</span>
                                 <span style={{ color: '#64748b', fontSize: '0.8rem' }}>{toLocalDisplayTime(item.date, user.timezone)}</span>
                               </div>
                               <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.9rem', color: '#334155' }} title={item.note}>
@@ -751,9 +786,11 @@ export default function App() {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                               <div className="strong" style={{ fontSize: '1rem' }}>NT$ {item.amount}</div>
-                              <div className="table-actions">
-                                <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteExpense(item.id); }} title="刪除" aria-label="刪除消費">🗑️</button>
-                              </div>
+                              {item.type === "internal" && (
+                                <div className="table-actions">
+                                  <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteExpense(item.id); }} title="刪除" aria-label="刪除消費">🗑️</button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
@@ -761,7 +798,7 @@ export default function App() {
                       return (
                         <List
                           height={400}
-                          itemCount={expenseList.length}
+                          itemCount={allTransactions.length}
                           itemSize={70}
                           width="100%"
                         >
@@ -772,7 +809,6 @@ export default function App() {
                       <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>尚無資料</div>
                     )}
                   </div>
-                  {accountingTransactions.length > 0 && <div style={{padding:"1rem"}}><h4>外部記帳 API 紀錄</h4>{accountingTransactions.map((item:any)=><div key={item.transaction_id} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #e2e8f0"}}><span>{item.transaction_date.slice(0,10)} {item.item_name} ({item.item_category}/{item.payment_category})</span><span><strong>${item.amount}</strong> <button className="icon-button" onClick={()=>openEditAccounting(item)}>✏️</button></span></div>)}</div>}
                   {hasMoreExpenses && (
                     <div style={{ textAlign: "center", marginTop: "1rem", paddingBottom: "1rem" }}>
                       <button
@@ -1233,7 +1269,7 @@ export default function App() {
 
 
       {isAccountingModalOpen && (
-        <div className="modal-overlay"><div className="panel modal-content"><div className="panel-header"><h4>{editingAccountingId ? "編輯外部記帳" : "新增外部記帳"}</h4><button className="close-button" onClick={() => setIsAccountingModalOpen(false)}>✕</button></div><form onSubmit={handleSaveAccounting} className="modal-form"><div className="form-group"><label>品項</label><input required value={newAccountingEntry.item_name} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_name:e.target.value})} /></div><div className="form-row"><div className="form-group"><label>金額</label><input type="number" required value={newAccountingEntry.amount} onChange={e=>setNewAccountingEntry({...newAccountingEntry,amount:Number(e.target.value)})} /></div><div className="form-group"><label>日期</label><input type="datetime-local" required value={newAccountingEntry.transaction_date} onChange={e=>setNewAccountingEntry({...newAccountingEntry,transaction_date:e.target.value})} /></div></div><div className="form-row"><div className="form-group"><label>item_category_id</label><select required value={newAccountingEntry.item_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_category_id:Number(e.target.value)})}>{itemCategoryOptions.length > 0 ? itemCategoryOptions.map((option)=><option key={option.id} value={option.id}>{option.id} - {option.name}</option>) : <option value={newAccountingEntry.item_category_id}>{newAccountingEntry.item_category_id}</option>}</select></div><div className="form-group"><label>payment_category_id</label><select required value={newAccountingEntry.payment_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,payment_category_id:Number(e.target.value)})}>{paymentCategoryOptions.length > 0 ? paymentCategoryOptions.map((option)=><option key={option.id} value={option.id}>{option.id} - {option.name}</option>) : <option value={newAccountingEntry.payment_category_id}>{newAccountingEntry.payment_category_id}</option>}</select></div></div><div className="form-group"><label>備註</label><input value={newAccountingEntry.notes} onChange={e=>setNewAccountingEntry({...newAccountingEntry,notes:e.target.value})} /></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setIsAccountingModalOpen(false)}>取消</button><button type="submit" className="primary-button">儲存</button></div></form></div></div>
+        <div className="modal-overlay"><div className="panel modal-content"><div className="panel-header"><h4>{editingAccountingId ? "編輯外部記帳" : "新增外部記帳"}</h4><button className="close-button" onClick={() => setIsAccountingModalOpen(false)}>✕</button></div><form onSubmit={handleSaveAccounting} className="modal-form"><div className="form-group"><label>品項</label><input required value={newAccountingEntry.item_name} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_name:e.target.value})} /></div><div className="form-row"><div className="form-group"><label>金額</label><input type="number" required value={newAccountingEntry.amount} onChange={e=>setNewAccountingEntry({...newAccountingEntry,amount:Number(e.target.value)})} /></div><div className="form-group"><label>日期</label><input type="datetime-local" required value={newAccountingEntry.transaction_date} onChange={e=>setNewAccountingEntry({...newAccountingEntry,transaction_date:e.target.value})} /></div></div><div className="form-row"><div className="form-group"><label>項目類別</label><select required value={newAccountingEntry.item_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_category_id:Number(e.target.value)})}>{itemCategoryOptions.length > 0 ? itemCategoryOptions.map((option)=><option key={option.id} value={option.id}>{option.name}</option>) : <option value={newAccountingEntry.item_category_id}>{newAccountingEntry.item_category_id}</option>}</select></div><div className="form-group"><label>支付類別</label><select required value={newAccountingEntry.payment_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,payment_category_id:Number(e.target.value)})}>{paymentCategoryOptions.length > 0 ? paymentCategoryOptions.map((option)=><option key={option.id} value={option.id}>{option.name}</option>) : <option value={newAccountingEntry.payment_category_id}>{newAccountingEntry.payment_category_id}</option>}</select></div></div><div className="form-group"><label>備註</label><input value={newAccountingEntry.notes} onChange={e=>setNewAccountingEntry({...newAccountingEntry,notes:e.target.value})} /></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setIsAccountingModalOpen(false)}>取消</button><button type="submit" className="primary-button">儲存</button></div></form></div></div>
       )}
       {isHealthModalOpen && (
         <div className="modal-overlay">
@@ -1516,8 +1552,8 @@ function getHealthStats(entries: HealthEntry[]) {
   };
 }
 
-function groupFinance(items: Expense[]) {
-  const palette = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#7c3aed"];
+function groupFinance(items: any[]) {
+  const palette = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#7c3aed", "#ec4899", "#8b5cf6", "#14b8a6"];
   return Object.entries(
     items.reduce<Record<string, number>>((acc, item) => {
       acc[item.category] = (acc[item.category] ?? 0) + item.amount;
