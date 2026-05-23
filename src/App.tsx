@@ -19,6 +19,27 @@ type ToastState = { visible: boolean; message: string };
 const emptyState: LifeOSState = { finance: [], journals: [], health: [], vault: [] };
 const defaultUser: UserProfile = { id: "", email: "", name: "", timezone: "UTC" };
 
+function getAccountingMonthRangeUtc(month: string, timezone: string): { startDate: string; endDate: string } {
+  const [yearRaw, monthRaw] = month.split("-");
+  const year = Number(yearRaw);
+  const monthNumber = Number(monthRaw);
+
+  if (!Number.isInteger(year) || !Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+    const start = localInputToUtcString(`${new Date().toISOString().slice(0, 7)}-01T00:00:00`, timezone);
+    const end = localInputToUtcString(`${new Date().toISOString().slice(0, 10)}T23:59:59`, timezone);
+    return { startDate: start, endDate: end };
+  }
+
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const monthPadded = String(monthNumber).padStart(2, "0");
+  const dayPadded = String(lastDay).padStart(2, "0");
+
+  return {
+    startDate: localInputToUtcString(`${year}-${monthPadded}-01T00:00:00`, timezone),
+    endDate: localInputToUtcString(`${year}-${monthPadded}-${dayPadded}T23:59:59`, timezone),
+  };
+}
+
 export default function App() {
   if (!isApiConfigured()) {
     return (
@@ -152,7 +173,8 @@ export default function App() {
         })
         .catch((err) => console.error("Failed to fetch expenses:", err))
         .finally(() => setIsLoadingExpenses(false));
-      fetchAccountingTransactions().then(setAccountingTransactions).catch((err) => console.error("Failed to fetch accounting transactions:", err));
+      const accountingRange = getAccountingMonthRangeUtc(financeMonth, user.timezone);
+      fetchAccountingTransactions(accountingRange).then(setAccountingTransactions).catch((err) => console.error("Failed to fetch accounting transactions:", err));
       fetchAccountingCategoryOptions()
         .then(({ itemCategories, paymentCategories }) => {
           setItemCategoryOptions(itemCategories);
@@ -165,7 +187,7 @@ export default function App() {
         })
         .catch((err) => console.error("Failed to fetch accounting category options:", err));
     }
-  }, [view, expensePage, expenseRefreshTrigger]);
+  }, [view, expensePage, expenseRefreshTrigger, financeMonth, user.timezone]);
 
   useEffect(() => {
     if (view === "vault") {
@@ -285,9 +307,9 @@ export default function App() {
     ];
 
     return combined
-      .filter(t => t.date.startsWith(financeMonth))
+      .filter(t => toLocalDisplayDate(t.date, user.timezone).startsWith(financeMonth))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [expenseList, accountingTransactions, financeMonth]);
+  }, [expenseList, accountingTransactions, financeMonth, user.timezone]);
 
   const financeGroups = useMemo(() => groupFinance(allTransactions), [allTransactions]);
 
@@ -493,7 +515,8 @@ export default function App() {
 
   async function handleSaveAccounting(e: React.FormEvent) {
     e.preventDefault();
-    const payload = { ...newAccountingEntry, transaction_date: newAccountingEntry.transaction_date.slice(0, 10) };
+    const utcTransactionDate = localInputToUtcString(newAccountingEntry.transaction_date, user.timezone);
+    const payload = { ...newAccountingEntry, transaction_date: utcTransactionDate };
     try {
       if (editingAccountingId !== null) {
         await updateAccountingTransaction(editingAccountingId, payload);
@@ -502,7 +525,8 @@ export default function App() {
         await createAccountingTransaction(payload);
         setToast({ visible: true, message: "外部記帳紀錄已新增" });
       }
-      setAccountingTransactions(await fetchAccountingTransactions());
+      const accountingRange = getAccountingMonthRangeUtc(financeMonth, user.timezone);
+      setAccountingTransactions(await fetchAccountingTransactions(accountingRange));
       setIsAccountingModalOpen(false);
       setEditingAccountingId(null);
     } catch (err: any) {
@@ -512,14 +536,14 @@ export default function App() {
 
   function openNewAccounting() {
     setEditingAccountingId(null);
-    setNewAccountingEntry({ transaction_date: new Date().toISOString().slice(0,16), item_name: "", item_category_id: itemCategoryOptions[0]?.id || 1, payment_category_id: paymentCategoryOptions[0]?.id || 1, amount: 0, notes: "" });
+    setNewAccountingEntry({ transaction_date: getCurrentLocalInputString(user.timezone, 'datetime-local'), item_name: "", item_category_id: itemCategoryOptions[0]?.id || 1, payment_category_id: paymentCategoryOptions[0]?.id || 1, amount: 0, notes: "" });
     setIsAccountingModalOpen(true);
   }
 
   function openEditAccounting(entry: any) {
     setEditingAccountingId(entry.transaction_id);
     setNewAccountingEntry({
-      transaction_date: (entry.transaction_date || "").slice(0,16),
+      transaction_date: toLocalInputString(entry.transaction_date || "", user.timezone, 'datetime-local'),
       item_name: entry.item_name || "",
       item_category_id: entry.item_category_id || 1,
       payment_category_id: entry.payment_category_id || 1,
