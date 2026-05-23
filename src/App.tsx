@@ -703,7 +703,7 @@ export default function App() {
                 {isAgentThinking ? "⏳" : "🚀"}
               </button>
             </div>
-            <button className="secondary-button" onClick={() => void handleRefresh()} title="同步資料">🔄 重整</button>
+            <button className="icon-button" onClick={() => void handleRefresh()} title="同步資料" aria-label="同步資料">🔄</button>
           </div>
         </header>
 
@@ -766,8 +766,8 @@ export default function App() {
                       onChange={e => setFinanceMonth(e.target.value)}
                       style={{ padding: "0.5rem", borderRadius: "0.375rem", border: "1px solid #cbd5e1" }}
                     />
-                    <button className="primary-button" onClick={openNewExpense}>+ 新增消費</button>
-                    <button className="secondary-button" onClick={openNewAccounting}>+ 新增外部記帳</button>
+                    <button className="icon-button" onClick={openNewExpense} title="新增消費" aria-label="新增消費">💳</button>
+                    <button className="icon-button" onClick={openNewAccounting} title="新增外部記帳" aria-label="新增外部記帳">🏦</button>
                   </div>
                 }
               />
