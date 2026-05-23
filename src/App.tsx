@@ -775,7 +775,6 @@ export default function App() {
                 <div className="panel">
                   <div className="panel-header">
                     <h4>支出分佈</h4>
-                    <span>近 5 筆</span>
                   </div>
                   <DonutChart groups={financeGroups} />
                 </div>
@@ -1293,7 +1292,85 @@ export default function App() {
 
 
       {isAccountingModalOpen && (
-        <div className="modal-overlay"><div className="panel modal-content"><div className="panel-header"><h4>{editingAccountingId ? "編輯外部記帳" : "新增外部記帳"}</h4><button className="close-button" onClick={() => setIsAccountingModalOpen(false)}>✕</button></div><form onSubmit={handleSaveAccounting} className="modal-form"><div className="form-group"><label>品項</label><input required value={newAccountingEntry.item_name} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_name:e.target.value})} /></div><div className="form-row"><div className="form-group"><label>金額</label><input type="number" required value={newAccountingEntry.amount} onChange={e=>setNewAccountingEntry({...newAccountingEntry,amount:Number(e.target.value)})} /></div><div className="form-group"><label>日期</label><input type="datetime-local" required value={newAccountingEntry.transaction_date} onChange={e=>setNewAccountingEntry({...newAccountingEntry,transaction_date:e.target.value})} /></div></div><div className="form-row"><div className="form-group"><label>項目類別</label><select required value={newAccountingEntry.item_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_category_id:Number(e.target.value)})}>{itemCategoryOptions.length > 0 ? itemCategoryOptions.map((option)=><option key={option.id} value={option.id}>{option.name}</option>) : <option value={newAccountingEntry.item_category_id}>{newAccountingEntry.item_category_id}</option>}</select></div><div className="form-group"><label>支付類別</label><select required value={newAccountingEntry.payment_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,payment_category_id:Number(e.target.value)})}>{paymentCategoryOptions.length > 0 ? paymentCategoryOptions.map((option)=><option key={option.id} value={option.id}>{option.name}</option>) : <option value={newAccountingEntry.payment_category_id}>{newAccountingEntry.payment_category_id}</option>}</select></div></div><div className="form-group"><label>備註</label><input value={newAccountingEntry.notes} onChange={e=>setNewAccountingEntry({...newAccountingEntry,notes:e.target.value})} /></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setIsAccountingModalOpen(false)}>取消</button><button type="submit" className="primary-button">儲存</button></div></form></div></div>
+        <div className="modal-overlay">
+          <div className="panel modal-content">
+            <div className="panel-header">
+              <h4>{editingAccountingId ? "編輯外部記帳" : "新增外部記帳"}</h4>
+              <button className="close-button" onClick={() => setIsAccountingModalOpen(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSaveAccounting} className="modal-form">
+              <div className="form-group">
+                <label>品項</label>
+                <input
+                  required
+                  value={newAccountingEntry.item_name}
+                  onChange={e => setNewAccountingEntry({ ...newAccountingEntry, item_name: e.target.value })}
+                  onFocus={e => e.target.select()}
+                  onClick={e => e.currentTarget.select()}
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>金額</label>
+                  <input
+                    type="number"
+                    required
+                    value={newAccountingEntry.amount}
+                    onChange={e => setNewAccountingEntry({ ...newAccountingEntry, amount: Number(e.target.value) })}
+                    onFocus={e => e.target.select()}
+                    onClick={e => e.currentTarget.select()}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>日期</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={newAccountingEntry.transaction_date}
+                    onChange={e => setNewAccountingEntry({ ...newAccountingEntry, transaction_date: e.target.value })}
+                    onFocus={e => e.target.select()}
+                    onClick={e => e.currentTarget.select()}
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>項目類別</label>
+                  <select
+                    required
+                    value={newAccountingEntry.item_category_id}
+                    onChange={e => setNewAccountingEntry({ ...newAccountingEntry, item_category_id: Number(e.target.value) })}
+                  >
+                    {itemCategoryOptions.length > 0 ? itemCategoryOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>) : <option value={newAccountingEntry.item_category_id}>{newAccountingEntry.item_category_id}</option>}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>支付類別</label>
+                  <select
+                    required
+                    value={newAccountingEntry.payment_category_id}
+                    onChange={e => setNewAccountingEntry({ ...newAccountingEntry, payment_category_id: Number(e.target.value) })}
+                  >
+                    {paymentCategoryOptions.length > 0 ? paymentCategoryOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>) : <option value={newAccountingEntry.payment_category_id}>{newAccountingEntry.payment_category_id}</option>}
+                  </select>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>備註</label>
+                <input
+                  value={newAccountingEntry.notes}
+                  onChange={e => setNewAccountingEntry({ ...newAccountingEntry, notes: e.target.value })}
+                  onFocus={e => e.target.select()}
+                  onClick={e => e.currentTarget.select()}
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="secondary-button" onClick={() => setIsAccountingModalOpen(false)}>取消</button>
+                <button type="submit" className="primary-button">儲存</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
       {isHealthModalOpen && (
         <div className="modal-overlay">
