@@ -1,5 +1,4 @@
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem } from "./domain";
-import type { AgentMutation } from "./lifeAgent";
 
 export type JournalListResponse = {
   journals: JournalEntry[];
@@ -31,15 +30,17 @@ export type DashboardSnapshotResponse = {
   generatedAt: string;
 };
 
+export type AgentChatMessage = { role: "user" | "assistant"; content: string };
+
 export type AgentCommandRequest = {
-  command: string;
+  messages: AgentChatMessage[];
 };
 
 export type AgentCommandResponse = {
   accepted: true;
-  mutation: AgentMutation;
+  reply: string;
   data: LifeOSState;
-  source: "d1";
+  source: "gemini";
 };
 
 export type VaultSecretResponse = {
