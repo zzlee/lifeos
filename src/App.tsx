@@ -122,6 +122,8 @@ export default function App() {
   const [healthRefreshTrigger, setHealthRefreshTrigger] = useState(0);
 
   const [isAgentThinking, setIsAgentThinking] = useState(false);
+  const [isAgentChatOpen, setIsAgentChatOpen] = useState(false);
+  const [agentMessages, setAgentMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
 
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
@@ -323,13 +325,16 @@ export default function App() {
     const text = prompt.trim();
     if (!text) return;
 
+    const nextMessages = [...agentMessages, { role: "user" as const, content: text }];
+    setAgentMessages(nextMessages);
+    setIsAgentChatOpen(true);
     setIsAgentThinking(true);
     try {
-      const response = await sendAgentCommand(text);
-      const mutation = response.mutation;
+      const response = await sendAgentCommand(nextMessages);
       setData(response.data);
       setPrompt("");
-      setToast({ visible: true, message: mutation.message });
+      setAgentMessages((prev) => [...prev, { role: "assistant", content: response.reply }]);
+      setToast({ visible: true, message: response.reply });
     } finally {
       setIsAgentThinking(false);
     }
@@ -706,6 +711,25 @@ export default function App() {
             <button className="icon-button" onClick={() => void handleRefresh()} title="同步資料" aria-label="同步資料">🔄</button>
           </div>
         </header>
+
+        {isAgentChatOpen && (
+          <div className="modal-backdrop" onClick={() => setIsAgentChatOpen(false)}>
+            <div className="panel" style={{ width: "min(760px, 95vw)", maxHeight: "70vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3>LifeOS Agent 對話</h3>
+                <button className="icon-button" onClick={() => setIsAgentChatOpen(false)} aria-label="關閉">✕</button>
+              </div>
+              <div style={{ display: "grid", gap: "10px", marginTop: "10px" }}>
+                {agentMessages.map((m, idx) => (
+                  <div key={idx} style={{ padding: "10px", borderRadius: "8px", background: m.role === "user" ? "#e0f2fe" : "#f1f5f9" }}>
+                    <strong>{m.role === "user" ? "你" : "Agent"}：</strong>{m.content}
+                  </div>
+                ))}
+                {isAgentThinking && <div>Agent 思考中...</div>}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className={`toast ${toast.visible ? "visible" : ""}`}>
           <span>✅</span>

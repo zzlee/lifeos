@@ -10,7 +10,7 @@ import type {
   VaultExportResponse,
   VaultSecretResponse,
 } from "../shared/contracts";
-import { resolveAgentMutation } from "./agent";
+import { runLifeAgentLoop } from "./agent";
 import {
   clearSessionCookie,
   completeGoogleOAuth,
@@ -20,7 +20,7 @@ import {
 } from "./auth";
 import type { Env } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
-import { getDashboardSnapshot, getVaultSecret, getVaultItems, persistAgentMutation, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./repository";
+import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./repository";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -179,16 +179,13 @@ app.post("/api/agent", async (c) => {
   const session = await resolveSession(c.env, c.req.raw.headers);
   if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
 
-  const snapshot = await getDashboardSnapshot(c.env.DB, session.user);
-  const agentResult = await resolveAgentMutation(c.env, session.user, body.command, snapshot.data);
-  const mutation = agentResult.mutation;
-  const persisted = await persistAgentMutation(c.env.DB, session.user, mutation, c.env.VAULT_MASTER_KEY);
+  const agentResult = await runLifeAgentLoop(c.env, session.user, body.messages || []);
 
   const response: AgentCommandResponse = {
     accepted: true,
-    mutation,
-    data: persisted.data,
-    source: persisted.source
+    reply: agentResult.reply,
+    data: agentResult.data,
+    source: agentResult.source
   };
 
   return c.json(response);
