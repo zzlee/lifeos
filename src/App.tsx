@@ -125,6 +125,11 @@ export default function App() {
   const [isAgentChatOpen, setIsAgentChatOpen] = useState(false);
   const [agentMessages, setAgentMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
 
+  function handleCloseAgentChat() {
+    setIsAgentChatOpen(false);
+    setAgentMessages([]);
+  }
+
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
@@ -713,19 +718,26 @@ export default function App() {
         </header>
 
         {isAgentChatOpen && (
-          <div className="modal-backdrop" onClick={() => setIsAgentChatOpen(false)}>
-            <div className="panel" style={{ width: "min(760px, 95vw)", maxHeight: "70vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h3>LifeOS Agent 對話</h3>
-                <button className="icon-button" onClick={() => setIsAgentChatOpen(false)} aria-label="關閉">✕</button>
+          <div className="modal-overlay" onClick={handleCloseAgentChat}>
+            <div className="panel modal-content" style={{ width: "min(640px, 95vw)", maxWidth: "min(640px, 95vw)", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+              <div className="panel-header">
+                <h4>LifeOS Agent 對話</h4>
+                <button className="close-button" onClick={handleCloseAgentChat} aria-label="關閉">✕</button>
               </div>
-              <div style={{ display: "grid", gap: "10px", marginTop: "10px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "16px", overflowY: "auto", flex: 1, paddingRight: "4px" }}>
                 {agentMessages.map((m, idx) => (
-                  <div key={idx} style={{ padding: "10px", borderRadius: "8px", background: m.role === "user" ? "#e0f2fe" : "#f1f5f9" }}>
-                    <strong>{m.role === "user" ? "你" : "Agent"}：</strong>{m.content}
+                  <div key={idx} style={{ padding: "12px 16px", borderRadius: "16px", background: m.role === "user" ? "#e0f2fe" : "#f1f5f9", alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "85%" }}>
+                    <div style={{ fontSize: "0.85em", fontWeight: "bold", color: m.role === "user" ? "#0284c7" : "#475569", marginBottom: "4px" }}>
+                      {m.role === "user" ? "你" : "Agent"}
+                    </div>
+                    <div style={{ color: "#1e293b", wordBreak: "break-word", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{m.content}</div>
                   </div>
                 ))}
-                {isAgentThinking && <div>Agent 思考中...</div>}
+                {isAgentThinking && (
+                  <div style={{ padding: "12px 16px", borderRadius: "16px", background: "#f1f5f9", alignSelf: "flex-start", maxWidth: "85%", color: "#64748b" }}>
+                    Agent 思考中...
+                  </div>
+                )}
               </div>
             </div>
           </div>
