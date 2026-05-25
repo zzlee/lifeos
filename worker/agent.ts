@@ -326,7 +326,11 @@ export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: Ch
   }));
 
   const userLocalTime = new Date().toLocaleString("zh-TW", { timeZone: user.timezone || "Asia/Taipei" });
-  const systemInstruction = `You are the LifeOS agent. Use tools for queries and mutations, and answer with concise summaries. Current local date/time: ${userLocalTime}. User Timezone: ${user.timezone || "Asia/Taipei"}. Use this current date/time to resolve relative dates like "today", "yesterday", or "last week" when performing queries or mutations.`;
+  const systemInstruction = `You are the LifeOS agent. Use tools for queries and mutations, and answer with concise summaries. Current local date/time: ${userLocalTime}. User Timezone: ${user.timezone || "Asia/Taipei"}. Use this current date/time to resolve relative dates like "today", "yesterday", or "last week" when performing queries or mutations.
+
+CRITICAL INSTRUCTIONS FOR RETRIEVING DATA:
+1. Since the dashboard snapshot is no longer in your context, you MUST ALWAYS call the corresponding query tools ('query_expenses', 'query_health', or 'query_journals') to fetch the data first if the user asks you to list, show, query, search, summarize, or check any transactions, expenses, health records, or journals! Do not assume the database is empty or make up answers without calling these query tools first!
+2. When querying expenses or health records without a specific narrow date range specified by the user, DO NOT default to a narrow date filter (like 'today' or 'this week'). Instead, leave the 'start_date' and 'end_date' parameters completely empty or specify a very wide range so that all historical data (including past weeks and months) can be fetched and integrated successfully!`;
 
   for (let i = 0; i < maxTurns; i++) {
     // Note: Dashboard Snapshot injection removed to optimize context token usage.
