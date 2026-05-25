@@ -14,6 +14,7 @@ import {
   updateJournal,
   getExpenses,
   getHealthRecords,
+  getJournals,
 } from "./repository";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -30,46 +31,99 @@ type ToolSpec = {
 const LIFEOS_TOOLSET: ToolSpec[] = [
   {
     name: "create_expense",
-    description: "Create a new local expense record in the local D1 database. ONLY use this tool if the user explicitly specifies storing it 'locally', 'internally', or in 'local database'.",
+    description: "Create a new expense or transaction. By default, it will be saved to the accounting system. Set 'local' parameter to true ONLY if you explicitly want to save it to the local database.",
     parameters: {
       type: "object",
-      properties: { amount: { type: "number" }, category: { type: "string" }, note: { type: "string" }, date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" } },
+      properties: { 
+        amount: { type: "number" }, 
+        category: { type: "string" }, 
+        note: { type: "string" }, 
+        date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" },
+        local: { type: "boolean", description: "Set to true ONLY if the user explicitly specifies storing 'locally', 'internally', or in 'local database'." }
+      },
       required: ["amount", "category"],
     },
-    execute: async (args, env, user) => createExpense(env.DB!, user, {
-      amount: Number(args.amount) || 0,
-      category: String(args.category || "AI 自動"),
-      note: String(args.note || ""),
-      date: String(args.date || args.occurred_at || new Date().toISOString()),
-    }),
+    execute: async (args, env, user) => {
+      const isLocal = args.local === true;
+      if (isLocal) {
+        return createExpense(env.DB!, user, {
+          amount: Number(args.amount) || 0,
+          category: String(args.category || "AI 自動"),
+          note: String(args.note || ""),
+          date: String(args.date || new Date().toISOString()),
+        });
+      } else {
+        return createExternalTransaction({
+          amount: Number(args.amount) || 0,
+          category: String(args.category || "AI 自動"),
+          note: String(args.note || ""),
+          user_id: 1, // default user
+        });
+      }
+    },
   },
   {
     name: "update_expense",
-    description: "Update an existing expense by id in the local database.",
+    description: "Update an existing expense or transaction by id.",
     parameters: {
       type: "object",
-      properties: { id: { type: "number" }, amount: { type: "number" }, category: { type: "string" }, note: { type: "string" }, date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" } },
-      required: ["id", "amount", "category"],
+      properties: { 
+        id: { type: "number" }, 
+        amount: { type: "number" }, 
+        category: { type: "string" }, 
+        note: { type: "string" }, 
+        date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" },
+        source: { type: "string", enum: ["local", "external"], description: "Whether the record is in the 'local' database or 'external' system (must match the source returned by query_expenses)." }
+      },
+      required: ["id", "amount", "category", "source"],
     },
-    execute: async (args, env, user) => updateExpense(env.DB!, Number(args.id), user, {
-      amount: Number(args.amount) || 0,
-      category: String(args.category || "AI 自動"),
-      note: String(args.note || ""),
-      date: String(args.date || args.occurred_at || new Date().toISOString()),
-    }),
+    execute: async (args, env, user) => {
+      const isLocal = args.source === "local";
+      if (isLocal) {
+        return updateExpense(env.DB!, Number(args.id), user, {
+          amount: Number(args.amount) || 0,
+          category: String(args.category || "AI 自動"),
+          note: String(args.note || ""),
+          date: String(args.date || new Date().toISOString()),
+        });
+      } else {
+        return updateExternalTransaction(Number(args.id), {
+          amount: Number(args.amount) || 0,
+          category: String(args.category || "AI 自動"),
+          note: String(args.note || ""),
+        });
+      }
+    },
   },
   {
     name: "delete_expense",
-    description: "Delete an expense by id in the local database.",
-    parameters: { type: "object", properties: { id: { type: "number" } }, required: ["id"] },
-    execute: async (args, env, user) => deleteExpense(env.DB!, Number(args.id), user),
+    description: "Delete an expense or transaction by id.",
+    parameters: { 
+      type: "object", 
+      properties: { 
+        id: { type: "number" },
+        source: { type: "string", enum: ["local", "external"], description: "Whether the record is in the 'local' database or 'external' system (must match the source returned by query_expenses)." }
+      }, 
+      required: ["id", "source"] 
+    },
+    execute: async (args, env, user) => {
+      const isLocal = args.source === "local";
+      if (isLocal) {
+        return deleteExpense(env.DB!, Number(args.id), user);
+      } else {
+        return deleteExternalTransaction(Number(args.id));
+      }
+    },
   },
   {
     name: "create_journal",
     description: "Create a journal entry.",
     parameters: {
       type: "object",
-      properties: { content: { type: "string" }, tags: { type: "array", items: { type: "string" } } },
+      properties: {
+        content: { type: "string" },
+        tags: { type: "array", items: { type: "string" } }
+      },
       required: ["content"],
     },
     execute: async (args, env, user) => createJournal(env.DB!, user, args.content, args.tags || []),
@@ -127,16 +181,6 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     description: "Delete a health record by id.",
     parameters: { type: "object", properties: { id: { type: "number" } }, required: ["id"] },
     execute: async (args, env, user) => deleteHealthRecord(env.DB!, Number(args.id), user),
-  },
-  {
-    name: "create_external_transaction",
-    description: "Create an external accounting transaction in the external system. This is the DEFAULT tool for recording any new expenses or transactions unless the user explicitly specifies recording it 'locally', 'internally', or in 'local database'.",
-    parameters: {
-      type: "object",
-      properties: { amount: { type: "number" }, category: { type: "string" }, note: { type: "string" }, user_id: { type: "number" } },
-      required: ["amount", "category"],
-    },
-    execute: async (args) => createExternalTransaction(args),
   },
   {
     name: "query_expenses",
@@ -234,6 +278,36 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       }));
     }
   },
+  {
+    name: "query_journals",
+    description: "Query and search personal journal entries by date range, tag, or content keywords.",
+    parameters: {
+      type: "object",
+      properties: {
+        start_date: { type: "string", description: "Filter start date (YYYY-MM-DD or ISO timestamp)" },
+        end_date: { type: "string", description: "Filter end date (YYYY-MM-DD or ISO timestamp)" },
+        tag: { type: "string", description: "Filter by a specific tag name" },
+        keyword: { type: "string", description: "Filter by keyword inside journal content" },
+        limit: { type: "number", description: "Limit number of entries returned (default 30)" },
+      },
+    },
+    execute: async (args, env, user) => {
+      const limit = Number(args.limit) || 30;
+      const records = await getJournals(env.DB!, user, limit, 0, {
+        startDate: args.start_date,
+        endDate: args.end_date,
+        query: args.keyword,
+        tag: args.tag,
+      });
+
+      return records.map(r => ({
+        id: r.id,
+        date: r.date.slice(0, 10),
+        content: r.content,
+        tags: r.tags,
+      }));
+    }
+  },
 ];
 
 const TOOL_MAP = new Map(LIFEOS_TOOLSET.map((tool) => [tool.name, tool]));
@@ -300,8 +374,25 @@ export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: Ch
 async function createExternalTransaction(args: any) {
   const resp = await fetch("https://purple-water-b776.zzlee-tw.workers.dev/api/transactions", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-LifeOS-User-Id": String(args.user_id || 1) },
+    headers: { "Content-Type": "application/json", "X-LifeOS-User-Id": "1" },
     body: JSON.stringify(args),
+  });
+  return { ok: resp.ok, status: resp.status };
+}
+
+async function updateExternalTransaction(id: number, args: any) {
+  const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev/api/transactions/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", "X-LifeOS-User-Id": "1" },
+    body: JSON.stringify(args),
+  });
+  return { ok: resp.ok, status: resp.status };
+}
+
+async function deleteExternalTransaction(id: number) {
+  const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev/api/transactions/${id}`, {
+    method: "DELETE",
+    headers: { "X-LifeOS-User-Id": "1" },
   });
   return { ok: resp.ok, status: resp.status };
 }
