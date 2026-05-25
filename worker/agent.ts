@@ -36,12 +36,15 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       type: "object",
       properties: { 
         amount: { type: "number" }, 
-        category: { type: "string" }, 
+        category: { type: "string", description: "Required ONLY if local is true." },
         note: { type: "string" }, 
         date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" },
-        local: { type: "boolean", description: "Set to true ONLY if the user explicitly specifies storing 'locally', 'internally', or in 'local database'." }
+        local: { type: "boolean", description: "Set to true ONLY if the user explicitly specifies storing 'locally', 'internally', or in 'local database'." },
+        item_name: { type: "string", description: "Name of the item for external accounting. Required if local is false." },
+        item_category_id: { type: "number", description: "ID of the item category for external accounting. Required if local is false." },
+        payment_category_id: { type: "number", description: "ID of the payment category for external accounting. Required if local is false." }
       },
-      required: ["amount", "category"],
+      required: ["amount"],
     },
     execute: async (args, env, user, accountingUserId) => {
       const isLocal = args.local === true;
@@ -54,9 +57,12 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
         });
       } else {
         return createExternalTransaction({
+          transaction_date: String(args.date || new Date().toISOString()),
+          item_name: String(args.item_name || args.note || args.category || "AI 自動"),
+          item_category_id: Number(args.item_category_id) || 3, // fallback to a safe default if needed
           amount: Number(args.amount) || 0,
-          category: String(args.category || "AI 自動"),
-          note: String(args.note || ""),
+          payment_category_id: Number(args.payment_category_id) || 1, // fallback
+          notes: args.note ? String(args.note) : undefined,
         }, accountingUserId || 1);
       }
     },
@@ -69,12 +75,15 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       properties: { 
         id: { type: "number" }, 
         amount: { type: "number" }, 
-        category: { type: "string" }, 
+        category: { type: "string", description: "Required ONLY if source is local." },
         note: { type: "string" }, 
         date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" },
-        source: { type: "string", enum: ["local", "external"], description: "Whether the record is in the 'local' database or 'external' system (must match the source returned by query_expenses)." }
+        source: { type: "string", enum: ["local", "external"], description: "Whether the record is in the 'local' database or 'external' system (must match the source returned by query_expenses)." },
+        item_name: { type: "string", description: "Name of the item for external accounting. Required if source is external." },
+        item_category_id: { type: "number", description: "ID of the item category for external accounting. Required if source is external." },
+        payment_category_id: { type: "number", description: "ID of the payment category for external accounting. Required if source is external." }
       },
-      required: ["id", "amount", "category", "source"],
+      required: ["id", "amount", "source"],
     },
     execute: async (args, env, user, accountingUserId) => {
       const isLocal = args.source === "local";
@@ -87,9 +96,12 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
         });
       } else {
         return updateExternalTransaction(Number(args.id), {
+          transaction_date: String(args.date || new Date().toISOString()),
+          item_name: String(args.item_name || args.note || args.category || "AI 自動"),
+          item_category_id: Number(args.item_category_id) || 3,
           amount: Number(args.amount) || 0,
-          category: String(args.category || "AI 自動"),
-          note: String(args.note || ""),
+          payment_category_id: Number(args.payment_category_id) || 1,
+          notes: args.note ? String(args.note) : undefined,
         }, accountingUserId || 1);
       }
     },
@@ -326,11 +338,19 @@ export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: Ch
   }));
 
   const userLocalTime = new Date().toLocaleString("zh-TW", { timeZone: user.timezone || "Asia/Taipei" });
+  const categories = await fetchAccountingCategories();
+  const itemCategoriesStr = categories.itemCategories.map(c => `${c.id}:${c.name}`).join(", ");
+  const paymentCategoriesStr = categories.paymentCategories.map(c => `${c.id}:${c.name}`).join(", ");
   const systemInstruction = `You are the LifeOS agent. Use tools for queries and mutations, and answer with concise summaries. Current local date/time: ${userLocalTime}. User Timezone: ${user.timezone || "Asia/Taipei"}. Use this current date/time to resolve relative dates like "today", "yesterday", or "last week" when performing queries or mutations.
 
 CRITICAL INSTRUCTIONS FOR RETRIEVING DATA:
 1. Since the dashboard snapshot is no longer in your context, you MUST ALWAYS call the corresponding query tools ('query_expenses', 'query_health', or 'query_journals') to fetch the data first if the user asks you to list, show, query, search, summarize, or check any transactions, expenses, health records, or journals! Do not assume the database is empty or make up answers without calling these query tools first!
-2. When querying expenses or health records without a specific narrow date range specified by the user, DO NOT default to a narrow date filter (like 'today' or 'this week'). Instead, leave the 'start_date' and 'end_date' parameters completely empty or specify a very wide range so that all historical data (including past weeks and months) can be fetched and integrated successfully!`;
+2. When querying expenses or health records without a specific narrow date range specified by the user, DO NOT default to a narrow date filter (like 'today' or 'this week'). Instead, leave the 'start_date' and 'end_date' parameters completely empty or specify a very wide range so that all historical data (including past weeks and months) can be fetched and integrated successfully!
+
+ACCOUNTING CATEGORIES:
+For external transactions, you MUST use the following category IDs for 'item_category_id' and 'payment_category_id'.
+Item Categories (ID:Name): ${itemCategoriesStr}
+Payment Categories (ID:Name): ${paymentCategoriesStr}`;
 
   for (let i = 0; i < maxTurns; i++) {
     // Note: Dashboard Snapshot injection removed to optimize context token usage.
@@ -433,4 +453,35 @@ async function fetchExternalTransactions(query: { startDate?: string; endDate?: 
     console.error("External fetch failed:", e);
     return [];
   }
+}
+
+async function fetchAccountingCategories() {
+  const fetchCategory = async (path: string) => {
+    try {
+      const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev${path}`, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "application/json"
+        }
+      });
+      if (!resp.ok) return [];
+      const data = await resp.json() as any[];
+      return data
+        .map((item) => ({
+          id: Number(item.id ?? item.item_category_id ?? item.payment_category_id),
+          name: String(item.name ?? item.item_category ?? item.payment_category ?? "")
+        }))
+        .filter((item) => Number.isFinite(item.id) && item.id > 0 && item.name.trim().length > 0);
+    } catch (e) {
+      console.error(`External fetch category failed for ${path}:`, e);
+      return [];
+    }
+  };
+
+  const [itemCategories, paymentCategories] = await Promise.all([
+    fetchCategory("/api/item-categories"),
+    fetchCategory("/api/payment-categories")
+  ]);
+
+  return { itemCategories, paymentCategories };
 }
