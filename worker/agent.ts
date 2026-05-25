@@ -12,6 +12,8 @@ import {
   updateExpense,
   updateHealthRecord,
   updateJournal,
+  getExpenses,
+  getHealthRecords,
 } from "./repository";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -28,7 +30,7 @@ type ToolSpec = {
 const LIFEOS_TOOLSET: ToolSpec[] = [
   {
     name: "create_expense",
-    description: "Create a new expense record.",
+    description: "Create a new local expense record in the local D1 database. ONLY use this tool if the user explicitly specifies storing it 'locally', 'internally', or in 'local database'.",
     parameters: {
       type: "object",
       properties: { amount: { type: "number" }, category: { type: "string" }, note: { type: "string" }, date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" } },
@@ -43,7 +45,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
   },
   {
     name: "update_expense",
-    description: "Update an existing expense by id.",
+    description: "Update an existing expense by id in the local database.",
     parameters: {
       type: "object",
       properties: { id: { type: "number" }, amount: { type: "number" }, category: { type: "string" }, note: { type: "string" }, date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" } },
@@ -58,7 +60,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
   },
   {
     name: "delete_expense",
-    description: "Delete an expense by id.",
+    description: "Delete an expense by id in the local database.",
     parameters: { type: "object", properties: { id: { type: "number" } }, required: ["id"] },
     execute: async (args, env, user) => deleteExpense(env.DB!, Number(args.id), user),
   },
@@ -128,13 +130,109 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
   },
   {
     name: "create_external_transaction",
-    description: "Create an external accounting transaction.",
+    description: "Create an external accounting transaction in the external system. This is the DEFAULT tool for recording any new expenses or transactions unless the user explicitly specifies recording it 'locally', 'internally', or in 'local database'.",
     parameters: {
       type: "object",
       properties: { amount: { type: "number" }, category: { type: "string" }, note: { type: "string" }, user_id: { type: "number" } },
       required: ["amount", "category"],
     },
     execute: async (args) => createExternalTransaction(args),
+  },
+  {
+    name: "query_expenses",
+    description: "Query and search expense/transaction records from both internal local database and external accounting system.",
+    parameters: {
+      type: "object",
+      properties: {
+        start_date: { type: "string", description: "Filter start date (YYYY-MM-DD or ISO timestamp)" },
+        end_date: { type: "string", description: "Filter end date (YYYY-MM-DD or ISO timestamp)" },
+        category: { type: "string", description: "Filter by category name" },
+        keyword: { type: "string", description: "Filter by keyword in notes, item name or description" },
+      },
+    },
+    execute: async (args, env, user) => {
+      // 1. Fetch local expenses from D1
+      const localExpenses = await getExpenses(env.DB!, user, 100, 0, {
+        startDate: args.start_date,
+        endDate: args.end_date,
+        category: args.category,
+        query: args.keyword,
+      });
+
+      // 2. Fetch external transactions
+      const externalTxList = await fetchExternalTransactions({
+        startDate: args.start_date,
+        endDate: args.end_date,
+      });
+
+      // 3. Filter external transactions programmatically
+      let filteredExt = externalTxList;
+      if (args.category) {
+        const catLower = args.category.toLowerCase();
+        filteredExt = filteredExt.filter(tx => 
+          (tx.item_category && tx.item_category.toLowerCase().includes(catLower)) ||
+          (tx.payment_category && tx.payment_category.toLowerCase().includes(catLower))
+        );
+      }
+      if (args.keyword) {
+        const kwLower = args.keyword.toLowerCase();
+        filteredExt = filteredExt.filter(tx => 
+          (tx.item_name && tx.item_name.toLowerCase().includes(kwLower)) ||
+          (tx.notes && tx.notes.toLowerCase().includes(kwLower))
+        );
+      }
+
+      // 4. Combine and normalize results
+      const unifiedLocal = localExpenses.map(e => ({
+        id: e.id,
+        source: "local",
+        date: e.date.slice(0, 10),
+        amount: e.amount,
+        category: e.category,
+        note: e.note || "",
+      }));
+
+      const unifiedExternal = filteredExt.map(tx => ({
+        id: tx.transaction_id,
+        source: "external",
+        date: tx.transaction_date.slice(0, 10),
+        amount: tx.amount,
+        category: tx.item_category ? `${tx.item_category} (${tx.payment_category || "未指定"})` : "未指定",
+        note: tx.item_name + (tx.notes ? ` - ${tx.notes}` : ""),
+      }));
+
+      // Merge and sort by date descending
+      const merged = [...unifiedLocal, ...unifiedExternal].sort((a, b) => b.date.localeCompare(a.date));
+      return merged.slice(0, 50); // limit to top 50 results for the AI
+    }
+  },
+  {
+    name: "query_health",
+    description: "Query and search daily health metrics (such as blood pressure, heart rate, and weight) within a specified date range.",
+    parameters: {
+      type: "object",
+      properties: {
+        start_date: { type: "string", description: "Filter start date (YYYY-MM-DD or ISO timestamp)" },
+        end_date: { type: "string", description: "Filter end date (YYYY-MM-DD or ISO timestamp)" },
+        limit: { type: "number", description: "Limit number of entries returned (default 50)" },
+      },
+    },
+    execute: async (args, env, user) => {
+      const limit = Number(args.limit) || 50;
+      const records = await getHealthRecords(env.DB!, user, limit, 0, {
+        startDate: args.start_date,
+        endDate: args.end_date,
+      });
+
+      return records.map(r => ({
+        id: r.id,
+        date: r.date.slice(0, 10),
+        sys: r.sys,
+        dia: r.dia,
+        hr: r.hr,
+        weight: r.weight,
+      }));
+    }
   },
 ];
 
@@ -153,14 +251,14 @@ export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: Ch
   }));
 
   for (let i = 0; i < maxTurns; i++) {
-    const snapshot = await getDashboardSnapshot(env.DB, user);
-    conversation.push({ role: "user", parts: [{ text: `Current dashboard snapshot: ${JSON.stringify(snapshot.data).slice(0, 7000)}` }] });
+    // Note: Dashboard Snapshot injection removed to optimize context token usage.
+    // Query tools should be used by the agent to fetch expenses or health data.
 
     const response = await ai.models.generateContent({
       model,
       contents: conversation,
       config: {
-        systemInstruction: "You are the LifeOS agent. Use tools for mutations, and answer with concise summaries.",
+        systemInstruction: "You are the LifeOS agent. Use tools for queries and mutations, and answer with concise summaries.",
         tools: [
           {
             functionDeclarations: LIFEOS_TOOLSET.map((tool) => ({
@@ -175,6 +273,8 @@ export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: Ch
 
     const functionCalls = response.functionCalls ?? [];
     if (!functionCalls.length) {
+      // Fetch snapshot once at completion to sync UI state
+      const snapshot = await getDashboardSnapshot(env.DB, user);
       return { reply: response.text?.trim() || "已完成。", data: snapshot.data, source: "gemini" as const };
     }
 
@@ -200,4 +300,18 @@ async function createExternalTransaction(args: any) {
     body: JSON.stringify(args),
   });
   return { ok: resp.ok, status: resp.status };
+}
+
+async function fetchExternalTransactions(query: { startDate?: string; endDate?: string }) {
+  const url = new URL("https://purple-water-b776.zzlee-tw.workers.dev/api/transactions");
+  url.searchParams.set("user-id", "1"); // default to 1 as per CLI / frontend behavior
+  if (query.startDate) url.searchParams.set("startDate", query.startDate.slice(0, 10));
+  if (query.endDate) url.searchParams.set("endDate", query.endDate.slice(0, 10));
+  try {
+    const resp = await fetch(url.toString());
+    if (!resp.ok) return [];
+    return (await resp.json()) as any[];
+  } catch {
+    return [];
+  }
 }
