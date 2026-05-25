@@ -193,6 +193,7 @@ app.post("/api/agent", async (c) => {
 
     return c.json(response);
   } catch (error) {
+    console.error("Agent error:", error);
     const message = error instanceof Error ? error.message : "Agent request failed";
     return c.json({ error: message }, 500);
   }

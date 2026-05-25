@@ -347,6 +347,11 @@ export default function App() {
       setPrompt("");
       setAgentMessages((prev) => [...prev, { role: "assistant", content: response.reply }]);
       setToast({ visible: true, message: response.reply });
+    } catch (err: any) {
+      console.error("Agent command failed:", err);
+      const errMsg = err?.message || "連線或處理失敗";
+      setToast({ visible: true, message: `處理失敗: ${errMsg}` });
+      setAgentMessages((prev) => [...prev, { role: "assistant", content: `❌ 處理失敗: ${errMsg}` }]);
     } finally {
       setIsAgentThinking(false);
     }

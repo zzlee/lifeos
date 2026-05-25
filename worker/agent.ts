@@ -239,6 +239,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
 const TOOL_MAP = new Map(LIFEOS_TOOLSET.map((tool) => [tool.name, tool]));
 
 export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: ChatMessage[]) {
+  console.log("Agent received messages:", JSON.stringify(messages, null, 2));
   if (!env.DB) throw new Error("Database not bound");
   if (!env.GEMINI_API_KEY) throw new Error("Gemini API key not configured");
 
