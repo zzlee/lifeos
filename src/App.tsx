@@ -19,6 +19,27 @@ type ToastState = { visible: boolean; message: string };
 const emptyState: LifeOSState = { finance: [], journals: [], health: [], vault: [] };
 const defaultUser: UserProfile = { id: "", email: "", name: "", timezone: "UTC" };
 
+function getAccountingMonthRangeUtc(month: string, timezone: string): { startDate: string; endDate: string } {
+  const [yearRaw, monthRaw] = month.split("-");
+  const year = Number(yearRaw);
+  const monthNumber = Number(monthRaw);
+
+  if (!Number.isInteger(year) || !Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+    const start = localInputToUtcString(`${new Date().toISOString().slice(0, 7)}-01T00:00:00`, timezone);
+    const end = localInputToUtcString(`${new Date().toISOString().slice(0, 10)}T23:59:59`, timezone);
+    return { startDate: start, endDate: end };
+  }
+
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const monthPadded = String(monthNumber).padStart(2, "0");
+  const dayPadded = String(lastDay).padStart(2, "0");
+
+  return {
+    startDate: localInputToUtcString(`${year}-${monthPadded}-01T00:00:00`, timezone),
+    endDate: localInputToUtcString(`${year}-${monthPadded}-${dayPadded}T23:59:59`, timezone),
+  };
+}
+
 export default function App() {
   if (!isApiConfigured()) {
     return (
@@ -101,6 +122,8 @@ export default function App() {
   const [healthRefreshTrigger, setHealthRefreshTrigger] = useState(0);
 
   const [isAgentThinking, setIsAgentThinking] = useState(false);
+  const [isAgentChatOpen, setIsAgentChatOpen] = useState(false);
+  const [agentMessages, setAgentMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
 
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
@@ -152,7 +175,8 @@ export default function App() {
         })
         .catch((err) => console.error("Failed to fetch expenses:", err))
         .finally(() => setIsLoadingExpenses(false));
-      fetchAccountingTransactions().then(setAccountingTransactions).catch((err) => console.error("Failed to fetch accounting transactions:", err));
+      const accountingRange = getAccountingMonthRangeUtc(financeMonth, user.timezone);
+      fetchAccountingTransactions(accountingRange).then(setAccountingTransactions).catch((err) => console.error("Failed to fetch accounting transactions:", err));
       fetchAccountingCategoryOptions()
         .then(({ itemCategories, paymentCategories }) => {
           setItemCategoryOptions(itemCategories);
@@ -165,7 +189,7 @@ export default function App() {
         })
         .catch((err) => console.error("Failed to fetch accounting category options:", err));
     }
-  }, [view, expensePage, expenseRefreshTrigger]);
+  }, [view, expensePage, expenseRefreshTrigger, financeMonth, user.timezone]);
 
   useEffect(() => {
     if (view === "vault") {
@@ -285,9 +309,9 @@ export default function App() {
     ];
 
     return combined
-      .filter(t => t.date.startsWith(financeMonth))
+      .filter(t => toLocalDisplayDate(t.date, user.timezone).startsWith(financeMonth))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [expenseList, accountingTransactions, financeMonth]);
+  }, [expenseList, accountingTransactions, financeMonth, user.timezone]);
 
   const financeGroups = useMemo(() => groupFinance(allTransactions), [allTransactions]);
 
@@ -301,13 +325,16 @@ export default function App() {
     const text = prompt.trim();
     if (!text) return;
 
+    const nextMessages = [...agentMessages, { role: "user" as const, content: text }];
+    setAgentMessages(nextMessages);
+    setIsAgentChatOpen(true);
     setIsAgentThinking(true);
     try {
-      const response = await sendAgentCommand(text);
-      const mutation = response.mutation;
+      const response = await sendAgentCommand(nextMessages);
       setData(response.data);
       setPrompt("");
-      setToast({ visible: true, message: mutation.message });
+      setAgentMessages((prev) => [...prev, { role: "assistant", content: response.reply }]);
+      setToast({ visible: true, message: response.reply });
     } finally {
       setIsAgentThinking(false);
     }
@@ -493,7 +520,8 @@ export default function App() {
 
   async function handleSaveAccounting(e: React.FormEvent) {
     e.preventDefault();
-    const payload = { ...newAccountingEntry, transaction_date: newAccountingEntry.transaction_date.slice(0, 10) };
+    const utcTransactionDate = localInputToUtcString(newAccountingEntry.transaction_date, user.timezone);
+    const payload = { ...newAccountingEntry, transaction_date: utcTransactionDate };
     try {
       if (editingAccountingId !== null) {
         await updateAccountingTransaction(editingAccountingId, payload);
@@ -502,7 +530,8 @@ export default function App() {
         await createAccountingTransaction(payload);
         setToast({ visible: true, message: "外部記帳紀錄已新增" });
       }
-      setAccountingTransactions(await fetchAccountingTransactions());
+      const accountingRange = getAccountingMonthRangeUtc(financeMonth, user.timezone);
+      setAccountingTransactions(await fetchAccountingTransactions(accountingRange));
       setIsAccountingModalOpen(false);
       setEditingAccountingId(null);
     } catch (err: any) {
@@ -512,14 +541,14 @@ export default function App() {
 
   function openNewAccounting() {
     setEditingAccountingId(null);
-    setNewAccountingEntry({ transaction_date: new Date().toISOString().slice(0,16), item_name: "", item_category_id: itemCategoryOptions[0]?.id || 1, payment_category_id: paymentCategoryOptions[0]?.id || 1, amount: 0, notes: "" });
+    setNewAccountingEntry({ transaction_date: getCurrentLocalInputString(user.timezone, 'datetime-local'), item_name: "", item_category_id: itemCategoryOptions[0]?.id || 1, payment_category_id: paymentCategoryOptions[0]?.id || 1, amount: 0, notes: "" });
     setIsAccountingModalOpen(true);
   }
 
   function openEditAccounting(entry: any) {
     setEditingAccountingId(entry.transaction_id);
     setNewAccountingEntry({
-      transaction_date: (entry.transaction_date || "").slice(0,16),
+      transaction_date: toLocalInputString(entry.transaction_date || "", user.timezone, 'datetime-local'),
       item_name: entry.item_name || "",
       item_category_id: entry.item_category_id || 1,
       payment_category_id: entry.payment_category_id || 1,
@@ -679,9 +708,28 @@ export default function App() {
                 {isAgentThinking ? "⏳" : "🚀"}
               </button>
             </div>
-            <button className="secondary-button" onClick={() => void handleRefresh()} title="同步資料">🔄 重整</button>
+            <button className="icon-button" onClick={() => void handleRefresh()} title="同步資料" aria-label="同步資料">🔄</button>
           </div>
         </header>
+
+        {isAgentChatOpen && (
+          <div className="modal-backdrop" onClick={() => setIsAgentChatOpen(false)}>
+            <div className="panel" style={{ width: "min(760px, 95vw)", maxHeight: "70vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3>LifeOS Agent 對話</h3>
+                <button className="icon-button" onClick={() => setIsAgentChatOpen(false)} aria-label="關閉">✕</button>
+              </div>
+              <div style={{ display: "grid", gap: "10px", marginTop: "10px" }}>
+                {agentMessages.map((m, idx) => (
+                  <div key={idx} style={{ padding: "10px", borderRadius: "8px", background: m.role === "user" ? "#e0f2fe" : "#f1f5f9" }}>
+                    <strong>{m.role === "user" ? "你" : "Agent"}：</strong>{m.content}
+                  </div>
+                ))}
+                {isAgentThinking && <div>Agent 思考中...</div>}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className={`toast ${toast.visible ? "visible" : ""}`}>
           <span>✅</span>
@@ -742,8 +790,8 @@ export default function App() {
                       onChange={e => setFinanceMonth(e.target.value)}
                       style={{ padding: "0.5rem", borderRadius: "0.375rem", border: "1px solid #cbd5e1" }}
                     />
-                    <button className="primary-button" onClick={openNewExpense}>+ 新增消費</button>
-                    <button className="secondary-button" onClick={openNewAccounting}>+ 新增外部記帳</button>
+                    <button className="icon-button" onClick={openNewExpense} title="新增消費" aria-label="新增消費">💳</button>
+                    <button className="icon-button" onClick={openNewAccounting} title="新增外部記帳" aria-label="新增外部記帳">🏦</button>
                   </div>
                 }
               />
@@ -751,7 +799,6 @@ export default function App() {
                 <div className="panel">
                   <div className="panel-header">
                     <h4>支出分佈</h4>
-                    <span>近 5 筆</span>
                   </div>
                   <DonutChart groups={financeGroups} />
                 </div>
@@ -1269,7 +1316,85 @@ export default function App() {
 
 
       {isAccountingModalOpen && (
-        <div className="modal-overlay"><div className="panel modal-content"><div className="panel-header"><h4>{editingAccountingId ? "編輯外部記帳" : "新增外部記帳"}</h4><button className="close-button" onClick={() => setIsAccountingModalOpen(false)}>✕</button></div><form onSubmit={handleSaveAccounting} className="modal-form"><div className="form-group"><label>品項</label><input required value={newAccountingEntry.item_name} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_name:e.target.value})} /></div><div className="form-row"><div className="form-group"><label>金額</label><input type="number" required value={newAccountingEntry.amount} onChange={e=>setNewAccountingEntry({...newAccountingEntry,amount:Number(e.target.value)})} /></div><div className="form-group"><label>日期</label><input type="datetime-local" required value={newAccountingEntry.transaction_date} onChange={e=>setNewAccountingEntry({...newAccountingEntry,transaction_date:e.target.value})} /></div></div><div className="form-row"><div className="form-group"><label>項目類別</label><select required value={newAccountingEntry.item_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,item_category_id:Number(e.target.value)})}>{itemCategoryOptions.length > 0 ? itemCategoryOptions.map((option)=><option key={option.id} value={option.id}>{option.name}</option>) : <option value={newAccountingEntry.item_category_id}>{newAccountingEntry.item_category_id}</option>}</select></div><div className="form-group"><label>支付類別</label><select required value={newAccountingEntry.payment_category_id} onChange={e=>setNewAccountingEntry({...newAccountingEntry,payment_category_id:Number(e.target.value)})}>{paymentCategoryOptions.length > 0 ? paymentCategoryOptions.map((option)=><option key={option.id} value={option.id}>{option.name}</option>) : <option value={newAccountingEntry.payment_category_id}>{newAccountingEntry.payment_category_id}</option>}</select></div></div><div className="form-group"><label>備註</label><input value={newAccountingEntry.notes} onChange={e=>setNewAccountingEntry({...newAccountingEntry,notes:e.target.value})} /></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setIsAccountingModalOpen(false)}>取消</button><button type="submit" className="primary-button">儲存</button></div></form></div></div>
+        <div className="modal-overlay">
+          <div className="panel modal-content">
+            <div className="panel-header">
+              <h4>{editingAccountingId ? "編輯外部記帳" : "新增外部記帳"}</h4>
+              <button className="close-button" onClick={() => setIsAccountingModalOpen(false)}>✕</button>
+            </div>
+            <form onSubmit={handleSaveAccounting} className="modal-form">
+              <div className="form-group">
+                <label>品項</label>
+                <input
+                  required
+                  value={newAccountingEntry.item_name}
+                  onChange={e => setNewAccountingEntry({ ...newAccountingEntry, item_name: e.target.value })}
+                  onFocus={e => e.target.select()}
+                  onClick={e => e.currentTarget.select()}
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>金額</label>
+                  <input
+                    type="number"
+                    required
+                    value={newAccountingEntry.amount}
+                    onChange={e => setNewAccountingEntry({ ...newAccountingEntry, amount: Number(e.target.value) })}
+                    onFocus={e => e.target.select()}
+                    onClick={e => e.currentTarget.select()}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>日期</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={newAccountingEntry.transaction_date}
+                    onChange={e => setNewAccountingEntry({ ...newAccountingEntry, transaction_date: e.target.value })}
+                    onFocus={e => e.target.select()}
+                    onClick={e => e.currentTarget.select()}
+                  />
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>項目類別</label>
+                  <select
+                    required
+                    value={newAccountingEntry.item_category_id}
+                    onChange={e => setNewAccountingEntry({ ...newAccountingEntry, item_category_id: Number(e.target.value) })}
+                  >
+                    {itemCategoryOptions.length > 0 ? itemCategoryOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>) : <option value={newAccountingEntry.item_category_id}>{newAccountingEntry.item_category_id}</option>}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>支付類別</label>
+                  <select
+                    required
+                    value={newAccountingEntry.payment_category_id}
+                    onChange={e => setNewAccountingEntry({ ...newAccountingEntry, payment_category_id: Number(e.target.value) })}
+                  >
+                    {paymentCategoryOptions.length > 0 ? paymentCategoryOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>) : <option value={newAccountingEntry.payment_category_id}>{newAccountingEntry.payment_category_id}</option>}
+                  </select>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>備註</label>
+                <input
+                  value={newAccountingEntry.notes}
+                  onChange={e => setNewAccountingEntry({ ...newAccountingEntry, notes: e.target.value })}
+                  onFocus={e => e.target.select()}
+                  onClick={e => e.currentTarget.select()}
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="secondary-button" onClick={() => setIsAccountingModalOpen(false)}>取消</button>
+                <button type="submit" className="primary-button">儲存</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
       {isHealthModalOpen && (
         <div className="modal-overlay">

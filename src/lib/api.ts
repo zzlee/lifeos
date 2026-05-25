@@ -36,12 +36,12 @@ export async function fetchSession(): Promise<SessionResponse> {
   return (await response.json()) as SessionResponse;
 }
 
-export async function sendAgentCommand(command: string): Promise<AgentCommandResponse> {
+export async function sendAgentCommand(messages: Array<{ role: "user" | "assistant"; content: string }>): Promise<AgentCommandResponse> {
   const response = await fetch(getUrl("/api/agent"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ command })
+    body: JSON.stringify({ messages })
   });
   if (!response.ok) throw new Error(`agent ${response.status}`);
   return (await response.json()) as AgentCommandResponse;
@@ -337,9 +337,20 @@ export async function fetchAccountingCategoryOptions(): Promise<AccountingCatego
   };
 }
 
-export async function fetchAccountingTransactions(): Promise<AccountingTransaction[]> {
+type AccountingTransactionQuery = {
+  startDate?: string;
+  endDate?: string;
+};
+
+export async function fetchAccountingTransactions(query: AccountingTransactionQuery = {}): Promise<AccountingTransaction[]> {
   const url = new URL(`${accountingApiBase}/api/transactions`);
   url.searchParams.set("user-id", String(getAccountingUserId()));
+  if (query.startDate) {
+    url.searchParams.set("startDate", query.startDate);
+  }
+  if (query.endDate) {
+    url.searchParams.set("endDate", query.endDate);
+  }
   const response = await fetch(url.toString());
   if (!response.ok) throw new Error(`accounting tx ${response.status}`);
   return (await response.json()) as AccountingTransaction[];
@@ -355,12 +366,12 @@ export async function createAccountingTransaction(entry: AccountingTransactionIn
   return (await response.json()) as AccountingTransaction;
 }
 
-export async function updateAccountingTransaction(id: number, entry: AccountingTransactionInput): Promise<{ message: string }> {
+export async function updateAccountingTransaction(id: number, entry: AccountingTransactionInput): Promise<AccountingTransaction> {
   const response = await fetch(`${accountingApiBase}/api/transactions/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...entry, user_id: getAccountingUserId() })
   });
   if (!response.ok) throw new Error(`update accounting tx ${response.status}`);
-  return (await response.json()) as { message: string };
+  return (await response.json()) as AccountingTransaction;
 }
