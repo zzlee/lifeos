@@ -33,7 +33,9 @@ export type DashboardSnapshotResponse = {
 export type AgentChatMessage = { role: "user" | "assistant"; content: string };
 
 export type AgentCommandRequest = {
-  messages: AgentChatMessage[];
+  messages?: AgentChatMessage[];
+  /** Backward-compatible single-command shape used by older CLI builds. */
+  command?: string;
 };
 
 export type AgentCommandResponse = {

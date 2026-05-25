@@ -172,23 +172,30 @@ app.get("/api/dashboard", async (c) => {
 });
 
 app.post("/api/agent", async (c) => {
-  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
-  if (!c.env.VAULT_MASTER_KEY) return c.json({ error: "Vault key not configured" }, 500);
-  
-  const body = (await c.req.json()) as AgentCommandRequest;
-  const session = await resolveSession(c.env, c.req.raw.headers);
-  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+  try {
+    if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+    
+    const body = (await c.req.json()) as AgentCommandRequest & { command?: string };
+    const session = await resolveSession(c.env, c.req.raw.headers);
+    if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
 
-  const agentResult = await runLifeAgentLoop(c.env, session.user, body.messages || []);
+    const messages = Array.isArray(body.messages) && body.messages.length > 0
+      ? body.messages
+      : (body.command ? [{ role: "user" as const, content: body.command }] : []);
+    const agentResult = await runLifeAgentLoop(c.env, session.user, messages);
 
-  const response: AgentCommandResponse = {
-    accepted: true,
-    reply: agentResult.reply,
-    data: agentResult.data,
-    source: agentResult.source
-  };
+    const response: AgentCommandResponse = {
+      accepted: true,
+      reply: agentResult.reply,
+      data: agentResult.data,
+      source: agentResult.source
+    };
 
-  return c.json(response);
+    return c.json(response);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Agent request failed";
+    return c.json({ error: message }, 500);
+  }
 });
 
 app.get("/api/vault/:id/secret", async (c) => {

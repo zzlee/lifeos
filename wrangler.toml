@@ -7,6 +7,7 @@ workers_dev = true
 [vars]
 APP_NAME = "LifeOS"
 VITE_API_BASE_URL = "https://lifeos-worker.zzlee-tw.workers.dev"
+GEMINI_MODEL = "gemini-2.5-flash"
 
 # Local development database binding.
 [[d1_databases]]
@@ -25,6 +26,7 @@ name = "lifeos-worker"
 [env.production.vars]
 APP_NAME = "LifeOS"
 VITE_API_BASE_URL = "https://lifeos-worker.zzlee-tw.workers.dev"
+GEMINI_MODEL = "gemini-2.5-flash"
 
 [[env.production.d1_databases]]
 binding = "DB"

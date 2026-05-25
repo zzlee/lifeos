@@ -31,20 +31,30 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     description: "Create a new expense record.",
     parameters: {
       type: "object",
-      properties: { amount: { type: "number" }, category: { type: "string" }, note: { type: "string" }, occurred_at: { type: "string" } },
+      properties: { amount: { type: "number" }, category: { type: "string" }, note: { type: "string" }, date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" } },
       required: ["amount", "category"],
     },
-    execute: async (args, env, user) => createExpense(env.DB!, user, args),
+    execute: async (args, env, user) => createExpense(env.DB!, user, {
+      amount: Number(args.amount) || 0,
+      category: String(args.category || "AI 自動"),
+      note: String(args.note || ""),
+      date: String(args.date || args.occurred_at || new Date().toISOString()),
+    }),
   },
   {
     name: "update_expense",
     description: "Update an existing expense by id.",
     parameters: {
       type: "object",
-      properties: { id: { type: "number" }, amount: { type: "number" }, category: { type: "string" }, note: { type: "string" }, occurred_at: { type: "string" } },
-      required: ["id"],
+      properties: { id: { type: "number" }, amount: { type: "number" }, category: { type: "string" }, note: { type: "string" }, date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" } },
+      required: ["id", "amount", "category"],
     },
-    execute: async (args, env, user) => updateExpense(env.DB!, Number(args.id), user, args),
+    execute: async (args, env, user) => updateExpense(env.DB!, Number(args.id), user, {
+      amount: Number(args.amount) || 0,
+      category: String(args.category || "AI 自動"),
+      note: String(args.note || ""),
+      date: String(args.date || args.occurred_at || new Date().toISOString()),
+    }),
   },
   {
     name: "delete_expense",
@@ -83,20 +93,32 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     description: "Create a health record.",
     parameters: {
       type: "object",
-      properties: { metric: { type: "string" }, value: { type: "number" }, unit: { type: "string" }, recorded_at: { type: "string" } },
-      required: ["metric", "value"],
+      properties: { sys: { type: "number" }, dia: { type: "number" }, hr: { type: "number" }, weight: { type: "number" }, date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" } },
+      required: ["sys", "dia", "hr"],
     },
-    execute: async (args, env, user) => createHealthRecord(env.DB!, user, args),
+    execute: async (args, env, user) => createHealthRecord(env.DB!, user, {
+      sys: Number(args.sys) || 120,
+      dia: Number(args.dia) || 80,
+      hr: Number(args.hr) || 72,
+      weight: args.weight === undefined ? undefined : Number(args.weight),
+      date: String(args.date || args.recorded_at || new Date().toISOString()),
+    }),
   },
   {
     name: "update_health",
     description: "Update a health record by id.",
     parameters: {
       type: "object",
-      properties: { id: { type: "number" }, metric: { type: "string" }, value: { type: "number" }, unit: { type: "string" }, recorded_at: { type: "string" } },
-      required: ["id"],
+      properties: { id: { type: "number" }, sys: { type: "number" }, dia: { type: "number" }, hr: { type: "number" }, weight: { type: "number" }, date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" } },
+      required: ["id", "sys", "dia", "hr"],
     },
-    execute: async (args, env, user) => updateHealthRecord(env.DB!, Number(args.id), user, args),
+    execute: async (args, env, user) => updateHealthRecord(env.DB!, Number(args.id), user, {
+      sys: Number(args.sys) || 120,
+      dia: Number(args.dia) || 80,
+      hr: Number(args.hr) || 72,
+      weight: args.weight === undefined ? undefined : Number(args.weight),
+      date: String(args.date || args.recorded_at || new Date().toISOString()),
+    }),
   },
   {
     name: "delete_health",
@@ -120,9 +142,10 @@ const TOOL_MAP = new Map(LIFEOS_TOOLSET.map((tool) => [tool.name, tool]));
 
 export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: ChatMessage[]) {
   if (!env.DB) throw new Error("Database not bound");
-  if (!env.GEMINI_API_KEY || !env.GEMINI_MODEL) throw new Error("Gemini not configured");
+  if (!env.GEMINI_API_KEY) throw new Error("Gemini API key not configured");
 
   const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+  const model = env.GEMINI_MODEL || "gemini-2.5-flash";
   const maxTurns = 6;
   const conversation: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = messages.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
@@ -134,7 +157,7 @@ export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: Ch
     conversation.push({ role: "user", parts: [{ text: `Current dashboard snapshot: ${JSON.stringify(snapshot.data).slice(0, 7000)}` }] });
 
     const response = await ai.models.generateContent({
-      model: env.GEMINI_MODEL,
+      model,
       contents: conversation,
       config: {
         systemInstruction: "You are the LifeOS agent. Use tools for mutations, and answer with concise summaries.",

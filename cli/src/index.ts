@@ -59,6 +59,26 @@ auth.command('set-url')
     console.log(chalk.green(`API URL updated to: ${url}`));
   });
 
+// Backward-compatible config command documented in older README versions.
+const configCmd = program.command('config').description('Configure the LifeOS CLI');
+configCmd.command('set')
+  .description('Set a config value: key/apiKey or url/apiUrl')
+  .argument('<field>', 'key/apiKey or url/apiUrl')
+  .argument('<value>', 'Value to store')
+  .action((field, value) => {
+    if (['key', 'apiKey', 'api-key'].includes(field)) {
+      config.set('apiKey', value);
+      console.log(chalk.green('API key updated.'));
+      return;
+    }
+    if (['url', 'apiUrl', 'api-url'].includes(field)) {
+      config.set('apiUrl', value);
+      console.log(chalk.green(`API URL updated to: ${value}`));
+      return;
+    }
+    console.log(chalk.red(`Unknown config field: ${field}. Use "key" or "url".`));
+  });
+
 const keyMgmt = auth.command('key').description('Manage API keys');
 
 keyMgmt.command('create')
@@ -106,15 +126,52 @@ keyMgmt.command('delete')
   });
 
 
+// --- Backward-compatible List Command ---
+program.command('ls')
+  .description('List LifeOS data (finance|expenses|journal|journals|health|vault)')
+  .argument('<resource>', 'Resource to list')
+  .option('-l, --limit <number>', 'Limit number of entries', '20')
+  .option('-o, --offset <number>', 'Offset for pagination', '0')
+  .action(async (resource, options) => {
+    try {
+      const limit = options.limit;
+      const offset = options.offset;
+      const normalized = String(resource).toLowerCase();
+      if (['finance', 'expense', 'expenses'].includes(normalized)) {
+        const res = await api.get(`/api/expenses?limit=${limit}&offset=${offset}`);
+        console.table(res.data.expenses || []);
+        return;
+      }
+      if (['journal', 'journals'].includes(normalized)) {
+        const res = await api.get(`/api/journals?limit=${limit}&offset=${offset}`);
+        console.table(res.data.journals || []);
+        return;
+      }
+      if (normalized === 'health') {
+        const res = await api.get(`/api/health?limit=${limit}&offset=${offset}`);
+        console.table(res.data.health || []);
+        return;
+      }
+      if (normalized === 'vault') {
+        const res = await api.get(`/api/vault?limit=${limit}&offset=${offset}`);
+        console.table(res.data.items || []);
+        return;
+      }
+      console.log(chalk.red(`Unknown resource: ${resource}`));
+    } catch (e: any) {
+      console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
+    }
+  });
+
 // --- Log Command ---
 program.command('log')
   .description('Quickly log data using natural language')
   .argument('<text>', 'Log text')
   .action(async (text) => {
     try {
-      const res = await api.post('/api/agent', { command: text });
-      console.log(chalk.green('✓ Logged successfully!'));
-      console.log(chalk.dim(`Mutation: ${res.data.mutation.kind}`));
+      const res = await api.post('/api/agent', { messages: [{ role: 'user', content: text }] });
+      console.log(chalk.green('✓ LifeOS agent completed.'));
+      if (res.data.reply) console.log(res.data.reply);
     } catch (e: any) {
       console.log(chalk.red(`Error: ${e.response?.data?.error || e.message}`));
     }
