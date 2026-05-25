@@ -342,7 +342,7 @@ export default function App() {
     setIsAgentChatOpen(true);
     setIsAgentThinking(true);
     try {
-      const response = await sendAgentCommand(nextMessages);
+      const response = await sendAgentCommand(nextMessages, Number(accountingUserId) || 1);
       setData(response.data);
       setPrompt("");
       setAgentMessages((prev) => [...prev, { role: "assistant", content: response.reply }]);

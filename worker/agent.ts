@@ -19,7 +19,7 @@ import {
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
-type ToolExecutor = (args: any, env: Env, user: UserProfile) => Promise<unknown>;
+type ToolExecutor = (args: any, env: Env, user: UserProfile, accountingUserId?: number) => Promise<unknown>;
 
 type ToolSpec = {
   name: string;
@@ -43,7 +43,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       },
       required: ["amount", "category"],
     },
-    execute: async (args, env, user) => {
+    execute: async (args, env, user, accountingUserId) => {
       const isLocal = args.local === true;
       if (isLocal) {
         return createExpense(env.DB!, user, {
@@ -57,8 +57,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
           amount: Number(args.amount) || 0,
           category: String(args.category || "AI 自動"),
           note: String(args.note || ""),
-          user_id: 1, // default user
-        });
+        }, accountingUserId || 1);
       }
     },
   },
@@ -77,7 +76,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       },
       required: ["id", "amount", "category", "source"],
     },
-    execute: async (args, env, user) => {
+    execute: async (args, env, user, accountingUserId) => {
       const isLocal = args.source === "local";
       if (isLocal) {
         return updateExpense(env.DB!, Number(args.id), user, {
@@ -91,7 +90,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
           amount: Number(args.amount) || 0,
           category: String(args.category || "AI 自動"),
           note: String(args.note || ""),
-        });
+        }, accountingUserId || 1);
       }
     },
   },
@@ -106,12 +105,12 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       }, 
       required: ["id", "source"] 
     },
-    execute: async (args, env, user) => {
+    execute: async (args, env, user, accountingUserId) => {
       const isLocal = args.source === "local";
       if (isLocal) {
         return deleteExpense(env.DB!, Number(args.id), user);
       } else {
-        return deleteExternalTransaction(Number(args.id));
+        return deleteExternalTransaction(Number(args.id), accountingUserId || 1);
       }
     },
   },
@@ -194,7 +193,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
         keyword: { type: "string", description: "Filter by keyword in notes, item name or description" },
       },
     },
-    execute: async (args, env, user) => {
+    execute: async (args, env, user, accountingUserId) => {
       // 1. Fetch local expenses from D1
       const localExpenses = await getExpenses(env.DB!, user, 100, 0, {
         startDate: args.start_date,
@@ -207,6 +206,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       const externalTxList = await fetchExternalTransactions({
         startDate: args.start_date,
         endDate: args.end_date,
+        userId: accountingUserId || 1,
       });
 
       // 3. Filter external transactions programmatically
@@ -312,7 +312,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
 
 const TOOL_MAP = new Map(LIFEOS_TOOLSET.map((tool) => [tool.name, tool]));
 
-export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: ChatMessage[]) {
+export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: ChatMessage[], accountingUserId?: number) {
   console.log("Agent received messages:", JSON.stringify(messages, null, 2));
   if (!env.DB) throw new Error("Database not bound");
   if (!env.GEMINI_API_KEY) throw new Error("Gemini API key not configured");
@@ -359,7 +359,7 @@ export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: Ch
     const results: Array<{ name: string; result: unknown }> = [];
     for (const call of functionCalls) {
       const tool = TOOL_MAP.get(call.name || "");
-      const result = tool ? await tool.execute(call.args || {}, env, user) : { ok: false, error: `unknown tool ${call.name}` };
+      const result = tool ? await tool.execute(call.args || {}, env, user, accountingUserId) : { ok: false, error: `unknown tool ${call.name}` };
       results.push({ name: call.name || "unknown", result });
     }
 
@@ -371,42 +371,62 @@ export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: Ch
   return { reply: "已執行要求，若需更精準請補充細節。", data: latest.data, source: "gemini" as const };
 }
 
-async function createExternalTransaction(args: any) {
+async function createExternalTransaction(args: any, userId?: number) {
   const resp = await fetch("https://purple-water-b776.zzlee-tw.workers.dev/api/transactions", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-LifeOS-User-Id": "1" },
+    headers: { 
+      "Content-Type": "application/json", 
+      "X-LifeOS-User-Id": String(userId || 1),
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Accept": "application/json"
+    },
     body: JSON.stringify(args),
   });
   return { ok: resp.ok, status: resp.status };
 }
 
-async function updateExternalTransaction(id: number, args: any) {
+async function updateExternalTransaction(id: number, args: any, userId?: number) {
   const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev/api/transactions/${id}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", "X-LifeOS-User-Id": "1" },
+    headers: { 
+      "Content-Type": "application/json", 
+      "X-LifeOS-User-Id": String(userId || 1),
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Accept": "application/json"
+    },
     body: JSON.stringify(args),
   });
   return { ok: resp.ok, status: resp.status };
 }
 
-async function deleteExternalTransaction(id: number) {
+async function deleteExternalTransaction(id: number, userId?: number) {
   const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev/api/transactions/${id}`, {
     method: "DELETE",
-    headers: { "X-LifeOS-User-Id": "1" },
+    headers: { 
+      "X-LifeOS-User-Id": String(userId || 1),
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Accept": "application/json"
+    },
   });
   return { ok: resp.ok, status: resp.status };
 }
 
-async function fetchExternalTransactions(query: { startDate?: string; endDate?: string }) {
+async function fetchExternalTransactions(query: { startDate?: string; endDate?: string; userId?: number }) {
   const url = new URL("https://purple-water-b776.zzlee-tw.workers.dev/api/transactions");
-  url.searchParams.set("user-id", "1"); // default to 1 as per CLI / frontend behavior
+  url.searchParams.set("user-id", String(query.userId || 1));
   if (query.startDate) url.searchParams.set("startDate", query.startDate.slice(0, 10));
   if (query.endDate) url.searchParams.set("endDate", query.endDate.slice(0, 10));
   try {
-    const resp = await fetch(url.toString());
+    const resp = await fetch(url.toString(), {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json"
+      }
+    });
     if (!resp.ok) return [];
     return (await resp.json()) as any[];
-  } catch {
+  } catch (e) {
+    console.error("External fetch failed:", e);
     return [];
   }
 }

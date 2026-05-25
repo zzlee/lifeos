@@ -36,12 +36,18 @@ export async function fetchSession(): Promise<SessionResponse> {
   return (await response.json()) as SessionResponse;
 }
 
-export async function sendAgentCommand(messages: Array<{ role: "user" | "assistant"; content: string }>): Promise<AgentCommandResponse> {
+export async function sendAgentCommand(
+  messages: Array<{ role: "user" | "assistant"; content: string }>,
+  accountingUserId?: number
+): Promise<AgentCommandResponse> {
   const response = await fetch(getUrl("/api/agent"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages })
+    body: JSON.stringify({ 
+      messages,
+      accounting_user_id: accountingUserId
+    })
   });
   if (!response.ok) throw new Error(`agent ${response.status}`);
   return (await response.json()) as AgentCommandResponse;

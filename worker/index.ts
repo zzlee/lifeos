@@ -175,14 +175,14 @@ app.post("/api/agent", async (c) => {
   try {
     if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
     
-    const body = (await c.req.json()) as AgentCommandRequest & { command?: string };
+    const body = (await c.req.json()) as AgentCommandRequest & { command?: string; accounting_user_id?: number };
     const session = await resolveSession(c.env, c.req.raw.headers);
     if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
 
     const messages = Array.isArray(body.messages) && body.messages.length > 0
       ? body.messages
       : (body.command ? [{ role: "user" as const, content: body.command }] : []);
-    const agentResult = await runLifeAgentLoop(c.env, session.user, messages);
+    const agentResult = await runLifeAgentLoop(c.env, session.user, messages, body.accounting_user_id);
 
     const response: AgentCommandResponse = {
       accepted: true,
