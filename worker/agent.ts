@@ -250,6 +250,9 @@ export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: Ch
     parts: [{ text: m.content }],
   }));
 
+  const userLocalTime = new Date().toLocaleString("zh-TW", { timeZone: user.timezone || "Asia/Taipei" });
+  const systemInstruction = `You are the LifeOS agent. Use tools for queries and mutations, and answer with concise summaries. Current local date/time: ${userLocalTime}. User Timezone: ${user.timezone || "Asia/Taipei"}. Use this current date/time to resolve relative dates like "today", "yesterday", or "last week" when performing queries or mutations.`;
+
   for (let i = 0; i < maxTurns; i++) {
     // Note: Dashboard Snapshot injection removed to optimize context token usage.
     // Query tools should be used by the agent to fetch expenses or health data.
@@ -258,7 +261,7 @@ export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: Ch
       model,
       contents: conversation,
       config: {
-        systemInstruction: "You are the LifeOS agent. Use tools for queries and mutations, and answer with concise summaries.",
+        systemInstruction,
         tools: [
           {
             functionDeclarations: LIFEOS_TOOLSET.map((tool) => ({
