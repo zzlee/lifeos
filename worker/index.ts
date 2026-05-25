@@ -44,6 +44,23 @@ app.get("/api/ping", (c) =>
   }),
 );
 
+app.get("/api/test-external", async (c) => {
+  const url = "https://purple-water-b776.zzlee-tw.workers.dev/api/transactions?user-id=1";
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json"
+      }
+    });
+    const status = resp.status;
+    const body = await resp.text();
+    return c.json({ status, body: body.slice(0, 800) });
+  } catch (err: any) {
+    return c.json({ error: err.message, stack: err.stack });
+  }
+});
+
 app.get("/api/session", async (c) => {
   const session = await resolveSession(c.env, c.req.raw.headers);
   return c.json(session satisfies SessionResponse);
