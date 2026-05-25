@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import LoginPage from "./components/LoginPage";
 import { FixedSizeList as List } from "react-window";
 import { toLocalDisplayDate, toLocalDisplayTime, toLocalInputString, getCurrentLocalInputString, localInputToUtcString } from "./lib/timeUtils";
@@ -129,6 +129,13 @@ export default function App() {
     setIsAgentChatOpen(false);
     setAgentMessages([]);
   }
+
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [agentMessages, isAgentThinking]);
 
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
@@ -738,6 +745,47 @@ export default function App() {
                     Agent 思考中...
                   </div>
                 )}
+                <div ref={chatEndRef} />
+              </div>
+              <div style={{ display: "flex", gap: "10px", marginTop: "16px", borderTop: "1px solid #e2e8f0", paddingTop: "12px" }}>
+                <input
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    borderRadius: "12px",
+                    border: "1px solid #cbd5e1",
+                    outline: "none",
+                    fontSize: "0.95em",
+                  }}
+                  value={prompt}
+                  disabled={isAgentThinking}
+                  onChange={(event) => setPrompt(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !isAgentThinking) void handlePromptSubmit();
+                  }}
+                  placeholder="輸入您的回覆或指令..."
+                />
+                <button
+                  type="button"
+                  style={{
+                    padding: "10px 18px",
+                    borderRadius: "12px",
+                    background: "#0284c7",
+                    color: "#ffffff",
+                    border: "none",
+                    cursor: prompt.trim() ? "pointer" : "not-allowed",
+                    opacity: prompt.trim() ? 1 : 0.6,
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minWidth: "70px"
+                  }}
+                  disabled={isAgentThinking || !prompt.trim()}
+                  onClick={() => void handlePromptSubmit()}
+                >
+                  {isAgentThinking ? "⏳" : "傳送"}
+                </button>
               </div>
             </div>
           </div>
