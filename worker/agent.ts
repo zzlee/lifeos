@@ -338,7 +338,7 @@ export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: Ch
   }));
 
   const userLocalTime = new Date().toLocaleString("zh-TW", { timeZone: user.timezone || "Asia/Taipei" });
-  const categories = await fetchAccountingCategories();
+  const categories = await fetchAccountingCategories(accountingUserId);
   const itemCategoriesStr = categories.itemCategories.map(c => `${c.id}:${c.name}`).join(", ");
   const paymentCategoriesStr = categories.paymentCategories.map(c => `${c.id}:${c.name}`).join(", ");
   const systemInstruction = `You are the LifeOS agent. Use tools for queries and mutations, and answer with concise summaries. Current local date/time: ${userLocalTime}. User Timezone: ${user.timezone || "Asia/Taipei"}. Use this current date/time to resolve relative dates like "today", "yesterday", or "last week" when performing queries or mutations.
@@ -404,7 +404,7 @@ async function createExternalTransaction(args: any, userId?: number) {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       "Accept": "application/json"
     },
-    body: JSON.stringify(args),
+    body: JSON.stringify({ ...args, user_id: userId || 1 }),
   });
   return { ok: resp.ok, status: resp.status };
 }
@@ -418,13 +418,13 @@ async function updateExternalTransaction(id: number, args: any, userId?: number)
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       "Accept": "application/json"
     },
-    body: JSON.stringify(args),
+    body: JSON.stringify({ ...args, user_id: userId || 1 }),
   });
   return { ok: resp.ok, status: resp.status };
 }
 
 async function deleteExternalTransaction(id: number, userId?: number) {
-  const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev/api/transactions/${id}`, {
+  const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev/api/transactions/${id}?user-id=${userId || 1}`, {
     method: "DELETE",
     headers: { 
       "X-LifeOS-User-Id": String(userId || 1),
@@ -455,10 +455,10 @@ async function fetchExternalTransactions(query: { startDate?: string; endDate?: 
   }
 }
 
-async function fetchAccountingCategories() {
+async function fetchAccountingCategories(userId?: number) {
   const fetchCategory = async (path: string) => {
     try {
-      const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev${path}`, {
+      const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev${path}?user-id=${userId || 1}`, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
           "Accept": "application/json"
