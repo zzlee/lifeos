@@ -31,7 +31,7 @@ type ToolSpec = {
 const LIFEOS_TOOLSET: ToolSpec[] = [
   {
     name: "create_expense",
-    description: "Create a new expense or transaction. By default, it will be saved to the accounting system. Set 'local' parameter to true ONLY if you explicitly want to save it to the local database.",
+    description: "Create a new expense or transaction. By default, it will be saved to the external accounting system. Set 'local' parameter to true ONLY if you explicitly want to save it to the local database.",
     parameters: {
       type: "object",
       properties: { 
@@ -40,11 +40,11 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
         note: { type: "string" }, 
         date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" },
         local: { type: "boolean", description: "Set to true ONLY if the user explicitly specifies storing 'locally', 'internally', or in 'local database'." },
-        item_name: { type: "string", description: "Name of the item for external accounting. Required if local is false." },
+        item_name: { type: "string", description: "Name of the item for external accounting. Highly recommended if local is false (or fallback to note/category)." },
         item_category_id: { type: "number", description: "ID of the item category for external accounting. Required if local is false." },
         payment_category_id: { type: "number", description: "ID of the payment category for external accounting. Required if local is false." }
       },
-      required: ["amount"],
+      required: ["amount", "item_name", "item_category_id", "payment_category_id"],
     },
     execute: async (args, env, user, accountingUserId) => {
       const isLocal = args.local === true;

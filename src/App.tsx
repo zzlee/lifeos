@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import LoginPage from "./components/LoginPage";
 import { FixedSizeList as List } from "react-window";
 import { toLocalDisplayDate, toLocalDisplayTime, toLocalInputString, getCurrentLocalInputString, localInputToUtcString } from "./lib/timeUtils";
-import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction, fetchAccountingCategoryOptions, type AccountingCategory } from "./lib/api";
+import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction, deleteAccountingTransaction, fetchAccountingCategoryOptions, type AccountingCategory } from "./lib/api";
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -404,6 +404,22 @@ export default function App() {
       setToast({ visible: true, message: `已刪除 ${site} 的紀錄` });
     } catch (err: any) {
       alert(`刪除失敗: ${err.message}`);
+    }
+  }
+
+  async function handleDeleteAccountingTransaction(id: number) {
+    if (!confirm("確定要刪除此外部記帳紀錄嗎？")) return;
+    try {
+      await deleteAccountingTransaction(id);
+      const snapshot = await fetchDashboardSnapshot();
+      setData(snapshot.data);
+      if (view === "finance") {
+        setExpensePage(0);
+        setExpenseRefreshTrigger((t) => t + 1);
+      }
+      setToast({ visible: true, message: "外部記帳紀錄已刪除" });
+    } catch (err: any) {
+      alert(`刪除外部記帳失敗: ${err.message}`);
     }
   }
 
@@ -898,11 +914,13 @@ export default function App() {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                               <div className="strong" style={{ fontSize: '1rem' }}>NT$ {item.amount}</div>
-                              {item.type === "internal" && (
-                                <div className="table-actions">
+                              <div className="table-actions">
+                                {item.type === "internal" ? (
                                   <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteExpense(item.id); }} title="刪除" aria-label="刪除消費">🗑️</button>
-                                </div>
-                              )}
+                                ) : (
+                                  <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteAccountingTransaction(item.id); }} title="刪除" aria-label="刪除外部記帳">🗑️</button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
