@@ -124,6 +124,9 @@ export default function App() {
   const [isAgentThinking, setIsAgentThinking] = useState(false);
   const [isAgentChatOpen, setIsAgentChatOpen] = useState(false);
   const [agentMessages, setAgentMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const [debugSystemInstruction, setDebugSystemInstruction] = useState<string>("");
+  const [debugError, setDebugError] = useState<string>("");
+  const [isDebugOpen, setIsDebugOpen] = useState(false);
 
   function handleCloseAgentChat() {
     setIsAgentChatOpen(false);
@@ -346,6 +349,8 @@ export default function App() {
       setData(response.data);
       setPrompt("");
       setAgentMessages((prev) => [...prev, { role: "assistant", content: response.reply }]);
+      if (response.systemInstruction) setDebugSystemInstruction(response.systemInstruction);
+      if (response.agentDebugError) setDebugError(response.agentDebugError);
       setToast({ visible: true, message: response.reply });
     } catch (err: any) {
       console.error("Agent command failed:", err);
@@ -768,6 +773,29 @@ export default function App() {
                 )}
                 <div ref={chatEndRef} />
               </div>
+
+              {(debugSystemInstruction || debugError) && (
+                <div style={{ marginTop: "8px" }}>
+                  <button
+                    onClick={() => setIsDebugOpen(!isDebugOpen)}
+                    style={{ fontSize: "0.8em", padding: "4px 8px", background: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1", borderRadius: "8px", cursor: "pointer" }}
+                  >
+                    {isDebugOpen ? "隱藏 Debug 訊息" : "顯示 Debug 訊息"}
+                  </button>
+                  {isDebugOpen && (
+                    <div style={{ marginTop: "8px", padding: "12px", background: "#f8fafc", borderRadius: "8px", border: "1px dashed #cbd5e1", fontSize: "0.85em", color: "#334155", overflowY: "auto", maxHeight: "200px" }}>
+                      {debugError && (
+                        <div style={{ color: "#b91c1c", fontWeight: "bold", marginBottom: "8px", whiteSpace: "pre-wrap" }}>
+                          ❌ 外部連線錯誤：{debugError}
+                        </div>
+                      )}
+                      <div style={{ fontWeight: "bold", marginBottom: "4px" }}>System Prompt:</div>
+                      <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{debugSystemInstruction}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div style={{ display: "flex", gap: "10px", marginTop: "16px", borderTop: "1px solid #e2e8f0", paddingTop: "12px" }}>
                 <input
                   style={{

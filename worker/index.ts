@@ -205,7 +205,9 @@ app.post("/api/agent", async (c) => {
       accepted: true,
       reply: agentResult.reply,
       data: agentResult.data,
-      source: agentResult.source
+      source: agentResult.source,
+      systemInstruction: agentResult.systemInstruction,
+      agentDebugError: agentResult.agentDebugError
     };
 
     return c.json(response);
