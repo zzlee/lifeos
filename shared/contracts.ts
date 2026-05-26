@@ -43,6 +43,8 @@ export type AgentCommandResponse = {
   reply: string;
   data: LifeOSState;
   source: "gemini";
+  systemInstruction?: string;
+  agentDebugError?: string;
 };
 
 export type VaultSecretResponse = {

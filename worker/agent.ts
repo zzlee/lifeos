@@ -338,9 +338,22 @@ export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: Ch
   }));
 
   const userLocalTime = new Date().toLocaleString("zh-TW", { timeZone: user.timezone || "Asia/Taipei" });
-  const categories = await fetchAccountingCategories(accountingUserId);
-  const itemCategoriesStr = categories.itemCategories.map(c => `${c.id}:${c.name}`).join(", ");
-  const paymentCategoriesStr = categories.paymentCategories.map(c => `${c.id}:${c.name}`).join(", ");
+
+  let itemCategoriesStr = "";
+  let paymentCategoriesStr = "";
+  let agentDebugError: string | undefined = undefined;
+
+  try {
+    const categories = await fetchAccountingCategories(accountingUserId);
+    itemCategoriesStr = categories.itemCategories.map(c => `${c.id}:${c.name}`).join(", ");
+    paymentCategoriesStr = categories.paymentCategories.map(c => `${c.id}:${c.name}`).join(", ");
+  } catch (error: any) {
+    console.error("Failed to fetch accounting categories for agent context:", error);
+    agentDebugError = `[DEBUG ERROR] Failed to fetch accounting categories: ${error.message}`;
+    itemCategoriesStr = "(Failed to load item categories)";
+    paymentCategoriesStr = "(Failed to load payment categories)";
+  }
+
   const systemInstruction = `You are the LifeOS agent. Use tools for queries and mutations, and answer with concise summaries. Current local date/time: ${userLocalTime}. User Timezone: ${user.timezone || "Asia/Taipei"}. Use this current date/time to resolve relative dates like "today", "yesterday", or "last week" when performing queries or mutations.
 
 CRITICAL INSTRUCTIONS FOR RETRIEVING DATA:
@@ -377,7 +390,7 @@ Payment Categories (ID:Name): ${paymentCategoriesStr}`;
     if (!functionCalls.length) {
       // Fetch snapshot once at completion to sync UI state
       const snapshot = await getDashboardSnapshot(env.DB, user);
-      return { reply: response.text?.trim() || "已完成。", data: snapshot.data, source: "gemini" as const };
+      return { reply: response.text?.trim() || "已完成。", data: snapshot.data, source: "gemini" as const, systemInstruction, agentDebugError };
     }
 
     const results: Array<{ name: string; result: unknown }> = [];
@@ -392,7 +405,7 @@ Payment Categories (ID:Name): ${paymentCategoriesStr}`;
   }
 
   const latest = await getDashboardSnapshot(env.DB, user);
-  return { reply: "已執行要求，若需更精準請補充細節。", data: latest.data, source: "gemini" as const };
+  return { reply: "已執行要求，若需更精準請補充細節。", data: latest.data, source: "gemini" as const, systemInstruction, agentDebugError };
 }
 
 async function createExternalTransaction(args: any, userId?: number) {
