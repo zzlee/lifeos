@@ -54,6 +54,16 @@ function localInputToUtcStringInWorker(localStr: string, timeZone: string): stri
   }
 }
 
+function toLocalDisplayDateInWorker(utcDateStr: string, timeZone: string): string {
+  if (!utcDateStr) return "";
+  try {
+    const d = new Date(utcDateStr.replace(' ', 'T').endsWith('Z') || utcDateStr.includes('+') ? utcDateStr.replace(' ', 'T') : utcDateStr.replace(' ', 'T') + 'Z');
+    return d.toLocaleString('sv-SE', { timeZone }).split(' ')[0];
+  } catch (e) {
+    return utcDateStr.slice(0, 10);
+  }
+}
+
 function normalizeStartDate(d?: string, timeZone?: string): string | undefined {
   if (!d) return undefined;
   if (d.length === 10 && timeZone) {
@@ -289,7 +299,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       const unifiedLocal = localExpenses.map(e => ({
         id: e.id,
         source: "local",
-        date: e.date.slice(0, 10),
+        date: toLocalDisplayDateInWorker(e.date, user.timezone || "Asia/Taipei"),
         amount: e.amount,
         category: e.category,
         note: e.note || "",
@@ -298,7 +308,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       const unifiedExternal = filteredExt.map(tx => ({
         id: tx.transaction_id,
         source: "external",
-        date: tx.transaction_date.slice(0, 10),
+        date: toLocalDisplayDateInWorker(tx.transaction_date, user.timezone || "Asia/Taipei"),
         amount: tx.amount,
         category: tx.item_category ? `${tx.item_category} (${tx.payment_category || "未指定"})` : "未指定",
         note: tx.item_name + (tx.notes ? ` - ${tx.notes}` : ""),
@@ -329,7 +339,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
 
       return records.map(r => ({
         id: r.id,
-        date: r.date.slice(0, 10),
+        date: toLocalDisplayDateInWorker(r.date, user.timezone || "Asia/Taipei"),
         sys: r.sys,
         dia: r.dia,
         hr: r.hr,
@@ -361,7 +371,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
 
       return records.map(r => ({
         id: r.id,
-        date: r.date.slice(0, 10),
+        date: toLocalDisplayDateInWorker(r.date, user.timezone || "Asia/Taipei"),
         content: r.content,
         tags: r.tags,
       }));
