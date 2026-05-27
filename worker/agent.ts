@@ -28,15 +28,45 @@ type ToolSpec = {
   execute: ToolExecutor;
 };
 
-function normalizeStartDate(d?: string): string | undefined {
+function localInputToUtcStringInWorker(localStr: string, timeZone: string): string {
+  if (!localStr) return "";
+  if (localStr.endsWith("Z") || /([+-]\d{2}:\d{2})$/.test(localStr)) {
+    try {
+      return new Date(localStr).toISOString();
+    } catch {
+      return localStr;
+    }
+  }
+  try {
+    const strToParse = localStr.length === 10 ? localStr + "T12:00:00" : localStr;
+    const tempUtc = new Date(strToParse + "Z");
+    const targetLocalStr = tempUtc.toLocaleString('sv-SE', { timeZone }).replace(' ', 'T');
+    const targetLocalTime = new Date(targetLocalStr + "Z").getTime();
+    const offset = targetLocalTime - tempUtc.getTime();
+    const realUtc = new Date(tempUtc.getTime() - offset);
+    return realUtc.toISOString();
+  } catch (e) {
+    try {
+      return new Date(localStr).toISOString();
+    } catch {
+      return localStr;
+    }
+  }
+}
+
+function normalizeStartDate(d?: string, timeZone?: string): string | undefined {
   if (!d) return undefined;
-  if (d.length === 10) return `${d}T00:00:00.000Z`;
+  if (d.length === 10 && timeZone) {
+    return localInputToUtcStringInWorker(`${d}T00:00:00`, timeZone);
+  }
   return d;
 }
 
-function normalizeEndDate(d?: string): string | undefined {
+function normalizeEndDate(d?: string, timeZone?: string): string | undefined {
   if (!d) return undefined;
-  if (d.length === 10) return `${d}T23:59:59.999Z`;
+  if (d.length === 10 && timeZone) {
+    return localInputToUtcStringInWorker(`${d}T23:59:59.999`, timeZone);
+  }
   return d;
 }
 
@@ -60,16 +90,17 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     },
     execute: async (args, env, user, accountingUserId) => {
       const isLocal = args.local === true;
+      const resolvedDate = localInputToUtcStringInWorker(String(args.date || new Date().toISOString()), user.timezone || "Asia/Taipei");
       if (isLocal) {
         return createExpense(env.DB!, user, {
           amount: Number(args.amount) || 0,
           category: String(args.category || "AI 自動"),
           note: String(args.note || ""),
-          date: String(args.date || new Date().toISOString()),
+          date: resolvedDate,
         });
       } else {
         return createExternalTransaction({
-          transaction_date: String(args.date || new Date().toISOString()),
+          transaction_date: resolvedDate,
           item_name: String(args.item_name || args.note || args.category || "AI 自動"),
           item_category_id: Number(args.item_category_id) || 3, // fallback to a safe default if needed
           amount: Number(args.amount) || 0,
@@ -99,16 +130,17 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     },
     execute: async (args, env, user, accountingUserId) => {
       const isLocal = args.source === "local";
+      const resolvedDate = localInputToUtcStringInWorker(String(args.date || new Date().toISOString()), user.timezone || "Asia/Taipei");
       if (isLocal) {
         return updateExpense(env.DB!, Number(args.id), user, {
           amount: Number(args.amount) || 0,
           category: String(args.category || "AI 自動"),
           note: String(args.note || ""),
-          date: String(args.date || new Date().toISOString()),
+          date: resolvedDate,
         });
       } else {
         return updateExternalTransaction(Number(args.id), {
-          transaction_date: String(args.date || new Date().toISOString()),
+          transaction_date: resolvedDate,
           item_name: String(args.item_name || args.note || args.category || "AI 自動"),
           item_category_id: Number(args.item_category_id) || 3,
           amount: Number(args.amount) || 0,
@@ -180,7 +212,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       dia: Number(args.dia) || 80,
       hr: Number(args.hr) || 72,
       weight: args.weight === undefined ? undefined : Number(args.weight),
-      date: String(args.date || args.recorded_at || new Date().toISOString()),
+      date: localInputToUtcStringInWorker(String(args.date || args.recorded_at || new Date().toISOString()), user.timezone || "Asia/Taipei"),
     }),
   },
   {
@@ -196,7 +228,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       dia: Number(args.dia) || 80,
       hr: Number(args.hr) || 72,
       weight: args.weight === undefined ? undefined : Number(args.weight),
-      date: String(args.date || args.recorded_at || new Date().toISOString()),
+      date: localInputToUtcStringInWorker(String(args.date || args.recorded_at || new Date().toISOString()), user.timezone || "Asia/Taipei"),
     }),
   },
   {
@@ -218,8 +250,8 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       },
     },
     execute: async (args, env, user, accountingUserId) => {
-      const normalizedStart = normalizeStartDate(args.start_date);
-      const normalizedEnd = normalizeEndDate(args.end_date);
+      const normalizedStart = normalizeStartDate(args.start_date, user.timezone);
+      const normalizedEnd = normalizeEndDate(args.end_date, user.timezone);
 
       // 1. Fetch local expenses from D1
       const localExpenses = await getExpenses(env.DB!, user, 100, 0, {
@@ -291,8 +323,8 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     execute: async (args, env, user) => {
       const limit = Number(args.limit) || 50;
       const records = await getHealthRecords(env.DB!, user, limit, 0, {
-        startDate: normalizeStartDate(args.start_date),
-        endDate: normalizeEndDate(args.end_date),
+        startDate: normalizeStartDate(args.start_date, user.timezone),
+        endDate: normalizeEndDate(args.end_date, user.timezone),
       });
 
       return records.map(r => ({
@@ -321,8 +353,8 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     execute: async (args, env, user) => {
       const limit = Number(args.limit) || 30;
       const records = await getJournals(env.DB!, user, limit, 0, {
-        startDate: normalizeStartDate(args.start_date),
-        endDate: normalizeEndDate(args.end_date),
+        startDate: normalizeStartDate(args.start_date, user.timezone),
+        endDate: normalizeEndDate(args.end_date, user.timezone),
         query: args.keyword,
         tag: args.tag,
       });

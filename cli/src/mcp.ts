@@ -243,7 +243,7 @@ export async function startMcpServer() {
           if (!financeEntry) throw new Error(`Expense ${args.id} not found.`);
           return { content: [{ type: "text", text: JSON.stringify(financeEntry, null, 2) }] };
         case "finance_create": {
-          const date = typeof args.date === "string" && args.date ? args.date : new Date().toISOString().slice(0, 10);
+          const date = typeof args.date === "string" && args.date ? args.date : new Date().toLocaleDateString('sv-SE');
           await api.post("/api/expenses", {
             amount: Number(args.amount),
             category: args.category,
@@ -253,7 +253,7 @@ export async function startMcpServer() {
           return { content: [{ type: "text", text: "Expense created successfully!" }] };
         }
         case "finance_update": {
-          const date = typeof args.date === "string" && args.date ? args.date : new Date().toISOString().slice(0, 10);
+          const date = typeof args.date === "string" && args.date ? args.date : new Date().toLocaleDateString('sv-SE');
           await api.put(`/api/expenses/${args.id}`, {
             amount: Number(args.amount),
             category: args.category,
@@ -271,7 +271,7 @@ export async function startMcpServer() {
           res = await api.get(`/api/health?limit=${args.limit || 30}&offset=${args.offset || 0}`);
           return { content: [{ type: "text", text: JSON.stringify(res.data.health, null, 2) }] };
         case "health_create": {
-          const date = typeof args.date === "string" && args.date ? args.date : new Date().toISOString().slice(0, 10);
+          const date = typeof args.date === "string" && args.date ? args.date : new Date().toLocaleDateString('sv-SE');
           await api.post("/api/health", {
             sys: Number(args.sys),
             dia: Number(args.dia),
@@ -282,7 +282,7 @@ export async function startMcpServer() {
           return { content: [{ type: "text", text: "Health record created successfully!" }] };
         }
         case "health_update": {
-          const date = typeof args.date === "string" && args.date ? args.date : new Date().toISOString().slice(0, 10);
+          const date = typeof args.date === "string" && args.date ? args.date : new Date().toLocaleDateString('sv-SE');
           await api.put(`/api/health/${args.id}`, {
             sys: Number(args.sys),
             dia: Number(args.dia),

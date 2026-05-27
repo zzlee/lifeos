@@ -314,7 +314,7 @@ finance.command('create')
   .option('-d, --date <date>', 'Date (YYYY-MM-DD)', '')
   .action(async (amount, category, options) => {
     try {
-      const date = options.date || new Date().toISOString().slice(0, 10);
+      const date = options.date || new Date().toLocaleDateString('sv-SE');
       await api.post('/api/expenses', { amount: Number(amount), category, note: options.note, date });
       console.log(chalk.green('✓ Expense created successfully!'));
     } catch (e: any) {
@@ -331,7 +331,7 @@ finance.command('update')
   .option('-d, --date <date>', 'Date (YYYY-MM-DD)', '')
   .action(async (id, amount, category, options) => {
     try {
-      const date = options.date || new Date().toISOString().slice(0, 10);
+      const date = options.date || new Date().toLocaleDateString('sv-SE');
       await api.put(`/api/expenses/${id}`, { amount: Number(amount), category, note: options.note, date });
       console.log(chalk.green(`✓ Expense ${id} updated successfully!`));
     } catch (e: any) {
@@ -382,7 +382,7 @@ health.command('create')
   .option('-d, --date <date>', 'Date (YYYY-MM-DD)', '')
   .action(async (sys, dia, hr, options) => {
     try {
-      const date = options.date || new Date().toISOString().slice(0, 10);
+      const date = options.date || new Date().toLocaleDateString('sv-SE');
       await api.post('/api/health', { sys: Number(sys), dia: Number(dia), hr: Number(hr), weight: options.weight ? Number(options.weight) : undefined, date });
       console.log(chalk.green('✓ Health record created successfully!'));
     } catch (e: any) {
@@ -400,7 +400,7 @@ health.command('update')
   .option('-d, --date <date>', 'Date (YYYY-MM-DD)', '')
   .action(async (id, sys, dia, hr, options) => {
     try {
-      const date = options.date || new Date().toISOString().slice(0, 10);
+      const date = options.date || new Date().toLocaleDateString('sv-SE');
       await api.put(`/api/health/${id}`, { sys: Number(sys), dia: Number(dia), hr: Number(hr), weight: options.weight ? Number(options.weight) : undefined, date });
       console.log(chalk.green(`✓ Health record ${id} updated successfully!`));
     } catch (e: any) {
