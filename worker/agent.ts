@@ -28,6 +28,18 @@ type ToolSpec = {
   execute: ToolExecutor;
 };
 
+function normalizeStartDate(d?: string): string | undefined {
+  if (!d) return undefined;
+  if (d.length === 10) return `${d}T00:00:00.000Z`;
+  return d;
+}
+
+function normalizeEndDate(d?: string): string | undefined {
+  if (!d) return undefined;
+  if (d.length === 10) return `${d}T23:59:59.999Z`;
+  return d;
+}
+
 const LIFEOS_TOOLSET: ToolSpec[] = [
   {
     name: "create_expense",
@@ -206,18 +218,21 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       },
     },
     execute: async (args, env, user, accountingUserId) => {
+      const normalizedStart = normalizeStartDate(args.start_date);
+      const normalizedEnd = normalizeEndDate(args.end_date);
+
       // 1. Fetch local expenses from D1
       const localExpenses = await getExpenses(env.DB!, user, 100, 0, {
-        startDate: args.start_date,
-        endDate: args.end_date,
+        startDate: normalizedStart,
+        endDate: normalizedEnd,
         category: args.category,
         query: args.keyword,
       });
 
       // 2. Fetch external transactions
       const externalTxList = await fetchExternalTransactions({
-        startDate: args.start_date,
-        endDate: args.end_date,
+        startDate: normalizedStart,
+        endDate: normalizedEnd,
         userId: accountingUserId || 1,
       });
 
@@ -276,8 +291,8 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     execute: async (args, env, user) => {
       const limit = Number(args.limit) || 50;
       const records = await getHealthRecords(env.DB!, user, limit, 0, {
-        startDate: args.start_date,
-        endDate: args.end_date,
+        startDate: normalizeStartDate(args.start_date),
+        endDate: normalizeEndDate(args.end_date),
       });
 
       return records.map(r => ({
@@ -306,8 +321,8 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     execute: async (args, env, user) => {
       const limit = Number(args.limit) || 30;
       const records = await getJournals(env.DB!, user, limit, 0, {
-        startDate: args.start_date,
-        endDate: args.end_date,
+        startDate: normalizeStartDate(args.start_date),
+        endDate: normalizeEndDate(args.end_date),
         query: args.keyword,
         tag: args.tag,
       });
