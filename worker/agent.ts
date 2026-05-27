@@ -408,39 +408,51 @@ Payment Categories (ID:Name): ${paymentCategoriesStr}`;
   return { reply: "已執行要求，若需更精準請補充細節。", data: latest.data, source: "gemini" as const, systemInstruction, agentDebugError };
 }
 
+function getValidUserId(userId?: any): number {
+  if (userId === undefined || userId === null) return 1;
+  const parsed = Number(userId);
+  if (Number.isInteger(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return 1;
+}
+
 async function createExternalTransaction(args: any, userId?: number) {
+  const cleanUserId = getValidUserId(userId);
   const resp = await fetch("https://purple-water-b776.zzlee-tw.workers.dev/api/transactions", {
     method: "POST",
     headers: { 
       "Content-Type": "application/json", 
-      "X-LifeOS-User-Id": String(userId || 1),
+      "X-LifeOS-User-Id": String(cleanUserId),
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       "Accept": "application/json"
     },
-    body: JSON.stringify({ ...args, user_id: userId || 1 }),
+    body: JSON.stringify({ ...args, user_id: cleanUserId }),
   });
   return { ok: resp.ok, status: resp.status };
 }
 
 async function updateExternalTransaction(id: number, args: any, userId?: number) {
+  const cleanUserId = getValidUserId(userId);
   const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev/api/transactions/${id}`, {
     method: "PUT",
     headers: { 
       "Content-Type": "application/json", 
-      "X-LifeOS-User-Id": String(userId || 1),
+      "X-LifeOS-User-Id": String(cleanUserId),
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       "Accept": "application/json"
     },
-    body: JSON.stringify({ ...args, user_id: userId || 1 }),
+    body: JSON.stringify({ ...args, user_id: cleanUserId }),
   });
   return { ok: resp.ok, status: resp.status };
 }
 
 async function deleteExternalTransaction(id: number, userId?: number) {
-  const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev/api/transactions/${id}?user-id=${userId || 1}`, {
+  const cleanUserId = getValidUserId(userId);
+  const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev/api/transactions/${id}?user-id=${cleanUserId}`, {
     method: "DELETE",
     headers: { 
-      "X-LifeOS-User-Id": String(userId || 1),
+      "X-LifeOS-User-Id": String(cleanUserId),
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       "Accept": "application/json"
     },
@@ -449,8 +461,9 @@ async function deleteExternalTransaction(id: number, userId?: number) {
 }
 
 async function fetchExternalTransactions(query: { startDate?: string; endDate?: string; userId?: number }) {
+  const cleanUserId = getValidUserId(query.userId);
   const url = new URL("https://purple-water-b776.zzlee-tw.workers.dev/api/transactions");
-  url.searchParams.set("user-id", String(query.userId || 1));
+  url.searchParams.set("user-id", String(cleanUserId));
   if (query.startDate) url.searchParams.set("startDate", query.startDate);
   if (query.endDate) url.searchParams.set("endDate", query.endDate);
   try {
@@ -469,9 +482,10 @@ async function fetchExternalTransactions(query: { startDate?: string; endDate?: 
 }
 
 async function fetchAccountingCategories(userId?: number) {
+  const cleanUserId = getValidUserId(userId);
   const fetchCategory = async (path: string) => {
     try {
-      const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev${path}?user-id=${userId || 1}`, {
+      const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev${path}?user-id=${cleanUserId}`, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
           "Accept": "application/json"
