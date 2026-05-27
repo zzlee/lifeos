@@ -300,11 +300,6 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [toast.visible]);
 
-  const financeTotal = useMemo(
-    () => data.finance.reduce((sum, item) => sum + item.amount, 0),
-    [data.finance],
-  );
-
   const latestHealth = data.health[0];
 
   const allTransactions = useMemo(() => {
@@ -325,6 +320,11 @@ export default function App() {
       .filter(t => toLocalDisplayDate(t.date, user.timezone).startsWith(financeMonth))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [expenseList, accountingTransactions, financeMonth, user.timezone]);
+
+  const financeTotal = useMemo(
+    () => allTransactions.reduce((sum, item) => sum + item.amount, 0),
+    [allTransactions],
+  );
 
   const financeGroups = useMemo(() => groupFinance(allTransactions), [allTransactions]);
 
@@ -841,7 +841,7 @@ export default function App() {
               <div className="panel-grid panel-grid-two">
                 <div className="panel">
                   <div className="panel-header">
-                    <h4>本週消費結構</h4>
+                    <h4>本月消費結構</h4>
                     <span>AI 歸類</span>
                   </div>
                   <DonutChart groups={financeGroups} />
