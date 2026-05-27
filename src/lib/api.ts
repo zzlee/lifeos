@@ -384,10 +384,7 @@ export async function updateAccountingTransaction(id: number, entry: AccountingT
 
 export async function deleteAccountingTransaction(id: number): Promise<{ ok: boolean }> {
   const response = await fetch(`${accountingApiBase}/api/transactions/${id}?user-id=${getAccountingUserId()}`, {
-    method: "DELETE",
-    headers: {
-      "X-LifeOS-User-Id": String(getAccountingUserId())
-    }
+    method: "DELETE"
   });
   if (!response.ok) throw new Error(`delete accounting tx ${response.status}`);
   return { ok: true };
