@@ -89,10 +89,10 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       properties: { 
         amount: { type: "number" }, 
         category: { type: "string", description: "Required ONLY if local is true." },
-        note: { type: "string" }, 
+        note: { type: "string", description: "Detailed description of the transaction containing specific itemized details (e.g. '巧克力土司, 雞塊, 薯餅蛋土司', '95無鉛汽油加滿')." }, 
         date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" },
         local: { type: "boolean", description: "Set to true ONLY if the user explicitly specifies storing 'locally', 'internally', or in 'local database'." },
-        item_name: { type: "string", description: "Name of the item for external accounting. Highly recommended if local is false (or fallback to note/category)." },
+        item_name: { type: "string", description: "A simplified, short merchant or item name for external accounting (e.g. 'Snooze早餐', '7-11', '加油'). DO NOT put itemized details or long descriptions here." },
         item_category_id: { type: "number", description: "ID of the item category for external accounting. Required if local is false." },
         payment_category_id: { type: "number", description: "ID of the payment category for external accounting. Required if local is false." }
       },
@@ -129,10 +129,10 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
         id: { type: "number" }, 
         amount: { type: "number" }, 
         category: { type: "string", description: "Required ONLY if source is local." },
-        note: { type: "string" }, 
+        note: { type: "string", description: "Detailed description of the transaction containing specific itemized details (e.g. '巧克力土司, 雞塊, 薯餅蛋土司', '95無鉛汽油加滿')." }, 
         date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" },
         source: { type: "string", enum: ["local", "external"], description: "Whether the record is in the 'local' database or 'external' system (must match the source returned by query_expenses)." },
-        item_name: { type: "string", description: "Name of the item for external accounting. Required if source is external." },
+        item_name: { type: "string", description: "A simplified, short merchant or item name for external accounting (e.g. 'Snooze早餐', '7-11', '加油'). DO NOT put itemized details or long descriptions here." },
         item_category_id: { type: "number", description: "ID of the item category for external accounting. Required if source is external." },
         payment_category_id: { type: "number", description: "ID of the payment category for external accounting. Required if source is external." }
       },
