@@ -485,7 +485,8 @@ async function fetchAccountingCategories(userId?: number) {
   const cleanUserId = getValidUserId(userId);
   const fetchCategory = async (path: string) => {
     try {
-      const resp = await fetch(`https://purple-water-b776.zzlee-tw.workers.dev${path}?user-id=${cleanUserId}`, {
+      const url = `https://purple-water-b776.zzlee-tw.workers.dev${path}?user-id=${cleanUserId}`;
+      const resp = await fetch(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
           "Accept": "application/json"
@@ -499,7 +500,7 @@ async function fetchAccountingCategories(userId?: number) {
           name: String(item.name ?? item.item_category ?? item.payment_category ?? "")
         }))
         .filter((item) => Number.isFinite(item.id) && item.id > 0 && item.name.trim().length > 0);
-    } catch (e) {
+    } catch (e: any) {
       console.error(`External fetch category failed for ${path}:`, e);
       return [];
     }
