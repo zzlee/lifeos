@@ -302,7 +302,7 @@ export type AccountingCategoryOptions = {
 };
 
 async function fetchCategoryEndpoint(path: string): Promise<AccountingCategory[]> {
-  const response = await fetch(`${accountingApiBase}${path}`);
+  const response = await fetch(`${accountingApiBase}${path}?user-id=${getAccountingUserId()}`);
   if (!response.ok) throw new Error(`accounting categories ${response.status}`);
   const payload = await response.json() as any[];
   return payload
@@ -383,7 +383,7 @@ export async function updateAccountingTransaction(id: number, entry: AccountingT
 }
 
 export async function deleteAccountingTransaction(id: number): Promise<{ ok: boolean }> {
-  const response = await fetch(`${accountingApiBase}/api/transactions/${id}`, {
+  const response = await fetch(`${accountingApiBase}/api/transactions/${id}?user-id=${getAccountingUserId()}`, {
     method: "DELETE",
     headers: {
       "X-LifeOS-User-Id": String(getAccountingUserId())

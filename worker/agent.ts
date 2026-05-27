@@ -451,8 +451,8 @@ async function deleteExternalTransaction(id: number, userId?: number) {
 async function fetchExternalTransactions(query: { startDate?: string; endDate?: string; userId?: number }) {
   const url = new URL("https://purple-water-b776.zzlee-tw.workers.dev/api/transactions");
   url.searchParams.set("user-id", String(query.userId || 1));
-  if (query.startDate) url.searchParams.set("startDate", query.startDate.slice(0, 10));
-  if (query.endDate) url.searchParams.set("endDate", query.endDate.slice(0, 10));
+  if (query.startDate) url.searchParams.set("startDate", query.startDate);
+  if (query.endDate) url.searchParams.set("endDate", query.endDate);
   try {
     const resp = await fetch(url.toString(), {
       headers: {
