@@ -669,6 +669,13 @@ export default function App() {
   async function handleRefresh() {
     const snapshot = await fetchDashboardSnapshot();
     setData(snapshot.data);
+    
+    // Trigger re-fetches for all individual view modules, including external accounting-dev transactions
+    setVaultRefreshTrigger((t) => t + 1);
+    setJournalRefreshTrigger((t) => t + 1);
+    setExpenseRefreshTrigger((t) => t + 1);
+    setHealthRefreshTrigger((t) => t + 1);
+    
     setToast({ visible: true, message: "資料已同步" });
   }
 
