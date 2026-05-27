@@ -207,7 +207,8 @@ app.post("/api/agent", async (c) => {
       data: agentResult.data,
       source: agentResult.source,
       systemInstruction: agentResult.systemInstruction,
-      agentDebugError: agentResult.agentDebugError
+      agentDebugError: agentResult.agentDebugError,
+      toolCalls: agentResult.toolCalls
     };
 
     return c.json(response);

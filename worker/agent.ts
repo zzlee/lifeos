@@ -380,6 +380,8 @@ For external transactions, you MUST use the following category IDs for 'item_cat
 Item Categories (ID:Name): ${itemCategoriesStr}
 Payment Categories (ID:Name): ${paymentCategoriesStr}`;
 
+  const executedToolCalls: Array<{ name: string; args: any; result: any }> = [];
+
   for (let i = 0; i < maxTurns; i++) {
     // Note: Dashboard Snapshot injection removed to optimize context token usage.
     // Query tools should be used by the agent to fetch expenses or health data.
@@ -405,7 +407,14 @@ Payment Categories (ID:Name): ${paymentCategoriesStr}`;
     if (!functionCalls.length) {
       // Fetch snapshot once at completion to sync UI state
       const snapshot = await getDashboardSnapshot(env.DB, user);
-      return { reply: response.text?.trim() || "已完成。", data: snapshot.data, source: "gemini" as const, systemInstruction, agentDebugError };
+      return { 
+        reply: response.text?.trim() || "已完成。", 
+        data: snapshot.data, 
+        source: "gemini" as const, 
+        systemInstruction, 
+        agentDebugError,
+        toolCalls: executedToolCalls
+      };
     }
 
     const results: Array<{ name: string; result: unknown }> = [];
@@ -413,6 +422,7 @@ Payment Categories (ID:Name): ${paymentCategoriesStr}`;
       const tool = TOOL_MAP.get(call.name || "");
       const result = tool ? await tool.execute(call.args || {}, env, user, accountingUserId) : { ok: false, error: `unknown tool ${call.name}` };
       results.push({ name: call.name || "unknown", result });
+      executedToolCalls.push({ name: call.name || "unknown", args: call.args || {}, result });
     }
 
     conversation.push({ role: "model", parts: [{ text: JSON.stringify(functionCalls) }] });
@@ -420,7 +430,14 @@ Payment Categories (ID:Name): ${paymentCategoriesStr}`;
   }
 
   const latest = await getDashboardSnapshot(env.DB, user);
-  return { reply: "已執行要求，若需更精準請補充細節。", data: latest.data, source: "gemini" as const, systemInstruction, agentDebugError };
+  return { 
+    reply: "已執行要求，若需更精準請補充細節。", 
+    data: latest.data, 
+    source: "gemini" as const, 
+    systemInstruction, 
+    agentDebugError,
+    toolCalls: executedToolCalls
+  };
 }
 
 function getValidUserId(userId?: any): number {

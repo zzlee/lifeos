@@ -45,6 +45,7 @@ export type AgentCommandResponse = {
   source: "gemini";
   systemInstruction?: string;
   agentDebugError?: string;
+  toolCalls?: Array<{ name: string; args: any; result: any }>;
 };
 
 export type VaultSecretResponse = {

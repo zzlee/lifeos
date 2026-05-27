@@ -126,9 +126,14 @@ export default function App() {
   const [agentMessages, setAgentMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
 
 
+  const [lastAgentResponse, setLastAgentResponse] = useState<any>(null);
+  const [isDebugOpen, setIsDebugOpen] = useState(false);
+
   function handleCloseAgentChat() {
     setIsAgentChatOpen(false);
     setAgentMessages([]);
+    setLastAgentResponse(null);
+    setIsDebugOpen(false);
   }
 
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -347,7 +352,7 @@ export default function App() {
       setData(response.data);
       setPrompt("");
       setAgentMessages((prev) => [...prev, { role: "assistant", content: response.reply }]);
-
+      setLastAgentResponse(response);
       setToast({ visible: true, message: response.reply });
     } catch (err: any) {
       console.error("Agent command failed:", err);
@@ -770,6 +775,81 @@ export default function App() {
                 )}
                 <div ref={chatEndRef} />
               </div>
+
+              {lastAgentResponse && (
+                <div style={{ marginTop: "12px", borderTop: "1px solid #e2e8f0", paddingTop: "12px" }}>
+                  <button
+                    onClick={() => setIsDebugOpen(!isDebugOpen)}
+                    style={{
+                      fontSize: "0.8em",
+                      padding: "6px 12px",
+                      background: "#f1f5f9",
+                      color: "#475569",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    ⚙️ {isDebugOpen ? "隱藏工具調用偵錯" : "顯示工具調用偵錯"}
+                    {lastAgentResponse.toolCalls && lastAgentResponse.toolCalls.length > 0 && (
+                      <span style={{ background: "#0284c7", color: "#fff", borderRadius: "50%", padding: "2px 6px", fontSize: "0.85em" }}>
+                        {lastAgentResponse.toolCalls.length}
+                      </span>
+                    )}
+                  </button>
+                  {isDebugOpen && (
+                    <div style={{ marginTop: "10px", padding: "12px", background: "#f8fafc", borderRadius: "8px", border: "1px dashed #cbd5e1", fontSize: "0.85em", color: "#334155", overflowY: "auto", maxHeight: "220px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                      {lastAgentResponse.agentDebugError && (
+                        <div style={{ color: "#b91c1c", fontWeight: "bold", whiteSpace: "pre-wrap", borderBottom: "1px solid #f1f5f9", paddingBottom: "6px" }}>
+                          ❌ 外部連線錯誤：{lastAgentResponse.agentDebugError}
+                        </div>
+                      )}
+                      
+                      <div style={{ fontWeight: "bold", color: "#0284c7" }}>🛠️ 代理工具調用軌跡 (Tool Execution Log)</div>
+                      
+                      {lastAgentResponse.toolCalls && lastAgentResponse.toolCalls.length > 0 ? (
+                        lastAgentResponse.toolCalls.map((call: any, idx: number) => (
+                          <div key={idx} style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "6px", padding: "8px 10px" }}>
+                            <div style={{ fontWeight: "bold", color: "#0f766e", marginBottom: "4px" }}>
+                              [{idx + 1}] Tool: <code style={{ background: "#f1f5f9", padding: "2px 4px", borderRadius: "4px" }}>{call.name}</code>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "4px", fontSize: "0.9em" }}>
+                              <div>
+                                <strong>傳入參數 (Arguments):</strong>
+                                <pre style={{ background: "#fafafa", padding: "6px", borderRadius: "4px", margin: "4px 0 0 0", overflowX: "auto" }}>
+                                  {JSON.stringify(call.args, null, 2)}
+                                </pre>
+                              </div>
+                              <div style={{ marginTop: "4px" }}>
+                                <strong>回傳結果 (Result):</strong>
+                                <pre style={{ background: "#fafafa", padding: "6px", borderRadius: "4px", margin: "4px 0 0 0", overflowX: "auto" }}>
+                                  {JSON.stringify(call.result, null, 2)}
+                                </pre>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ color: "#64748b", fontStyle: "italic" }}>此對話回合中 AI 代理直接完成了任務，未調用任何子工具。</div>
+                      )}
+                      
+                      {lastAgentResponse.systemInstruction && (
+                        <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: "8px", marginTop: "4px" }}>
+                          <div style={{ fontWeight: "bold", color: "#475569", marginBottom: "4px" }}>系統指令範本 (System Instruction):</div>
+                          <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-all", background: "#f1f5f9", padding: "8px", borderRadius: "4px", margin: 0, fontSize: "0.9em" }}>
+                            {lastAgentResponse.systemInstruction}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
 
               <div style={{ display: "flex", gap: "10px", marginTop: "16px", borderTop: "1px solid #e2e8f0", paddingTop: "12px" }}>
                 <input
