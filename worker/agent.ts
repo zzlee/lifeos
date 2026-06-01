@@ -90,7 +90,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
         amount: { type: "number" }, 
         category: { type: "string", description: "Required ONLY if local is true." },
         note: { type: "string", description: "Detailed description of the transaction containing specific itemized details (e.g. '巧克力土司, 雞塊, 薯餅蛋土司', '95無鉛汽油加滿')." }, 
-        date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" },
+        date: { type: "string", description: "ISO timestamp containing both date and time (e.g. YYYY-MM-DDTHH:mm:ss). Always provide time." },
         local: { type: "boolean", description: "Set to true ONLY if the user explicitly specifies storing 'locally', 'internally', or in 'local database'." },
         item_name: { type: "string", description: "A simplified, short merchant or item name for external accounting (e.g. 'Snooze早餐', '7-11', '加油'). DO NOT put itemized details or long descriptions here." },
         item_category_id: { type: "number", description: "ID of the item category for external accounting. Required if local is false." },
@@ -130,7 +130,7 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
         amount: { type: "number" }, 
         category: { type: "string", description: "Required ONLY if source is local." },
         note: { type: "string", description: "Detailed description of the transaction containing specific itemized details (e.g. '巧克力土司, 雞塊, 薯餅蛋土司', '95無鉛汽油加滿')." }, 
-        date: { type: "string", description: "ISO timestamp or YYYY-MM-DD" },
+        date: { type: "string", description: "ISO timestamp containing both date and time (e.g. YYYY-MM-DDTHH:mm:ss). Always provide time." },
         source: { type: "string", enum: ["local", "external"], description: "Whether the record is in the 'local' database or 'external' system (must match the source returned by query_expenses)." },
         item_name: { type: "string", description: "A simplified, short merchant or item name for external accounting (e.g. 'Snooze早餐', '7-11', '加油'). DO NOT put itemized details or long descriptions here." },
         item_category_id: { type: "number", description: "ID of the item category for external accounting. Required if source is external." },
@@ -418,7 +418,7 @@ DATE/TIME HANDLING INSTRUCTIONS:
 2. When calling tools (both query and mutation), you MUST ALWAYS supply dates in the user's LOCAL timezone format (e.g. 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:mm:ss').
 3. DO NOT attempt to manually convert local dates to UTC or apply timezone offsets. The tool execution backend is fully timezone-aware and will automatically perform the local-to-UTC conversion based on the user's timezone.
 4. For specific times mentioned by the user (e.g. "yesterday at 3:30 PM", "today noon"), format the parameters as a local ISO string without offset, e.g. '2026-05-26T15:30:00' or '2026-05-27T12:00:00'.
-5. If the user only gives a date (e.g. "yesterday"), pass a simple 'YYYY-MM-DD' string (e.g. '2026-05-26').
+5. If the user only gives a date (e.g. "yesterday"), pass a simple 'YYYY-MM-DD' string (e.g. '2026-05-26'), EXCEPT for expense/transaction mutations (e.g. create_expense, update_expense) where you MUST ALWAYS include the time. If the user only provides a date for an expense, append the current local time to the date (e.g. '2026-05-26T15:30:00').
 
 CRITICAL INSTRUCTIONS FOR RETRIEVING DATA:
 1. Since the dashboard snapshot is no longer in your context, you MUST ALWAYS call the corresponding query tools ('query_expenses', 'query_health', or 'query_journals') to fetch the data first if the user asks you to list, show, query, search, summarize, or check any transactions, expenses, health records, or journals! Do not assume the database is empty or make up answers without calling these query tools first!
