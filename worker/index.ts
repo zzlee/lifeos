@@ -509,8 +509,7 @@ app.post("/api/line/webhook", async (c) => {
 
   const events = JSON.parse(body).events;
   for (const event of events) {
-    if (event.type === "message" && event.message.type === "text") {
-      const userMessage = event.message.text;
+    if (event.type === "message" && (event.message.type === "text" || event.message.type === "image")) {
       await fetch("https://api.line.me/v2/bot/message/reply", {
         method: "POST",
         headers: {
@@ -519,7 +518,7 @@ app.post("/api/line/webhook", async (c) => {
         },
         body: JSON.stringify({
           replyToken: event.replyToken,
-          messages: [{ type: "text", text: `ECHO ${userMessage}` }],
+          messages: [{ type: "text", text: "收到" }],
         }),
       });
     }
