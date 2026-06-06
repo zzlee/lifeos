@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import LoginPage from "./components/LoginPage";
 import { FixedSizeList as List } from "react-window";
 import { toLocalDisplayDate, toLocalDisplayTime, toLocalInputString, getCurrentLocalInputString, localInputToUtcString } from "./lib/timeUtils";
-import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction, deleteAccountingTransaction, fetchAccountingCategoryOptions, type AccountingCategory } from "./lib/api";
+import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, updateApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction, deleteAccountingTransaction, fetchAccountingCategoryOptions, type AccountingCategory } from "./lib/api";
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -290,6 +290,18 @@ export default function App() {
     setNewKeyValue(res.key);
     setNewKeyName("");
     loadKeys();
+  }
+
+  async function handleUpdateKey(id: string, currentName: string) {
+    const newName = window.prompt("請輸入新的 API Key 名稱", currentName);
+    if (!newName || newName.trim() === currentName) return;
+    try {
+      await updateApiKey(id, newName.trim());
+      loadKeys();
+      setToast({ visible: true, message: "API Key 已更新" });
+    } catch (e) {
+      setToast({ visible: true, message: "API Key 更新失敗" });
+    }
   }
 
   async function handleDeleteKey(id: string) {
@@ -1306,13 +1318,20 @@ export default function App() {
                               <td><strong>{key.name}</strong></td>
                               <td><code style={{ fontSize: "12px" }}>{key.id}</code></td>
                               <td>{new Date(key.createdAt).toLocaleDateString()}</td>
-                              <td className="align-right">
+                              <td className="align-right" style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                                <button
+                                  className="text-button"
+                                  onClick={() => handleUpdateKey(key.id, key.name)}
+                                  style={{ fontSize: "14px", fontWeight: "600" }}
+                                >
+                                  修改
+                                </button>
                                 <button 
                                   className="text-button danger" 
                                   onClick={() => handleDeleteKey(key.id)}
                                   style={{ color: "#ef4444", fontSize: "14px", fontWeight: "600" }}
                                 >
-                                  撤銷
+                                  刪除
                                 </button>
                               </td>
                             </tr>

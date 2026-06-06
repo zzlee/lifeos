@@ -70,6 +70,17 @@ export async function createApiKey(name: string): Promise<{ ok: boolean; key: st
   return (await response.json()) as { ok: boolean; key: string };
 }
 
+export async function updateApiKey(id: string, name: string): Promise<{ ok: boolean }> {
+  const response = await fetch(getUrl(`/api/auth/keys/${id}`), {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ name })
+  });
+  if (!response.ok) throw new Error(`update key ${response.status}`);
+  return (await response.json()) as { ok: boolean };
+}
+
 export async function deleteApiKey(id: string): Promise<{ ok: boolean }> {
   const response = await fetch(getUrl(`/api/auth/keys/${id}`), {
     method: "DELETE",

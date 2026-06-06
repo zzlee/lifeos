@@ -109,6 +109,29 @@ app.post("/api/auth/keys", async (c) => {
   }
 });
 
+app.put("/api/auth/keys/:id", async (c) => {
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) {
+    return c.json({ ok: false, error: "Unauthorized" }, 401);
+  }
+
+  const keyId = c.req.param("id");
+  const body = (await c.req.json().catch(() => ({}))) as { name: string };
+  const newName = body.name?.trim();
+
+  if (!newName) {
+    return c.json({ ok: false, error: "Name is required" }, 400);
+  }
+
+  if (c.env.DB) {
+    await c.env.DB.prepare(
+      "UPDATE api_keys SET name = ? WHERE id = ? AND user_id = ?"
+    ).bind(newName, keyId, session.user.id).run();
+  }
+
+  return c.json({ ok: true });
+});
+
 app.delete("/api/auth/keys/:id", async (c) => {
   const session = await resolveSession(c.env, c.req.raw.headers);
   if (!session.authenticated || !session.user) {
