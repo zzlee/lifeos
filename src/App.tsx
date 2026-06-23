@@ -1512,7 +1512,7 @@ export default function App() {
           <div className="panel modal-content">
             <div className="panel-header">
               <h4>{editingAccountingId ? "編輯外部記帳" : "新增外部記帳"}</h4>
-              <button className="close-button" onClick={() => setIsAccountingModalOpen(false)}>✕</button>
+              <button className="close-button" aria-label="關閉" onClick={() => setIsAccountingModalOpen(false)}>✕</button>
             </div>
             <form onSubmit={handleSaveAccounting} className="modal-form">
               <div className="form-group">
