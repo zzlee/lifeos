@@ -16,6 +16,8 @@ export type Env = {
   ASSETS: {
     fetch: (request: Request) => Promise<Response>;
   };
+  AGNES_API_KEY?: string;
+  AGNES_MODEL?: string;
   GEMINI_API_KEY?: string;
   GEMINI_MODEL?: string;
   VAULT_MASTER_KEY?: string;

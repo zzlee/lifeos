@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 import type { Env } from "./env";
 import type { UserProfile } from "../shared/domain";
 import {
@@ -381,17 +380,63 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
 
 const TOOL_MAP = new Map(LIFEOS_TOOLSET.map((tool) => [tool.name, tool]));
 
+/**
+ * Call the Agnes AI (OpenAI-compatible) chat completions API.
+ */
+async function callAgnesChat(
+  apiKey: string,
+  model: string,
+  messages: Array<Record<string, any>>,
+  tools?: Array<{
+    type: "function";
+    function: { name: string; description: string; parameters: Record<string, unknown> };
+  }>,
+  systemInstruction?: string
+): Promise<any> {
+  const body: Record<string, any> = {
+    model,
+    max_tokens: 65536,
+  };
+
+  if (systemInstruction) {
+    body.messages = [{ role: "system", content: systemInstruction }, ...messages];
+  } else {
+    body.messages = messages;
+  }
+
+  if (tools && tools.length > 0) {
+    body.tools = tools;
+    body.tool_choice = "auto";
+  }
+
+  const response = await fetch("https://apihub.agnes-ai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Agnes AI API error ${response.status}: ${errorText.slice(0, 500)}`);
+  }
+
+  return response.json();
+}
+
 export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: ChatMessage[], accountingUserId?: number) {
   console.log("Agent received messages:", JSON.stringify(messages, null, 2));
   if (!env.DB) throw new Error("Database not bound");
-  if (!env.GEMINI_API_KEY) throw new Error("Gemini API key not configured");
+  if (!env.AGNES_API_KEY) throw new Error("Agnes AI API key not configured");
 
-  const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
-  const model = env.GEMINI_MODEL || "gemini-2.5-flash";
+  const apiKey = env.AGNES_API_KEY;
+  const model = env.AGNES_MODEL || "agnes-2.0-flash";
   const maxTurns = 6;
-  const conversation: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = messages.map((m) => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
+  const conversation: Array<Record<string, any>> = messages.map((m) => ({
+    role: m.role === "assistant" ? "assistant" : "user",
+    content: m.content,
   }));
 
   const userLocalTime = new Date().toLocaleString("zh-TW", { timeZone: user.timezone || "Asia/Taipei" });
@@ -429,60 +474,70 @@ For external transactions, you MUST use the following category IDs for 'item_cat
 Item Categories (ID:Name): ${itemCategoriesStr}
 Payment Categories (ID:Name): ${paymentCategoriesStr}`;
 
+  // Build tool definitions once (OpenAI-compatible format)
+  const openaiTools = LIFEOS_TOOLSET.map((tool) => ({
+    type: "function" as const,
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+    },
+  }));
+
   const executedToolCalls: Array<{ name: string; args: any; result: any }> = [];
 
   for (let i = 0; i < maxTurns; i++) {
-    // Note: Dashboard Snapshot injection removed to optimize context token usage.
-    // Query tools should be used by the agent to fetch expenses or health data.
+    const response = await callAgnesChat(apiKey, model, conversation, openaiTools, systemInstruction);
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: conversation,
-      config: {
-        systemInstruction,
-        tools: [
-          {
-            functionDeclarations: LIFEOS_TOOLSET.map((tool) => ({
-              name: tool.name,
-              description: tool.description,
-              parameters: tool.parameters,
-            })),
-          },
-        ],
-      },
-    });
+    const choice = response.choices?.[0];
+    if (!choice) throw new Error("No response from Agnes AI");
 
-    const functionCalls = response.functionCalls ?? [];
-    if (!functionCalls.length) {
-      // Fetch snapshot once at completion to sync UI state
+    const assistantMessage = choice.message;
+
+    if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
+      // No tool calls — final answer
       const snapshot = await getDashboardSnapshot(env.DB, user);
       return { 
-        reply: response.text?.trim() || "已完成。", 
+        reply: assistantMessage.content?.trim() || "已完成。", 
         data: snapshot.data, 
-        source: "gemini" as const, 
+        source: "agnes" as const, 
         systemInstruction, 
         agentDebugError,
         toolCalls: executedToolCalls
       };
     }
 
-    const results: Array<{ name: string; result: unknown }> = [];
-    for (const call of functionCalls) {
-      const tool = TOOL_MAP.get(call.name || "");
-      const result = tool ? await tool.execute(call.args || {}, env, user, accountingUserId) : { ok: false, error: `unknown tool ${call.name}` };
-      results.push({ name: call.name || "unknown", result });
-      executedToolCalls.push({ name: call.name || "unknown", args: call.args || {}, result });
-    }
+    // Add assistant message with tool_calls to conversation
+    conversation.push({
+      role: "assistant",
+      content: assistantMessage.content,
+      tool_calls: assistantMessage.tool_calls,
+    });
 
-    conversation.push({ role: "model", parts: [{ text: JSON.stringify(functionCalls) }] });
-    conversation.push({ role: "user", parts: [{ text: `Tool results: ${JSON.stringify(results)}` }] });
+    // Execute each tool call
+    const results: Array<{ name: string; result: unknown }> = [];
+    for (const toolCall of assistantMessage.tool_calls) {
+      if (toolCall.type !== "function") continue;
+      const args = JSON.parse(toolCall.function.arguments || "{}");
+      const tool = TOOL_MAP.get(toolCall.function.name || "");
+      const result = tool ? await tool.execute(args, env, user, accountingUserId) : { ok: false, error: `unknown tool ${toolCall.function.name}` };
+      results.push({ name: toolCall.function.name || "unknown", result });
+      executedToolCalls.push({ name: toolCall.function.name || "unknown", args, result });
+
+      // Add tool result message (OpenAI-compatible format)
+      conversation.push({
+        role: "tool",
+        tool_call_id: toolCall.id,
+        content: JSON.stringify(result),
+      });
+    }
   }
 
   const latest = await getDashboardSnapshot(env.DB, user);
   return { 
     reply: "已執行要求，若需更精準請補充細節。", 
     data: latest.data, 
-    source: "gemini" as const, 
+    source: "agnes" as const, 
     systemInstruction, 
     agentDebugError,
     toolCalls: executedToolCalls

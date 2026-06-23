@@ -42,7 +42,7 @@ export type AgentCommandResponse = {
   accepted: true;
   reply: string;
   data: LifeOSState;
-  source: "gemini";
+  source: "agnes";
   systemInstruction?: string;
   agentDebugError?: string;
   toolCalls?: Array<{ name: string; args: any; result: any }>;
