@@ -174,7 +174,7 @@ export default function App() {
   }, [view]);
 
   useEffect(() => {
-    if (view === "finance") {
+    if (view === "finance" || view === "overview") {
       setIsLoadingExpenses(true);
       const limit = 20;
       fetchExpenses(limit, expensePage * limit)
