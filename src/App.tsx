@@ -931,10 +931,10 @@ export default function App() {
               </div>
 
               <div className="stats-grid">
-                <StatCard title="本月支出" value={`NT$ ${financeTotal}`} accent="emerald" icon="💳" />
-                <StatCard title="最新血壓" value={latestHealth ? `${latestHealth.sys}/${latestHealth.dia}` : "--/--"} accent="rose" icon="❤️" />
-                <StatCard title="日記篇數" value={`${data.journals.length}`} accent="blue" icon="📖" />
-                <StatCard title="安全密碼庫" value={`${data.vault.length}`} accent="amber" icon="🔐" />
+                <StatCard title="本月支出" value={`NT$ ${financeTotal}`} accent="emerald" icon="💳" onClick={() => setView("finance")} />
+                <StatCard title="最新血壓" value={latestHealth ? `${latestHealth.sys}/${latestHealth.dia}` : "--/--"} accent="rose" icon="❤️" onClick={() => setView("health")} />
+                <StatCard title="日記篇數" value={`${data.journals.length}`} accent="blue" icon="📖" onClick={() => setView("journal")} />
+                <StatCard title="安全密碼庫" value={`${data.vault.length}`} accent="amber" icon="🔐" onClick={() => setView("vault")} />
               </div>
 
               <div className="panel-grid panel-grid-two">
@@ -1709,9 +1709,21 @@ function SectionHeading({ title, description, action }: { title: string; descrip
   );
 }
 
-function StatCard({ title, value, accent, icon }: { title: string; value: string; accent: string; icon: string }) {
+function StatCard({ title, value, accent, icon, onClick }: { title: string; value: string; accent: string; icon: string; onClick?: () => void }) {
   return (
-    <article className="stat-card">
+    <article
+      className="stat-card"
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      style={{ cursor: onClick ? "pointer" : "default" }}
+    >
       <div className="stat-head">
         <p>{title}</p>
         <span className={`accent-${accent}`}>{icon}</span>
