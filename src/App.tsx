@@ -263,10 +263,12 @@ export default function App() {
         .then((res) => {
           setJournalList((prev) => {
             if (journalPage === 0) return res.journals;
+            const existingIds = new Set(prev.map(j => j.id));
             const newJournals = [...prev];
             res.journals.forEach(j => {
-              if (!newJournals.some(existingJournal => existingJournal.id === j.id)) {
+              if (!existingIds.has(j.id)) {
                 newJournals.push(j);
+                existingIds.add(j.id);
               }
             });
             return newJournals;
