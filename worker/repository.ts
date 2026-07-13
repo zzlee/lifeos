@@ -204,16 +204,13 @@ export async function exportVault(
     .bind(user.id)
     .all<{ site: string; username: string; secret_ciphertext: string; secret_iv: string }>();
 
-  const result = [];
-  for (const record of records.results || []) {
-    result.push({
+  return Promise.all(
+    (records.results || []).map(async (record) => ({
       site: record.site,
       username: record.username,
       secret: await decryptSecret(record.secret_ciphertext, record.secret_iv, vaultMasterKey)
-    });
-  }
-
-  return result;
+    }))
+  );
 }
 
 export async function createVaultItem(
