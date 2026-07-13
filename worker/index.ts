@@ -531,9 +531,10 @@ app.post("/api/line/webhook", async (c) => {
   }
 
   const events = JSON.parse(body).events;
-  for (const event of events) {
-    if (event.type === "message" && (event.message.type === "text" || event.message.type === "image")) {
-      await fetch("https://api.line.me/v2/bot/message/reply", {
+  const replyPromises = events
+    .filter((event: any) => event.type === "message" && (event.message.type === "text" || event.message.type === "image"))
+    .map((event: any) =>
+      fetch("https://api.line.me/v2/bot/message/reply", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -543,9 +544,10 @@ app.post("/api/line/webhook", async (c) => {
           replyToken: event.replyToken,
           messages: [{ type: "text", text: "收到" }],
         }),
-      });
-    }
-  }
+      })
+    );
+
+  await Promise.all(replyPromises);
 
   return c.text("OK");
 });
