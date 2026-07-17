@@ -30,10 +30,8 @@ export type DashboardSnapshotResponse = {
   generatedAt: string;
 };
 
-export type AgentChatMessage = { role: "user" | "assistant"; content: string };
-
 export type AgentCommandRequest = {
-  messages?: AgentChatMessage[];
+  messages?: Array<{ role: "user" | "assistant"; content: string }>;
   /** Backward-compatible single-command shape used by older CLI builds. */
   command?: string;
 };
@@ -77,11 +75,6 @@ export type ApiKey = {
 
 export type ApiKeyListResponse = {
   keys: ApiKey[];
-};
-
-export type ApiKeyCreateResponse = {
-  ok: true;
-  key: string;
 };
 
 export type AuthMutationResponse = {
