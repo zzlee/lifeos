@@ -37,6 +37,10 @@ export async function resolveSession(
   env: Env,
   headers: Headers,
 ): Promise<SessionResponse> {
+  if (!env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET environment variable is not configured.");
+  }
+
   const authHeader = headers.get("Authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
@@ -68,7 +72,7 @@ export async function resolveSession(
   const headerUser = readUserFromHeaders(headers);
 
   const sessionFromCookie = cookieToken
-    ? await verifySessionToken(cookieToken, env.SESSION_SECRET ?? "lifeos-dev-session-secret")
+    ? await verifySessionToken(cookieToken, env.SESSION_SECRET)
     : null;
 
   const provider = headerUser ? "google-ready" : sessionFromCookie?.provider ?? "none";
@@ -114,6 +118,9 @@ export function clearSessionCookie(): string {
 }
 
 export async function getGoogleAuthStartUrl(env: Env, requestUrl: string): Promise<string | null> {
+  if (!env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET environment variable is not configured.");
+  }
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_REDIRECT_URI || !env.GOOGLE_CLIENT_SECRET) {
     console.error("Google OAuth Configuration Error: Missing required environment variables.");
     if (!env.GOOGLE_CLIENT_ID) console.error("Missing: GOOGLE_CLIENT_ID");
@@ -123,7 +130,7 @@ export async function getGoogleAuthStartUrl(env: Env, requestUrl: string): Promi
   }
 
   const origin = new URL(requestUrl).origin;
-  const state = await createOAuthState(origin, env.SESSION_SECRET ?? "lifeos-dev-session-secret");
+  const state = await createOAuthState(origin, env.SESSION_SECRET);
   const params = new URLSearchParams({
     client_id: env.GOOGLE_CLIENT_ID,
     redirect_uri: env.GOOGLE_REDIRECT_URI,
@@ -142,6 +149,9 @@ export async function completeGoogleOAuth(
   code: string,
   state: string,
 ): Promise<{ cookie: string; redirectUrl: string }> {
+  if (!env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET environment variable is not configured.");
+  }
   if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REDIRECT_URI) {
     const missing = [];
     if (!env.GOOGLE_CLIENT_ID) missing.push("GOOGLE_CLIENT_ID");
@@ -150,7 +160,7 @@ export async function completeGoogleOAuth(
     throw new Error(`Google OAuth is not configured. Missing: ${missing.join(", ")}`);
   }
 
-  const verifiedState = await verifyOAuthState(state, env.SESSION_SECRET ?? "lifeos-dev-session-secret");
+  const verifiedState = await verifyOAuthState(state, env.SESSION_SECRET);
   if (!verifiedState) {
     throw new Error("Invalid OAuth state");
   }
@@ -204,7 +214,7 @@ export async function completeGoogleOAuth(
       provider: "google-ready",
       exp: Date.now() + 1000 * 60 * 60 * 24 * 7,
     },
-    env.SESSION_SECRET ?? "lifeos-dev-session-secret",
+    env.SESSION_SECRET,
   );
 
   return {
