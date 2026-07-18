@@ -27,4 +27,5 @@ export type Env = {
   GOOGLE_REDIRECT_URI?: string;
   LINE_CHANNEL_SECRET?: string;
   LINE_CHANNEL_ACCESS_TOKEN?: string;
+  ALLOWED_ORIGINS?: string;
 };

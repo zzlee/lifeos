@@ -25,9 +25,11 @@ import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, e
 const app = new Hono<{ Bindings: Env }>();
 
 app.use("/api/*", async (c, next) => {
-  const origin = c.req.header("Origin");
+  const allowedOriginsStr = c.env?.ALLOWED_ORIGINS || "http://localhost:5173,http://127.0.0.1:5173";
+  const allowedOrigins = allowedOriginsStr.split(",").map((o) => o.trim());
+
   const corsHandler = cors({
-    origin: origin || "*",
+    origin: allowedOrigins,
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization", "X-LifeOS-User-Id", "X-LifeOS-User-Email", "X-LifeOS-User-Name"],
