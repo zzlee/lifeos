@@ -325,33 +325,12 @@ async function fetchCategoryEndpoint(path: string): Promise<AccountingCategory[]
 }
 
 export async function fetchAccountingCategoryOptions(): Promise<AccountingCategoryOptions> {
-  const [itemResult, paymentResult] = await Promise.allSettled([
+  const [itemCategories, paymentCategories] = await Promise.all([
     fetchCategoryEndpoint('/api/item-categories'),
     fetchCategoryEndpoint('/api/payment-categories')
   ]);
 
-  if (itemResult.status === 'fulfilled' && paymentResult.status === 'fulfilled') {
-    return { itemCategories: itemResult.value, paymentCategories: paymentResult.value };
-  }
-
-  const transactions = await fetchAccountingTransactions();
-  const itemMap = new Map<number, string>();
-  const paymentMap = new Map<number, string>();
-
-  for (const tx of transactions) {
-    if (tx.item_category_id > 0 && tx.item_category) itemMap.set(tx.item_category_id, tx.item_category);
-    if (tx.payment_category_id > 0 && tx.payment_category) paymentMap.set(tx.payment_category_id, tx.payment_category);
-  }
-
-  const toList = (m: Map<number, string>): AccountingCategory[] =>
-    Array.from(m.entries())
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.id - b.id);
-
-  return {
-    itemCategories: itemResult.status === 'fulfilled' ? itemResult.value : toList(itemMap),
-    paymentCategories: paymentResult.status === 'fulfilled' ? paymentResult.value : toList(paymentMap)
-  };
+  return { itemCategories, paymentCategories };
 }
 
 type AccountingTransactionQuery = {
