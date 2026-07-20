@@ -427,7 +427,6 @@ async function callAgnesChat(
 }
 
 export async function runLifeAgentLoop(env: Env, user: UserProfile, messages: ChatMessage[], accountingUserId?: number) {
-  console.log("Agent received messages:", JSON.stringify(messages, null, 2));
   if (!env.DB) throw new Error("Database not bound");
   if (!env.AGNES_API_KEY) throw new Error("Agnes AI API key not configured");
 
