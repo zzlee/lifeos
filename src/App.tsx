@@ -1854,7 +1854,7 @@ function getHealthStats(entries: HealthEntry[]) {
   };
 }
 
-function groupFinance(items: any[]) {
+function groupFinance(items: { category: string; amount: number }[]) {
   const palette = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#7c3aed", "#ec4899", "#8b5cf6", "#14b8a6"];
   return Object.entries(
     items.reduce<Record<string, number>>((acc, item) => {
