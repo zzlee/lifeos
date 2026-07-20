@@ -369,9 +369,9 @@ export default function App() {
       setAgentMessages((prev) => [...prev, { role: "assistant", content: response.reply }]);
       setLastAgentResponse(response);
       setToast({ visible: true, message: response.reply });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Agent command failed:", err);
-      const errMsg = err?.message || "連線或處理失敗";
+      const errMsg = err instanceof Error ? err.message : "連線或處理失敗";
       setToast({ visible: true, message: `處理失敗: ${errMsg}` });
       setAgentMessages((prev) => [...prev, { role: "assistant", content: `❌ 處理失敗: ${errMsg}` }]);
     } finally {
@@ -408,8 +408,8 @@ export default function App() {
       setNewVaultItem({ site: "", username: "", secret: "" });
       setIsVaultModalOpen(false);
       setEditingVaultId(null);
-    } catch (err: any) {
-      alert(`儲存失敗: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`儲存失敗: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -424,8 +424,8 @@ export default function App() {
         setVaultRefreshTrigger((t) => t + 1);
       }
       setToast({ visible: true, message: `已刪除 ${site} 的紀錄` });
-    } catch (err: any) {
-      alert(`刪除失敗: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`刪除失敗: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -440,8 +440,8 @@ export default function App() {
         setExpenseRefreshTrigger((t) => t + 1);
       }
       setToast({ visible: true, message: "外部記帳紀錄已刪除" });
-    } catch (err: any) {
-      alert(`刪除外部記帳失敗: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`刪除外部記帳失敗: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -468,8 +468,8 @@ export default function App() {
       setNewJournalEntry({ content: "", tags: "" });
       setIsJournalModalOpen(false);
       setEditingJournalId(null);
-    } catch (err: any) {
-      alert(`儲存失敗: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`儲存失敗: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -496,8 +496,8 @@ export default function App() {
         setJournalRefreshTrigger((t) => t + 1);
       }
       setToast({ visible: true, message: "日記已刪除" });
-    } catch (err: any) {
-      alert(`刪除失敗: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`刪除失敗: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -530,8 +530,8 @@ export default function App() {
       setNewExpenseEntry({ amount: 0, category: "", note: "", date: "" });
       setIsExpenseModalOpen(false);
       setEditingExpenseId(null);
-    } catch (err: any) {
-      alert(`儲存失敗: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`儲存失敗: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -546,8 +546,8 @@ export default function App() {
         setExpenseRefreshTrigger((t) => t + 1);
       }
       setToast({ visible: true, message: "消費紀錄已刪除" });
-    } catch (err: any) {
-      alert(`刪除失敗: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`刪除失敗: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -589,8 +589,8 @@ export default function App() {
       setAccountingTransactions(await fetchAccountingTransactions(accountingRange));
       setIsAccountingModalOpen(false);
       setEditingAccountingId(null);
-    } catch (err: any) {
-      alert(`儲存失敗: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`儲存失敗: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -640,8 +640,8 @@ export default function App() {
       setNewHealthEntry({ sys: 120, dia: 80, hr: 72, weight: 0, date: "" });
       setIsHealthModalOpen(false);
       setEditingHealthId(null);
-    } catch (err: any) {
-      alert(`儲存失敗: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`儲存失敗: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -656,8 +656,8 @@ export default function App() {
         setHealthRefreshTrigger((t) => t + 1);
       }
       setToast({ visible: true, message: "健康紀錄已刪除" });
-    } catch (err: any) {
-      alert(`刪除失敗: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`刪除失敗: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
