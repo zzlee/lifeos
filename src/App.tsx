@@ -182,10 +182,12 @@ export default function App() {
         .then((res) => {
           setExpenseList((prev) => {
             if (expensePage === 0) return res.expenses;
+            const existingIds = new Set(prev.map(e => e.id));
             const newExpenses = [...prev];
             res.expenses.forEach(e => {
-              if (!newExpenses.some(existingExpense => existingExpense.id === e.id)) {
+              if (!existingIds.has(e.id)) {
                 newExpenses.push(e);
+                existingIds.add(e.id);
               }
             });
             return newExpenses;
@@ -218,10 +220,12 @@ export default function App() {
         .then((res) => {
           setVaultList((prev) => {
             if (vaultPage === 0) return res.items;
+            const existingIds = new Set(prev.map(e => e.id));
             const newVaults = [...prev];
             res.items.forEach(e => {
-              if (!newVaults.some(existingVault => existingVault.id === e.id)) {
+              if (!existingIds.has(e.id)) {
                 newVaults.push(e);
+                existingIds.add(e.id);
               }
             });
             return newVaults;
@@ -241,10 +245,12 @@ export default function App() {
         .then((res) => {
           setHealthList((prev) => {
             if (healthPage === 0) return res.health;
+            const existingIds = new Set(prev.map(e => e.id));
             const newHealth = [...prev];
             res.health.forEach(e => {
-              if (!newHealth.some(existingHealth => existingHealth.id === e.id)) {
+              if (!existingIds.has(e.id)) {
                 newHealth.push(e);
+                existingIds.add(e.id);
               }
             });
             return newHealth;
@@ -1754,12 +1760,15 @@ function DonutChart({ groups }: { groups: Array<{ category: string; amount: numb
   const total = groups.reduce((sum, item) => sum + item.amount, 0);
   if (total === 0) return <div className="donut-layout">沒有數據</div>;
   
-  const segments = groups.map((item, index) => {
-    const previous = groups.slice(0, index).reduce((sum, current) => sum + current.amount, 0);
+  let currentStart = 0;
+  const segments = groups.map((item) => {
+    const start = currentStart;
+    const size = (item.amount / total) * 100;
+    currentStart += size;
     return {
       ...item,
-      start: (previous / total) * 100,
-      size: (item.amount / total) * 100
+      start,
+      size
     };
   });
 
