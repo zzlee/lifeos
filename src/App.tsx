@@ -342,9 +342,22 @@ export default function App() {
       }))
     ];
 
-    return combined
-      .filter(t => toLocalDisplayDate(t.date, user.timezone).startsWith(financeMonth))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // Pre-calculate UTC boundary timestamps to avoid calling `toLocaleString` per transaction
+    const { startDate, endDate } = getAccountingMonthRangeUtc(financeMonth, user.timezone);
+    const startMs = new Date(startDate).getTime();
+    const endMs = new Date(endDate).getTime();
+
+    // Convert to unified timestamp once per item to avoid O(N log N) string ops in sort
+    const mapped = combined.map(item => {
+      const dStr = item.date.replace(' ', 'T');
+      const ts = new Date(dStr.endsWith('Z') || dStr.includes('+') ? dStr : dStr + 'Z').getTime();
+      return { item, ts };
+    });
+
+    return mapped
+      .filter(x => x.ts >= startMs && x.ts <= endMs)
+      .sort((a, b) => b.ts - a.ts)
+      .map(x => x.item);
   }, [expenseList, accountingTransactions, financeMonth, user.timezone]);
 
   const financeTotal = useMemo(
