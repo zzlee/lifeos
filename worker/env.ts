@@ -1,14 +1,13 @@
+export type D1PreparedStatement = {
+  bind: (...values: unknown[]) => D1PreparedStatement;
+  all: <T = unknown>() => Promise<{ results: T[] }>;
+  first: <T = unknown>() => Promise<T | null>;
+  run: <T = unknown>() => Promise<{ results?: T[] }>;
+};
+
 export type D1Database = {
-  prepare: (query: string) => {
-    bind: (...values: unknown[]) => {
-      all: <T>() => Promise<{ results: T[] }>;
-      first: <T>() => Promise<T | null>;
-      run: () => Promise<unknown>;
-    };
-    all: <T>() => Promise<{ results: T[] }>;
-    first: <T>() => Promise<T | null>;
-    run: () => Promise<unknown>;
-  };
+  batch: <T = unknown>(statements: D1PreparedStatement[]) => Promise<Array<{ results: T[] }>>;
+  prepare: (query: string) => D1PreparedStatement;
 };
 
 export type Env = {
