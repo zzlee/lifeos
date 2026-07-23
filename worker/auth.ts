@@ -295,11 +295,9 @@ function readCookie(headers: Headers, name: string): string | null {
   const cookie = headers.get("cookie");
   if (!cookie) return null;
 
-  for (const part of cookie.split(";")) {
-    const [key, value] = part.trim().split("=");
-    if (key === name && value) return value;
-  }
-  return null;
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = cookie.match(new RegExp(`(?:^|;\\s*)${escapedName}=([^;]+)`));
+  return match ? match[1] : null;
 }
 
 function base64UrlEncode(value: string): string {
