@@ -329,33 +329,42 @@ export default function App() {
   const latestHealth = data.health[0];
 
   const allTransactions = useMemo(() => {
-    const combined: any[] = [
-      ...expenseList.map(e => ({ ...e, type: "internal" })),
-      ...accountingTransactions.map(a => ({
-        id: a.transaction_id,
-        date: a.transaction_date,
-        amount: a.amount,
-        category: a.item_category || "未分類",
-        note: a.item_name + (a.notes ? ` - ${a.notes}` : ""),
-        type: "external",
-        original: a
-      }))
-    ];
-
     // Pre-calculate UTC boundary timestamps to avoid calling `toLocaleString` per transaction
     const { startDate, endDate } = getAccountingMonthRangeUtc(financeMonth, user.timezone);
     const startMs = new Date(startDate).getTime();
     const endMs = new Date(endDate).getTime();
 
-    // Convert to unified timestamp once per item to avoid O(N log N) string ops in sort
-    const mapped = combined.map(item => {
-      const dStr = item.date.replace(' ', 'T');
+    const mapped: Array<{ item: any; ts: number }> = [];
+
+    // Process lists in a single pass to minimize array allocations and intermediate objects
+    for (const e of expenseList) {
+      const dStr = e.date.replace(' ', 'T');
       const ts = new Date(dStr.endsWith('Z') || dStr.includes('+') ? dStr : dStr + 'Z').getTime();
-      return { item, ts };
-    });
+      if (ts >= startMs && ts <= endMs) {
+        mapped.push({ item: { ...e, type: "internal" }, ts });
+      }
+    }
+
+    for (const a of accountingTransactions) {
+      const dStr = a.transaction_date.replace(' ', 'T');
+      const ts = new Date(dStr.endsWith('Z') || dStr.includes('+') ? dStr : dStr + 'Z').getTime();
+      if (ts >= startMs && ts <= endMs) {
+        mapped.push({
+          item: {
+            id: a.transaction_id,
+            date: a.transaction_date,
+            amount: a.amount,
+            category: a.item_category || "未分類",
+            note: a.item_name + (a.notes ? ` - ${a.notes}` : ""),
+            type: "external",
+            original: a
+          },
+          ts
+        });
+      }
+    }
 
     return mapped
-      .filter(x => x.ts >= startMs && x.ts <= endMs)
       .sort((a, b) => b.ts - a.ts)
       .map(x => x.item);
   }, [expenseList, accountingTransactions, financeMonth, user.timezone]);
