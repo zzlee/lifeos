@@ -616,8 +616,17 @@ async function fetchExternalTransactions(query: { startDate?: string; endDate?: 
   }
 }
 
+const CATEGORIES_CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+const categoriesCache = new Map<number, { itemCategories: any[], paymentCategories: any[], timestamp: number }>();
+
 async function fetchAccountingCategories(userId?: number) {
   const cleanUserId = getValidUserId(userId);
+
+  const cached = categoriesCache.get(cleanUserId);
+  if (cached && Date.now() - cached.timestamp < CATEGORIES_CACHE_TTL_MS) {
+    return { itemCategories: cached.itemCategories, paymentCategories: cached.paymentCategories };
+  }
+
   const fetchCategory = async (path: string) => {
     try {
       const url = `https://purple-water-b776.zzlee-tw.workers.dev${path}?user-id=${cleanUserId}`;
@@ -645,6 +654,8 @@ async function fetchAccountingCategories(userId?: number) {
     fetchCategory("/api/item-categories"),
     fetchCategory("/api/payment-categories")
   ]);
+
+  categoriesCache.set(cleanUserId, { itemCategories, paymentCategories, timestamp: Date.now() });
 
   return { itemCategories, paymentCategories };
 }
