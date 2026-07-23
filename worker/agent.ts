@@ -515,11 +515,31 @@ Payment Categories (ID:Name): ${paymentCategoriesStr}`;
 
     // Execute each tool call
     const results: Array<{ name: string; result: unknown }> = [];
-    for (const toolCall of assistantMessage.tool_calls) {
-      if (toolCall.type !== "function") continue;
+
+    // Map tool calls to promises for parallel execution
+    const toolExecutions = assistantMessage.tool_calls.map(async (toolCall: any) => {
+      if (toolCall.type !== "function") return null;
       const args = JSON.parse(toolCall.function.arguments || "{}");
       const tool = TOOL_MAP.get(toolCall.function.name || "");
-      const result = tool ? await tool.execute(args, env, user, accountingUserId) : { ok: false, error: `unknown tool ${toolCall.function.name}` };
+      const result = tool
+        ? await tool.execute(args, env, user, accountingUserId)
+        : { ok: false, error: `unknown tool ${toolCall.function.name}` };
+
+      return {
+        toolCall,
+        args,
+        result
+      };
+    });
+
+    const executionResults = await Promise.all(toolExecutions);
+
+    // Process results sequentially to preserve order
+    for (const execResult of executionResults) {
+      if (!execResult) continue;
+
+      const { toolCall, args, result } = execResult;
+
       results.push({ name: toolCall.function.name || "unknown", result });
       executedToolCalls.push({ name: toolCall.function.name || "unknown", args, result });
 
