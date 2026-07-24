@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import LoginPage from "./components/LoginPage";
 import { FinanceRow } from "./components/FinanceRow";
+import { HealthRow } from "./components/HealthRow";
 import { FixedSizeList as List } from "react-window";
 import { toLocalDisplayDate, toLocalDisplayTime, toLocalInputString, getCurrentLocalInputString, localInputToUtcString } from "./lib/timeUtils";
 import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, updateApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction, deleteAccountingTransaction, fetchAccountingCategoryOptions, type AccountingCategory } from "./lib/api";
@@ -377,6 +378,22 @@ export default function App() {
   const financeGroups = useMemo(() => groupFinance(allTransactions), [allTransactions]);
 
   const healthStats = useMemo(() => getHealthStats(data.health), [data.health]);
+
+  const financeItemData = useMemo(() => ({
+    items: allTransactions,
+    timezone: user.timezone,
+    openEditExpense,
+    openEditAccounting,
+    handleDeleteExpense,
+    handleDeleteAccountingTransaction
+  }), [allTransactions, user.timezone]);
+
+  const healthItemData = useMemo(() => ({
+    items: healthList,
+    timezone: user.timezone,
+    openEditHealth,
+    handleDeleteHealth
+  }), [healthList, user.timezone]);
 
   if (!isAuthenticated) {
     return <LoginPage />;
@@ -1027,14 +1044,7 @@ export default function App() {
                         itemCount={allTransactions.length}
                         itemSize={70}
                         width="100%"
-                        itemData={{
-                          items: allTransactions,
-                          timezone: user.timezone,
-                          openEditExpense,
-                          openEditAccounting,
-                          handleDeleteExpense,
-                          handleDeleteAccountingTransaction
-                        }}
+                        itemData={financeItemData}
                       >
                         {FinanceRow}
                       </List>
@@ -1108,50 +1118,17 @@ export default function App() {
                   <h4>健康紀錄</h4>
                 </div>
                 <div className="table-wrap" style={{ display: 'block' }}>
-                  {healthList.length > 0 ? (() => {
-                    const HealthRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
-                      const item = healthList[index];
-                      return (
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => openEditHealth(item)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              openEditHealth(item);
-                            }
-                          }}
-                          style={{ ...style, display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}>
-                          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                            <div style={{ color: '#64748b', fontSize: '0.8rem', marginBottom: '4px' }}>
-                              {toLocalDisplayTime(item.date, user.timezone)}
-                            </div>
-                            <div style={{ display: 'flex', gap: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.9rem', color: '#334155' }}>
-                              <span>血壓: {item.sys}/{item.dia}</span>
-                              <span>心跳: {item.hr}</span>
-                              <span>體重: {item.weight ?? "-"}</span>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                            <div className="table-actions">
-                              <button className="icon-button danger" onClick={(e) => { e.stopPropagation(); handleDeleteHealth(item.id); }} title="刪除" aria-label="刪除健康紀錄">🗑️</button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    };
-                    return (
-                      <List
-                        height={400}
-                        itemCount={healthList.length}
-                        itemSize={70}
-                        width="100%"
-                      >
-                        {HealthRow}
-                      </List>
-                    );
-                  })() : (
+                  {healthList.length > 0 ? (
+                    <List
+                      height={400}
+                      itemCount={healthList.length}
+                      itemSize={70}
+                      width="100%"
+                      itemData={healthItemData}
+                    >
+                      {HealthRow}
+                    </List>
+                  ) : (
                     <div style={{ padding: '20px', textAlign: 'center', color: '#64748b' }}>尚無資料</div>
                   )}
                 </div>
