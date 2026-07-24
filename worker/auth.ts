@@ -295,11 +295,9 @@ function readCookie(headers: Headers, name: string): string | null {
   const cookie = headers.get("cookie");
   if (!cookie) return null;
 
-  for (const part of cookie.split(";")) {
-    const [key, value] = part.trim().split("=");
-    if (key === name && value) return value;
-  }
-  return null;
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = cookie.match(new RegExp(`(?:^|;\\s*)${escapedName}=([^;]+)`));
+  return match ? match[1] : null;
 }
 
 function base64UrlEncode(value: string): string {
@@ -316,7 +314,7 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   const chunkSize = 8192;
   for (let i = 0; i < bytes.length; i += chunkSize) {
     const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode.apply(null, Array.from(chunk));
+    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
   }
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }

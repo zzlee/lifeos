@@ -515,11 +515,31 @@ Payment Categories (ID:Name): ${paymentCategoriesStr}`;
 
     // Execute each tool call
     const results: Array<{ name: string; result: unknown }> = [];
-    for (const toolCall of assistantMessage.tool_calls) {
-      if (toolCall.type !== "function") continue;
+
+    // Map tool calls to promises for parallel execution
+    const toolExecutions = assistantMessage.tool_calls.map(async (toolCall: any) => {
+      if (toolCall.type !== "function") return null;
       const args = JSON.parse(toolCall.function.arguments || "{}");
       const tool = TOOL_MAP.get(toolCall.function.name || "");
-      const result = tool ? await tool.execute(args, env, user, accountingUserId) : { ok: false, error: `unknown tool ${toolCall.function.name}` };
+      const result = tool
+        ? await tool.execute(args, env, user, accountingUserId)
+        : { ok: false, error: `unknown tool ${toolCall.function.name}` };
+
+      return {
+        toolCall,
+        args,
+        result
+      };
+    });
+
+    const executionResults = await Promise.all(toolExecutions);
+
+    // Process results sequentially to preserve order
+    for (const execResult of executionResults) {
+      if (!execResult) continue;
+
+      const { toolCall, args, result } = execResult;
+
       results.push({ name: toolCall.function.name || "unknown", result });
       executedToolCalls.push({ name: toolCall.function.name || "unknown", args, result });
 
@@ -616,8 +636,17 @@ async function fetchExternalTransactions(query: { startDate?: string; endDate?: 
   }
 }
 
+const CATEGORIES_CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+const categoriesCache = new Map<number, { itemCategories: any[], paymentCategories: any[], timestamp: number }>();
+
 async function fetchAccountingCategories(userId?: number) {
   const cleanUserId = getValidUserId(userId);
+
+  const cached = categoriesCache.get(cleanUserId);
+  if (cached && Date.now() - cached.timestamp < CATEGORIES_CACHE_TTL_MS) {
+    return { itemCategories: cached.itemCategories, paymentCategories: cached.paymentCategories };
+  }
+
   const fetchCategory = async (path: string) => {
     try {
       const url = `https://purple-water-b776.zzlee-tw.workers.dev${path}?user-id=${cleanUserId}`;
@@ -645,6 +674,8 @@ async function fetchAccountingCategories(userId?: number) {
     fetchCategory("/api/item-categories"),
     fetchCategory("/api/payment-categories")
   ]);
+
+  categoriesCache.set(cleanUserId, { itemCategories, paymentCategories, timestamp: Date.now() });
 
   return { itemCategories, paymentCategories };
 }
