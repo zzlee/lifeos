@@ -277,45 +277,58 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
         userId: accountingUserId || 1,
       });
 
-      // 3. Filter external transactions programmatically
-      let filteredExt = externalTxList;
-      if (args.category) {
-        const catLower = args.category.toLowerCase();
-        filteredExt = filteredExt.filter(tx => 
-          (tx.item_category && tx.item_category.toLowerCase().includes(catLower)) ||
-          (tx.payment_category && tx.payment_category.toLowerCase().includes(catLower))
-        );
+      // 3 & 4 Combine, filter and sort results first to avoid expensive timezone mapping
+      const catLower = args.category ? args.category.toLowerCase() : null;
+      const kwLower = args.keyword ? args.keyword.toLowerCase() : null;
+
+      const unformattedMerged: Array<any> = [];
+
+      for (const e of localExpenses) {
+        unformattedMerged.push({
+          id: e.id,
+          source: "local",
+          rawDate: e.date,
+          amount: e.amount,
+          category: e.category,
+          note: e.note || "",
+        });
       }
-      if (args.keyword) {
-        const kwLower = args.keyword.toLowerCase();
-        filteredExt = filteredExt.filter(tx => 
-          (tx.item_name && tx.item_name.toLowerCase().includes(kwLower)) ||
-          (tx.notes && tx.notes.toLowerCase().includes(kwLower))
-        );
+
+      for (const tx of externalTxList) {
+        let match = true;
+        if (catLower) {
+          match = (tx.item_category && tx.item_category.toLowerCase().includes(catLower)) ||
+                  (tx.payment_category && tx.payment_category.toLowerCase().includes(catLower));
+        }
+        if (match && kwLower) {
+          match = (tx.item_name && tx.item_name.toLowerCase().includes(kwLower)) ||
+                  (tx.notes && tx.notes.toLowerCase().includes(kwLower));
+        }
+
+        if (match) {
+          unformattedMerged.push({
+            id: tx.transaction_id,
+            source: "external",
+            rawDate: tx.transaction_date,
+            amount: tx.amount,
+            category: tx.item_category ? `${tx.item_category} (${tx.payment_category || "未指定"})` : "未指定",
+            note: tx.item_name + (tx.notes ? ` - ${tx.notes}` : ""),
+          });
+        }
       }
 
-      // 4. Combine and normalize results
-      const unifiedLocal = localExpenses.map(e => ({
-        id: e.id,
-        source: "local",
-        date: toLocalDisplayDateInWorker(e.date, user.timezone || "Asia/Taipei"),
-        amount: e.amount,
-        category: e.category,
-        note: e.note || "",
-      }));
+      // Sort by rawDate descending (ISO 8601 strings can be sorted lexicographically)
+      unformattedMerged.sort((a, b) => b.rawDate.localeCompare(a.rawDate));
 
-      const unifiedExternal = filteredExt.map(tx => ({
-        id: tx.transaction_id,
-        source: "external",
-        date: toLocalDisplayDateInWorker(tx.transaction_date, user.timezone || "Asia/Taipei"),
-        amount: tx.amount,
-        category: tx.item_category ? `${tx.item_category} (${tx.payment_category || "未指定"})` : "未指定",
-        note: tx.item_name + (tx.notes ? ` - ${tx.notes}` : ""),
+      // Limit to top 50 and then format the date using the expensive timezone conversion
+      return unformattedMerged.slice(0, 50).map(item => ({
+        id: item.id,
+        source: item.source,
+        date: toLocalDisplayDateInWorker(item.rawDate, user.timezone || "Asia/Taipei"),
+        amount: item.amount,
+        category: item.category,
+        note: item.note,
       }));
-
-      // Merge and sort by date descending
-      const merged = [...unifiedLocal, ...unifiedExternal].sort((a, b) => b.date.localeCompare(a.date));
-      return merged.slice(0, 50); // limit to top 50 results for the AI
     }
   },
   {
