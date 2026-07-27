@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, memo } from "react";
 import LoginPage from "./components/LoginPage";
 import { FinanceRow } from "./components/FinanceRow";
 import { HealthRow } from "./components/HealthRow";
@@ -378,6 +378,8 @@ export default function App() {
   const financeGroups = useMemo(() => groupFinance(allTransactions), [allTransactions]);
 
   const healthStats = useMemo(() => getHealthStats(data.health), [data.health]);
+
+  const healthChartEntries = useMemo(() => [...data.health.slice(0, 7)].reverse(), [data.health]);
 
   const financeItemData = useMemo(() => ({
     items: allTransactions,
@@ -1106,7 +1108,7 @@ export default function App() {
                   <h4>血壓與心跳趨勢分析</h4>
                   <span>最近 7 次紀錄</span>
                 </div>
-                <HealthChart entries={[...data.health.slice(0, 7)].reverse()} timezone={user.timezone} />
+                <HealthChart entries={healthChartEntries} timezone={user.timezone} />
               </div>
               <div className="stats-grid health-grid">
                 <MetricCard title="平均收縮壓" value={`${healthStats.avgSys}`} accent="rose" icon="💓" />
@@ -1755,7 +1757,7 @@ function JournalCard({ entry, compact = false, onClick, onDelete, timezone }: { 
   );
 }
 
-function DonutChart({ groups }: { groups: Array<{ category: string; amount: number; color: string }> }) {
+const DonutChart = memo(function DonutChart({ groups }: { groups: Array<{ category: string; amount: number; color: string }> }) {
   const total = groups.reduce((sum, item) => sum + item.amount, 0);
   if (total === 0) return <div className="donut-layout">沒有數據</div>;
   
@@ -1799,9 +1801,9 @@ function DonutChart({ groups }: { groups: Array<{ category: string; amount: numb
       </div>
     </div>
   );
-}
+});
 
-function HealthChart({ entries, timezone }: { entries: HealthEntry[]; timezone: string }) {
+const HealthChart = memo(function HealthChart({ entries, timezone }: { entries: HealthEntry[]; timezone: string }) {
   if (entries.length === 0) return <div>沒有健康數據</div>;
   const width = 780;
   const height = 280;
@@ -1811,19 +1813,26 @@ function HealthChart({ entries, timezone }: { entries: HealthEntry[]; timezone: 
   const max = 150;
   const min = 50;
 
-  function buildLine(values: number[]) {
-    return values
-      .map((value, index) => {
-        const x = padding + (innerWidth / Math.max(values.length - 1, 1)) * index;
-        const y = padding + ((max - value) / (max - min)) * innerHeight;
-        return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-      })
-      .join(" ");
-  }
+  let sysLine = "";
+  let diaLine = "";
+  let hrLine = "";
+  const maxIndex = Math.max(entries.length - 1, 1);
+  const yRatio = innerHeight / (max - min);
 
-  const sysLine = buildLine(entries.map((item) => item.sys));
-  const diaLine = buildLine(entries.map((item) => item.dia));
-  const hrLine = buildLine(entries.map((item) => item.hr));
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    const x = padding + (innerWidth / maxIndex) * i;
+    const prefix = i === 0 ? "M" : "L";
+
+    const ySys = padding + (max - entry.sys) * yRatio;
+    sysLine += `${sysLine ? " " : ""}${prefix} ${x} ${ySys}`;
+
+    const yDia = padding + (max - entry.dia) * yRatio;
+    diaLine += `${diaLine ? " " : ""}${prefix} ${x} ${yDia}`;
+
+    const yHr = padding + (max - entry.hr) * yRatio;
+    hrLine += `${hrLine ? " " : ""}${prefix} ${x} ${yHr}`;
+  }
 
   return (
     <div className="health-chart">
@@ -1851,14 +1860,20 @@ function HealthChart({ entries, timezone }: { entries: HealthEntry[]; timezone: 
       </div>
     </div>
   );
-}
+});
 
 function getHealthStats(entries: HealthEntry[]) {
   if (!entries.length) return { avgSys: "--", avgDia: "--", avgHr: "--" };
+  let sumSys = 0, sumDia = 0, sumHr = 0;
+  for (let i = 0; i < entries.length; i++) {
+    sumSys += entries[i].sys;
+    sumDia += entries[i].dia;
+    sumHr += entries[i].hr;
+  }
   return {
-    avgSys: Math.round(entries.reduce((sum, item) => sum + item.sys, 0) / entries.length),
-    avgDia: Math.round(entries.reduce((sum, item) => sum + item.dia, 0) / entries.length),
-    avgHr: Math.round(entries.reduce((sum, item) => sum + item.hr, 0) / entries.length)
+    avgSys: Math.round(sumSys / entries.length),
+    avgDia: Math.round(sumDia / entries.length),
+    avgHr: Math.round(sumHr / entries.length)
   };
 }
 
