@@ -10,3 +10,6 @@
 ## 2024-05-30 - [Avoid multiple map/reduce passes in renders]
 **Learning:** Running multiple `.map()` or `.reduce()` passes over the same array inside a React render function (e.g. calculating related stats or multi-line SVG paths) causes excessive array/string allocations and unnecessary O(N) traversal overhead.
 **Action:** Consolidate related calculations into a single `for` loop to save intermediate allocations and reduce time complexity.
+## 2024-05-31 - [Cache User DB Lookups per Request]
+**Learning:** Authenticating every API request by repeatedly querying the users table adds unnecessary D1 latency and consumes limited DB ops, especially on a unified worker architecture where the same user hits multiple routes.
+**Action:** Use a module-scoped `Map` with a short TTL (e.g. 5 minutes) as a session cache keyed by `user.id` in `resolveSession`, and selectively invalidate it upon profile updates, preventing thousands of redundant SELECT queries.

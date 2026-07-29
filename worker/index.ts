@@ -13,6 +13,7 @@ import type {
 import { runLifeAgentLoop } from "./agent";
 import {
   clearSessionCookie,
+  clearUserCache,
   completeGoogleOAuth,
   createLogoutResponse,
   getGoogleAuthStartUrl,
@@ -159,6 +160,7 @@ app.put("/api/auth/profile", async (c) => {
   const body = await c.req.json() as any;
   if (body && body.timezone) {
     await c.env.DB.prepare("UPDATE users SET timezone = ? WHERE id = ?").bind(body.timezone, session.user.id).run();
+    clearUserCache(session.user.id);
   }
   return c.json({ ok: true });
 });

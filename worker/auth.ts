@@ -6,6 +6,34 @@ const SESSION_COOKIE = "lifeos_session";
 const OAUTH_STATE_TTL_MS = 1000 * 60 * 10;
 const encoder = new TextEncoder();
 
+const sessionUserCache = new Map<string, { user: UserProfile; timestamp: number }>();
+const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+const CACHE_MAX_SIZE = 1000;
+
+export function clearUserCache(userId: string) {
+  sessionUserCache.delete(userId);
+}
+
+function pruneCache() {
+  if (sessionUserCache.size > CACHE_MAX_SIZE) {
+    const now = Date.now();
+    for (const [key, value] of sessionUserCache.entries()) {
+      if (now - value.timestamp > CACHE_TTL) {
+        sessionUserCache.delete(key);
+      }
+    }
+    // If still too large after expiry prune, remove oldest entries
+    if (sessionUserCache.size > CACHE_MAX_SIZE) {
+      let entriesToRemove = sessionUserCache.size - CACHE_MAX_SIZE;
+      for (const key of sessionUserCache.keys()) {
+        sessionUserCache.delete(key);
+        entriesToRemove--;
+        if (entriesToRemove <= 0) break;
+      }
+    }
+  }
+}
+
 type SessionTokenPayload = {
   user: UserProfile;
   provider: "google-ready";
@@ -47,23 +75,17 @@ export async function resolveSession(
     const hash = await hashKey(token);
 
     if (env.DB) {
-      const apiKey = await env.DB.prepare(
-        "SELECT user_id FROM api_keys WHERE key_hash = ?"
-      ).bind(hash).first<{ user_id: string }>();
+      const user = await env.DB.prepare(
+        "SELECT u.id, u.email, u.name, u.timezone FROM api_keys k INNER JOIN users u ON k.user_id = u.id WHERE k.key_hash = ?"
+      ).bind(hash).first<UserProfile>();
 
-      if (apiKey) {
-        const user = await env.DB.prepare(
-          "SELECT id, email, name, timezone FROM users WHERE id = ?"
-        ).bind(apiKey.user_id).first<UserProfile>();
-
-        if (user) {
-          return {
-            authenticated: true,
-            provider: "api-key",
-            user,
-            googleAuthEnabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI),
-          };
-        }
+      if (user) {
+        return {
+          authenticated: true,
+          provider: "api-key",
+          user,
+          googleAuthEnabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI),
+        };
       }
     }
   }
@@ -79,11 +101,18 @@ export async function resolveSession(
   let user = headerUser ?? sessionFromCookie?.user ?? null;
 
   if (user && env.DB) {
-    const dbUser = await env.DB.prepare(
-      "SELECT id, email, name, timezone FROM users WHERE id = ?"
-    ).bind(user.id).first<UserProfile>();
-    if (dbUser) {
-      user = dbUser;
+    const cached = sessionUserCache.get(user.id);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      user = cached.user;
+    } else {
+      const dbUser = await env.DB.prepare(
+        "SELECT id, email, name, timezone FROM users WHERE id = ?"
+      ).bind(user.id).first<UserProfile>();
+      if (dbUser) {
+        user = dbUser;
+        sessionUserCache.set(user.id, { user, timestamp: Date.now() });
+        pruneCache();
+      }
     }
   }
 
