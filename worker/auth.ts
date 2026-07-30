@@ -47,23 +47,17 @@ export async function resolveSession(
     const hash = await hashKey(token);
 
     if (env.DB) {
-      const apiKey = await env.DB.prepare(
-        "SELECT user_id FROM api_keys WHERE key_hash = ?"
-      ).bind(hash).first<{ user_id: string }>();
+      const user = await env.DB.prepare(
+        "SELECT users.id, users.email, users.name, users.timezone FROM users INNER JOIN api_keys ON users.id = api_keys.user_id WHERE api_keys.key_hash = ?"
+      ).bind(hash).first<UserProfile>();
 
-      if (apiKey) {
-        const user = await env.DB.prepare(
-          "SELECT id, email, name, timezone FROM users WHERE id = ?"
-        ).bind(apiKey.user_id).first<UserProfile>();
-
-        if (user) {
-          return {
-            authenticated: true,
-            provider: "api-key",
-            user,
-            googleAuthEnabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI),
-          };
-        }
+      if (user) {
+        return {
+          authenticated: true,
+          provider: "api-key",
+          user,
+          googleAuthEnabled: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI),
+        };
       }
     }
   }
