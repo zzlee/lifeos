@@ -13,3 +13,6 @@
 ## 2024-05-31 - [Cache User DB Lookups per Request]
 **Learning:** Authenticating every API request by repeatedly querying the users table adds unnecessary D1 latency and consumes limited DB ops, especially on a unified worker architecture where the same user hits multiple routes.
 **Action:** Use a module-scoped `Map` with a short TTL (e.g. 5 minutes) as a session cache keyed by `user.id` in `resolveSession`, and selectively invalidate it upon profile updates, preventing thousands of redundant SELECT queries.
+## 2024-05-31 - [Debounce text inputs bound to API calls]
+**Learning:** Text inputs that update state used directly as dependencies for backend API calls can cause severe network bottlenecks and server load when updated on every keystroke.
+**Action:** Always introduce a debounce delay (e.g. 300ms) for search/query inputs in React components to prevent redundant API fetches.
