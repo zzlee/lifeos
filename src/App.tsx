@@ -85,6 +85,17 @@ export default function App() {
   const [isLoadingVault, setIsLoadingVault] = useState(false);
   const [vaultRefreshTrigger, setVaultRefreshTrigger] = useState(0);
 
+  // ⚡ Bolt: Debounce the search input to reduce API and D1 database load during typing
+  const [debouncedVaultQuery, setDebouncedVaultQuery] = useState("");
+
+  useEffect(() => {
+    const handler = window.setTimeout(() => {
+      setDebouncedVaultQuery(vaultQuery);
+      setVaultPage(0);
+    }, 300);
+    return () => window.clearTimeout(handler);
+  }, [vaultQuery]);
+
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
   const [editingJournalId, setEditingJournalId] = useState<number | null>(null);
   const [newJournalEntry, setNewJournalEntry] = useState({ content: "", tags: "" });
@@ -217,7 +228,7 @@ export default function App() {
     if (view === "vault") {
       setIsLoadingVault(true);
       const limit = 20;
-      fetchVaultItems(limit, vaultPage * limit, vaultQuery)
+      fetchVaultItems(limit, vaultPage * limit, debouncedVaultQuery)
         .then((res) => {
           setVaultList((prev) => {
             if (vaultPage === 0) return res.items;
@@ -236,7 +247,7 @@ export default function App() {
         .catch((err) => console.error("Failed to fetch vault items:", err))
         .finally(() => setIsLoadingVault(false));
     }
-  }, [view, vaultPage, vaultRefreshTrigger, vaultQuery]);
+  }, [view, vaultPage, vaultRefreshTrigger, debouncedVaultQuery]);
 
   useEffect(() => {
     if (view === "health") {
@@ -1161,7 +1172,7 @@ export default function App() {
                     <span>🔍</span>
                     <input
                       value={vaultQuery}
-                      onChange={(event) => { setVaultQuery(event.target.value); setVaultPage(0); }}
+                      onChange={(event) => setVaultQuery(event.target.value)}
                       placeholder="搜尋站點名稱..."
                     />
                   </label>
