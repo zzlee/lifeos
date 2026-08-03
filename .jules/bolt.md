@@ -13,3 +13,6 @@
 ## 2024-05-31 - [Cache User DB Lookups per Request]
 **Learning:** Authenticating every API request by repeatedly querying the users table adds unnecessary D1 latency and consumes limited DB ops, especially on a unified worker architecture where the same user hits multiple routes.
 **Action:** Use a module-scoped `Map` with a short TTL (e.g. 5 minutes) as a session cache keyed by `user.id` in `resolveSession`, and selectively invalidate it upon profile updates, preventing thousands of redundant SELECT queries.
+## 2024-06-01 - [Debounce frontend search inputs]
+**Learning:** Passing every keystroke from a controlled text `<input>` directly to a `useEffect` dependency array that triggers an API fetch causes excessive network requests and unnecessary Cloudflare D1 load, especially for users who type quickly.
+**Action:** Always decouple the immediate UI state (e.g. `query`) from the API trigger state (e.g. `debouncedQuery`) using a short `setTimeout` (e.g. 300ms) inside an effect to batch typing events.
