@@ -86,6 +86,17 @@ export default function App() {
   const [isLoadingVault, setIsLoadingVault] = useState(false);
   const [vaultRefreshTrigger, setVaultRefreshTrigger] = useState(0);
 
+  // ⚡ Bolt: Debounce the search input to reduce API and D1 database load during typing
+  const [debouncedVaultQuery, setDebouncedVaultQuery] = useState("");
+
+  useEffect(() => {
+    const handler = window.setTimeout(() => {
+      setDebouncedVaultQuery(vaultQuery);
+      setVaultPage(0);
+    }, 300);
+    return () => window.clearTimeout(handler);
+  }, [vaultQuery]);
+
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
   const [editingJournalId, setEditingJournalId] = useState<number | null>(null);
   const [newJournalEntry, setNewJournalEntry] = useState({ content: "", tags: "" });
@@ -1169,7 +1180,7 @@ export default function App() {
                     <span>🔍</span>
                     <input
                       value={vaultQuery}
-                      onChange={(event) => { setVaultQuery(event.target.value); setVaultPage(0); }}
+                      onChange={(event) => setVaultQuery(event.target.value)}
                       placeholder="搜尋站點名稱..."
                     />
                   </label>
