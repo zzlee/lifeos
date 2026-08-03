@@ -75,6 +75,7 @@ export default function App() {
   const [prompt, setPrompt] = useState("");
   const [toast, setToast] = useState<ToastState>({ visible: false, message: "" });
   const [vaultQuery, setVaultQuery] = useState("");
+  const [debouncedVaultQuery, setDebouncedVaultQuery] = useState("");
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
   const [editingVaultId, setEditingVaultId] = useState<number | null>(null);
@@ -214,10 +215,17 @@ export default function App() {
   }, [view, expensePage, expenseRefreshTrigger, financeMonth, user.timezone]);
 
   useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedVaultQuery(vaultQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [vaultQuery]);
+
+  useEffect(() => {
     if (view === "vault") {
       setIsLoadingVault(true);
       const limit = 20;
-      fetchVaultItems(limit, vaultPage * limit, vaultQuery)
+      fetchVaultItems(limit, vaultPage * limit, debouncedVaultQuery)
         .then((res) => {
           setVaultList((prev) => {
             if (vaultPage === 0) return res.items;
@@ -236,7 +244,7 @@ export default function App() {
         .catch((err) => console.error("Failed to fetch vault items:", err))
         .finally(() => setIsLoadingVault(false));
     }
-  }, [view, vaultPage, vaultRefreshTrigger, vaultQuery]);
+  }, [view, vaultPage, vaultRefreshTrigger, debouncedVaultQuery]);
 
   useEffect(() => {
     if (view === "health") {
