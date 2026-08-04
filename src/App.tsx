@@ -86,17 +86,6 @@ export default function App() {
   const [isLoadingVault, setIsLoadingVault] = useState(false);
   const [vaultRefreshTrigger, setVaultRefreshTrigger] = useState(0);
 
-  // ⚡ Bolt: Debounce the search input to reduce API and D1 database load during typing
-  const [debouncedVaultQuery, setDebouncedVaultQuery] = useState("");
-
-  useEffect(() => {
-    const handler = window.setTimeout(() => {
-      setDebouncedVaultQuery(vaultQuery);
-      setVaultPage(0);
-    }, 300);
-    return () => window.clearTimeout(handler);
-  }, [vaultQuery]);
-
   const [isJournalModalOpen, setIsJournalModalOpen] = useState(false);
   const [editingJournalId, setEditingJournalId] = useState<number | null>(null);
   const [newJournalEntry, setNewJournalEntry] = useState({ content: "", tags: "" });
@@ -125,6 +114,7 @@ export default function App() {
   const [newAccountingEntry, setNewAccountingEntry] = useState({ transaction_date: "", item_name: "", item_category_id: 1, payment_category_id: 1, amount: 0, notes: "" });
   const [itemCategoryOptions, setItemCategoryOptions] = useState<AccountingCategory[]>([]);
   const [paymentCategoryOptions, setPaymentCategoryOptions] = useState<AccountingCategory[]>([]);
+  const accountingCategoriesLoadedRef = useRef(false);
 
   const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
   const [editingHealthId, setEditingHealthId] = useState<number | null>(null);
@@ -167,25 +157,20 @@ export default function App() {
       .then((session) => {
         setUser(session.user ?? defaultUser);
         setIsAuthenticated(session.authenticated);
+        if (session.authenticated) {
+          return fetchDashboardSnapshot().then((snapshot) => setData(snapshot.data));
+        }
       })
       .catch(() => {
         setIsAuthenticated(false);
       });
-    fetchDashboardSnapshot()
-      .then((snapshot) => setData(snapshot.data))
-      .catch(() => {
-        // Silently fail dashboard fetch if not authenticated
-      });
   }, []);
 
   useEffect(() => {
-    fetchDashboardSnapshot()
-      .then((snapshot) => setData(snapshot.data))
-      .catch((err) => console.error("Failed to fetch dashboard data on view change:", err));
-    if (view === "settings") {
+    if (view === "settings" && isAuthenticated) {
       loadKeys();
     }
-  }, [view]);
+  }, [view, isAuthenticated]);
 
   useEffect(() => {
     if (view === "finance" || view === "overview") {
@@ -211,25 +196,32 @@ export default function App() {
         .finally(() => setIsLoadingExpenses(false));
       const accountingRange = getAccountingMonthRangeUtc(financeMonth, user.timezone);
       fetchAccountingTransactions(accountingRange).then(setAccountingTransactions).catch((err) => console.error("Failed to fetch accounting transactions:", err));
-      fetchAccountingCategoryOptions()
-        .then(({ itemCategories, paymentCategories }) => {
-          setItemCategoryOptions(itemCategories);
-          setPaymentCategoryOptions(paymentCategories);
-          setNewAccountingEntry((prev) => ({
-            ...prev,
-            item_category_id: prev.item_category_id || itemCategories[0]?.id || 1,
-            payment_category_id: prev.payment_category_id || paymentCategories[0]?.id || 1
-          }));
-        })
-        .catch((err) => console.error("Failed to fetch accounting category options:", err));
+      if (!accountingCategoriesLoadedRef.current) {
+        accountingCategoriesLoadedRef.current = true;
+        fetchAccountingCategoryOptions()
+          .then(({ itemCategories, paymentCategories }) => {
+            setItemCategoryOptions(itemCategories);
+            setPaymentCategoryOptions(paymentCategories);
+            setNewAccountingEntry((prev) => ({
+              ...prev,
+              item_category_id: prev.item_category_id || itemCategories[0]?.id || 1,
+              payment_category_id: prev.payment_category_id || paymentCategories[0]?.id || 1
+            }));
+          })
+          .catch((err) => {
+            accountingCategoriesLoadedRef.current = false;
+            console.error("Failed to fetch accounting category options:", err);
+          });
+      }
     }
   }, [view, expensePage, expenseRefreshTrigger, financeMonth, user.timezone]);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
+    const handler = window.setTimeout(() => {
       setDebouncedVaultQuery(vaultQuery);
+      setVaultPage(0);
     }, 300);
-    return () => clearTimeout(handler);
+    return () => window.clearTimeout(handler);
   }, [vaultQuery]);
 
   useEffect(() => {
