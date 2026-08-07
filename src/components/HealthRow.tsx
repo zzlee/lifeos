@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { toLocalDisplayTime } from '../lib/timeUtils';
 import type { HealthEntry } from '../lib/types';
 
@@ -15,7 +15,7 @@ interface HealthRowProps {
   data: HealthRowData;
 }
 
-export const HealthRow = ({ index, style, data }: HealthRowProps) => {
+export const HealthRow = memo(({ index, style, data }: HealthRowProps) => {
   const { items, timezone, openEditHealth, handleDeleteHealth } = data;
   const item = items[index];
 
@@ -48,4 +48,4 @@ export const HealthRow = ({ index, style, data }: HealthRowProps) => {
       </div>
     </div>
   );
-};
+});

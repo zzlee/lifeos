@@ -16,3 +16,6 @@
 ## 2024-05-31 - [Debounce text inputs bound to API calls]
 **Learning:** Text inputs that update state used directly as dependencies for backend API calls can cause severe network bottlenecks and server load when updated on every keystroke.
 **Action:** Always introduce a debounce delay (e.g. 300ms) for search/query inputs in React components to prevent redundant API fetches.
+## 2024-06-03 - [Memoize global prompt component descendants]
+**Learning:** In a monolithic app architecture where a highly dynamic state (like an AI prompt input updating on every keystroke) resides at the top level (`App.tsx`), *all* nested components re-render by default on every keystroke. This destroys text input performance if child components are doing any layout or rendering work, even if they appear static.
+**Action:** Aggressively wrap purely presentational descendants (like `MetricCard`, `StatCard`, `FinanceRow`, etc) in `React.memo` to shield them from top-level state churn.
