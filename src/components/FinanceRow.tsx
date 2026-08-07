@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { toLocalDisplayTime } from '../lib/timeUtils';
 
 export interface FinanceRowData {
@@ -16,7 +16,7 @@ interface FinanceRowProps {
   data: FinanceRowData;
 }
 
-export const FinanceRow = ({ index, style, data }: FinanceRowProps) => {
+export const FinanceRow = memo(({ index, style, data }: FinanceRowProps) => {
   const {
     items,
     timezone,
@@ -60,4 +60,4 @@ export const FinanceRow = ({ index, style, data }: FinanceRowProps) => {
       </div>
     </div>
   );
-};
+});

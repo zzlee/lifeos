@@ -87,8 +87,6 @@ export default function App() {
   const [vaultRefreshTrigger, setVaultRefreshTrigger] = useState(0);
 
   // ⚡ Bolt: Debounce the search input to reduce API and D1 database load during typing
-  const [debouncedVaultQuery, setDebouncedVaultQuery] = useState("");
-
   useEffect(() => {
     const handler = window.setTimeout(() => {
       setDebouncedVaultQuery(vaultQuery);
@@ -1708,7 +1706,7 @@ function SectionHeading({ title, description, action }: { title: string; descrip
   );
 }
 
-function StatCard({ title, value, accent, icon, onClick }: { title: string; value: string; accent: string; icon: string; onClick?: () => void }) {
+const StatCard = memo(function StatCard({ title, value, accent, icon, onClick }: { title: string; value: string; accent: string; icon: string; onClick?: () => void }) {
   return (
     <article
       className="stat-card"
@@ -1730,9 +1728,9 @@ function StatCard({ title, value, accent, icon, onClick }: { title: string; valu
       <strong>{value}</strong>
     </article>
   );
-}
+});
 
-function MetricCard({ title, value, accent, icon }: { title: string; value: string; accent: string; icon: string }) {
+const MetricCard = memo(function MetricCard({ title, value, accent, icon }: { title: string; value: string; accent: string; icon: string }) {
   return (
     <article className="metric-card">
       <div className={`metric-icon accent-${accent}`}>{icon}</div>
@@ -1742,9 +1740,9 @@ function MetricCard({ title, value, accent, icon }: { title: string; value: stri
       </div>
     </article>
   );
-}
+});
 
-function JournalCard({ entry, compact = false, onClick, onDelete, timezone }: { entry: { id: number; date: string; content: string; tags: string[] }; compact?: boolean; onClick?: () => void; onDelete?: (e: React.MouseEvent) => void; timezone: string }) {
+const JournalCard = memo(function JournalCard({ entry, compact = false, onClick, onDelete, timezone }: { entry: { id: number; date: string; content: string; tags: string[] }; compact?: boolean; onClick?: () => void; onDelete?: (e: React.MouseEvent) => void; timezone: string }) {
   return (
     <article
       role={onClick ? "button" : undefined}
@@ -1774,7 +1772,7 @@ function JournalCard({ entry, compact = false, onClick, onDelete, timezone }: { 
       )}
     </article>
   );
-}
+});
 
 const DonutChart = memo(function DonutChart({ groups }: { groups: Array<{ category: string; amount: number; color: string }> }) {
   const total = groups.reduce((sum, item) => sum + item.amount, 0);
