@@ -561,8 +561,10 @@ app.get("/api/line/rooms/:roomType/:roomId/messages", async (c) => {
   }
   const rawLimit = Number(c.req.query("limit") || 100);
   const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 200) : 100;
+  const rawOffset = Number(c.req.query("offset") || 0);
+  const offset = Number.isFinite(rawOffset) ? Math.max(Math.floor(rawOffset), 0) : 0;
 
-  const messages = await getLineMessages(c.env.DB, roomType, roomId, limit, 0);
+  const messages = await getLineMessages(c.env.DB, roomType, roomId, limit, offset);
 
   let botUserId: string | null = null;
   const token = c.env.LINE_CHANNEL_ACCESS_TOKEN;
