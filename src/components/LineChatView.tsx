@@ -115,11 +115,10 @@ export default function LineChatView() {
   );
 
   // getLineMessages returns newest first; display oldest → newest like the LINE app.
+  // ⚡ Bolt Optimization: Use O(N) reverse instead of O(N log N) sort with expensive Date parsing.
+  // The backend query `ORDER BY created_at DESC` already guarantees the order.
   const sortedMessages = useMemo(
-    () =>
-      [...messages].sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      ),
+    () => [...messages].reverse(),
     [messages]
   );
 
