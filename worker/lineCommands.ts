@@ -13,6 +13,7 @@ import {
   type LineMessageEvent,
   type LineSource,
 } from "./line";
+import { getLineMessages, type LineChatMessageRecord } from "./repository";
 
 const HELP_TEXT = `LifeOS LINE Bot 指令
 /help — 顯示本清單
@@ -21,7 +22,8 @@ const HELP_TEXT = `LifeOS LINE Bot 指令
 /room — 顯示當前聊天室資訊
 /where — 顯示當前對話類型與 ID
 /bot — 顯示 bot 自身資訊
-/members — 列出群組成員`;
+/members — 列出群組成員
+/history [N] — 顯示目前對話最近 N 則紀錄(預設 10,最多 20)`;
 
 const UNKNOWN_COMMAND = `未知指令。輸入 /help 查看可用指令。`;
 
@@ -152,6 +154,19 @@ export async function handleLineMessage(
         return [{ type: "text", text: await buildMemberListText(token, source.groupId, args) }];
       }
 
+      case "/history": {
+        if (!env.DB) return [{ type: "text", text: "資料庫未啟用,無法讀取紀錄。" }];
+        const arg = Number(args[0]);
+        const limit = Number.isFinite(arg) && arg > 0 ? Math.min(Math.floor(arg), 20) : 10;
+
+        const roomType = source.type === "group" || source.type === "room" ? source.type : "user";
+        const roomId = source.type === "group" ? source.groupId : source.type === "room" ? source.roomId : source.userId;
+        if (!roomId) return [{ type: "text", text: "無法取得對話 ID。" }];
+
+        const records = await getLineMessages(env.DB, roomType, roomId, limit, 0);
+        return [{ type: "text", text: await formatHistoryText(token, source, records, limit) }];
+      }
+
       default: {
         return [{ type: "text", text: UNKNOWN_COMMAND }];
       }
@@ -198,4 +213,62 @@ export async function replyWithText(env: Env, event: LineMessageEvent, text: str
   const token = env.LINE_CHANNEL_ACCESS_TOKEN;
   if (!token) return;
   await replyLine(token, event.replyToken, [{ type: "text", text }]);
+}
+
+const MESSAGE_TYPE_LABELS: Record<string, string> = {
+  text: "",
+  image: "[圖片]",
+  video: "[影片]",
+  audio: "[語音]",
+  sticker: "[貼圖]",
+  file: "[檔案]",
+  location: "[位置]",
+};
+
+/**
+ * Format archived messages into a readable chat log (oldest → newest).
+ * Slash-command messages are still archived but skipped in the display.
+ */
+export async function formatHistoryText(
+  token: string,
+  source: LineSource,
+  records: LineChatMessageRecord[],
+  limit: number
+): Promise<string> {
+  const visible = records.filter((r) => !(r.messageType === "text" && r.text?.startsWith("/")));
+  if (visible.length === 0) {
+    return "📜 此對話尚無可顯示的紀錄。";
+  }
+
+  // Resolve display names for unique senders (capped to keep reply fast).
+  const uniqueIds = [...new Set(visible.map((r) => r.userId).filter((id): id is string => !!id))].slice(0, 10);
+  const names = new Map<string, string>();
+  await Promise.all(
+    uniqueIds.map(async (id) => {
+      try {
+        const profile =
+          source.type === "group" && source.groupId
+            ? await getGroupMemberProfile(token, source.groupId, id)
+            : source.type === "room" && source.roomId
+              ? await getRoomMemberProfile(token, source.roomId, id)
+              : await getUserProfile(token, id);
+        names.set(id, profile.displayName);
+      } catch {
+        names.set(id, id);
+      }
+    })
+  );
+
+  const roomLabel = source.type === "group" ? "群組" : source.type === "room" ? "聊天室" : "1:1";
+  const lines = [`📜 最近 ${Math.min(visible.length, limit)} 則紀錄(${roomLabel})`];
+
+  for (const r of [...visible].reverse()) {
+    const who = r.userId ? (names.get(r.userId) ?? r.userId) : "未知";
+    const time = r.createdAt ? `${r.createdAt.slice(5, 10)} ${r.createdAt.slice(11, 16)}` : "--";
+    const content = r.messageType === "text" ? (r.text ?? "") : (MESSAGE_TYPE_LABELS[r.messageType] ?? `[${r.messageType}]`);
+    lines.push(`[${time}] ${who}: ${content}`);
+  }
+
+  lines.push(`(時間為 UTC;紀錄由 bot 自動存檔)`);
+  return lines.join("\n");
 }
