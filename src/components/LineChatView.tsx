@@ -105,6 +105,15 @@ export default function LineChatView() {
     return rooms.filter((r) => r.roomType === tab);
   }, [rooms, tab]);
 
+  const counts = useMemo(
+    () => ({
+      all: rooms.length,
+      group: rooms.filter((r) => r.roomType === "group").length,
+      room: rooms.filter((r) => r.roomType === "room").length,
+    }),
+    [rooms]
+  );
+
   // getLineMessages returns newest first; display oldest → newest like the LINE app.
   const sortedMessages = useMemo(
     () =>
@@ -122,9 +131,9 @@ export default function LineChatView() {
           <p>LINE bot 儲存的對話存檔,依群組 / 聊天室分類。</p>
         </div>
         <div className="line-tabs">
-          <button className={tab === "all" ? "active" : ""} onClick={() => setTab("all")}>全部</button>
-          <button className={tab === "group" ? "active" : ""} onClick={() => setTab("group")}>群組</button>
-          <button className={tab === "room" ? "active" : ""} onClick={() => setTab("room")}>聊天室</button>
+          <button type="button" className={tab === "all" ? "active" : ""} onClick={() => setTab("all")}>全部 ({counts.all})</button>
+          <button type="button" className={tab === "group" ? "active" : ""} onClick={() => setTab("group")}>群組 ({counts.group})</button>
+          <button type="button" className={tab === "room" ? "active" : ""} onClick={() => setTab("room")}>聊天室 ({counts.room})</button>
         </div>
       </div>
 
@@ -143,7 +152,7 @@ export default function LineChatView() {
             </div>
           )}
           {filtered.map((r) => (
-            <button key={`${r.roomType}:${r.roomId}`} className="line-room" onClick={() => openRoom(r)}>
+            <button type="button" key={`${r.roomType}:${r.roomId}`} className="line-room" onClick={() => openRoom(r)}>
               <span className="line-avatar" style={{ background: `hsl(${hashHue(r.roomId)} 60% 45%)` }}>
                 {TYPE_ICON[r.roomType] ?? "💬"}
               </span>
@@ -166,7 +175,7 @@ export default function LineChatView() {
           {selected ? (
             <>
               <div className="line-chat-header">
-                <button className="line-back" onClick={closeRoom} aria-label="返回">←</button>
+                <button type="button" className="line-back" onClick={closeRoom} aria-label="返回">←</button>
                 <span className="line-chat-title">{roomTitle(selected)}</span>
                 <span className="line-chat-count">{selected.messageCount} 則</span>
               </div>
