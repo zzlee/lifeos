@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useLayoutEffect } from "react";
 import { fetchLineMessages, fetchLineRooms } from "../lib/api";
 import type { LineMessageView, LineRoomSummary } from "../../shared/contracts";
 
@@ -64,6 +64,10 @@ export default function LineChatView() {
   const [loading, setLoading] = useState(true);
   const [loadingMsg, setLoadingMsg] = useState(false);
   const [error, setError] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const prevScrollHeightRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,8 +93,12 @@ export default function LineChatView() {
     setSelected(r);
     setLoadingMsg(true);
     setMessages([]);
-    fetchLineMessages(r.roomType, r.roomId, 200)
-      .then((res) => setMessages(res.messages))
+    setHasMore(true);
+    fetchLineMessages(r.roomType, r.roomId, 200, 0)
+      .then((res) => {
+        setMessages(res.messages);
+        setHasMore(res.messages.length === 200);
+      })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoadingMsg(false));
   };
@@ -99,6 +107,38 @@ export default function LineChatView() {
     setSelected(null);
     setMessages([]);
   };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (!selected || loadingMsg || loadingMore || !hasMore) return;
+    const target = e.currentTarget;
+    // Load more when scrolled to the top (scrollTop === 0)
+    if (target.scrollTop <= 50) {
+      setLoadingMore(true);
+      prevScrollHeightRef.current = target.scrollHeight;
+      fetchLineMessages(selected.roomType, selected.roomId, 200, messages.length)
+        .then((res) => {
+          if (res.messages.length > 0) {
+            setMessages((prev) => [...prev, ...res.messages]);
+          }
+          setHasMore(res.messages.length === 200);
+        })
+        .catch((e: Error) => setError(e.message))
+        .finally(() => setLoadingMore(false));
+    }
+  };
+
+  useLayoutEffect(() => {
+    if (messagesContainerRef.current) {
+      if (prevScrollHeightRef.current > 0) {
+        // Adjust scroll position after loading older messages so it doesn't jump to the very top
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight - prevScrollHeightRef.current;
+        prevScrollHeightRef.current = 0; // reset
+      } else if (messages.length > 0 && !loadingMore) {
+        // Initial load, scroll to bottom
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    }
+  }, [messages]);
 
   const filtered = useMemo(() => {
     if (tab === "all") return rooms;
@@ -178,7 +218,8 @@ export default function LineChatView() {
                 <span className="line-chat-title">{roomTitle(selected)}</span>
                 <span className="line-chat-count">{selected.messageCount} 則</span>
               </div>
-              <div className="line-messages">
+              <div className="line-messages" onScroll={handleScroll} ref={messagesContainerRef}>
+                {loadingMore && <div className="line-loading-more" style={{ textAlign: 'center', padding: '10px', color: '#666', fontSize: '14px' }}>載入更多紀錄中…</div>}
                 {loadingMsg && <div className="line-empty">載入中…</div>}
                 {!loadingMsg && sortedMessages.length === 0 && <div className="line-empty">尚無訊息。</div>}
                 {sortedMessages.map((m) => {

@@ -186,10 +186,11 @@ export async function fetchLineRooms(): Promise<LineRoomsResponse> {
 export async function fetchLineMessages(
   roomType: string,
   roomId: string,
-  limit: number = 100
+  limit: number = 100,
+  offset: number = 0
 ): Promise<LineMessagesResponse> {
   const response = await fetch(
-    getUrl(`/api/line/rooms/${roomType}/${encodeURIComponent(roomId)}/messages?limit=${limit}`),
+    getUrl(`/api/line/rooms/${roomType}/${encodeURIComponent(roomId)}/messages?limit=${limit}&offset=${offset}`),
     { credentials: "include" }
   );
   if (!response.ok) throw new Error(`line messages ${response.status}`);
