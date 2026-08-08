@@ -131,9 +131,9 @@ export default function LineChatView() {
           <p>LINE bot 儲存的對話存檔,依群組 / 聊天室分類。</p>
         </div>
         <div className="line-tabs">
-          <button type="button" className={tab === "all" ? "active" : ""} onClick={() => setTab("all")}>全部 ({counts.all})</button>
-          <button type="button" className={tab === "group" ? "active" : ""} onClick={() => setTab("group")}>群組 ({counts.group})</button>
-          <button type="button" className={tab === "room" ? "active" : ""} onClick={() => setTab("room")}>聊天室 ({counts.room})</button>
+          <button type="button" className={tab === "all" ? "active" : ""} onClick={() => { setTab("all"); closeRoom(); }}>全部 ({counts.all})</button>
+          <button type="button" className={tab === "group" ? "active" : ""} onClick={() => { setTab("group"); closeRoom(); }}>群組 ({counts.group})</button>
+          <button type="button" className={tab === "room" ? "active" : ""} onClick={() => { setTab("room"); closeRoom(); }}>聊天室 ({counts.room})</button>
         </div>
       </div>
 
