@@ -593,7 +593,10 @@ app.post("/api/line/webhook", async (c) => {
     .filter((event: any) => event.type === "message")
     .map(async (event: any) => {
       // 1. Archive every message into the line_messages table (deduped by line_message_id).
-      if (c.env.DB) {
+      const isText = event.message?.type === "text";
+      const isSlashCommand = isText && typeof event.message.text === "string" && event.message.text.trim().startsWith("/");
+
+      if (c.env.DB && !isSlashCommand) {
         const source = event.source ?? {};
         const roomType: string = source.type === "group" || source.type === "room" ? source.type : "user";
         const roomId: string | undefined =
