@@ -21,6 +21,8 @@ import {
 } from "./auth";
 import type { Env } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
+import { replyLine, verifyLineSignature } from "./line";
+import { handleLineMessage } from "./lineCommands";
 import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./repository";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -517,39 +519,26 @@ app.post("/api/line/webhook", async (c) => {
   const signature = c.req.header("x-line-signature");
   const body = await c.req.text();
 
-  if (!signature) return c.text("No signature", 400);
-
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(c.env.LINE_CHANNEL_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const signatureBuffer = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
-  const calculatedSignature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
-
-  if (signature !== calculatedSignature) {
-    return c.text("Invalid signature", 401);
-  }
+  const valid = await verifyLineSignature(c.env.LINE_CHANNEL_SECRET, body, signature);
+  if (!valid) return c.text("Invalid signature", 401);
 
   const events = JSON.parse(body).events;
   const replyPromises = events
     .filter((event: any) => event.type === "message" && (event.message.type === "text" || event.message.type === "image"))
-    .map((event: any) =>
-      fetch("https://api.line.me/v2/bot/message/reply", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${c.env.LINE_CHANNEL_ACCESS_TOKEN}`,
-        },
-        body: JSON.stringify({
-          replyToken: event.replyToken,
-          messages: [{ type: "text", text: "收到" }],
-        }),
-      })
-    );
+    .map(async (event: any) => {
+      let messages: { type: string; text: string }[] = [{ type: "text", text: "收到" }];
+
+      if (event.message.type === "text") {
+        const commandMessages = await handleLineMessage(c.env, event);
+        if (commandMessages) messages = commandMessages;
+      }
+
+      try {
+        await replyLine(c.env.LINE_CHANNEL_ACCESS_TOKEN!, event.replyToken, messages);
+      } catch (replyErr: any) {
+        console.error("LINE reply failed:", replyErr);
+      }
+    });
 
   await Promise.all(replyPromises);
 
