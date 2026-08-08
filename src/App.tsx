@@ -1517,7 +1517,6 @@ export default function App() {
                   value={newAccountingEntry.item_name}
                   onChange={e => setNewAccountingEntry({ ...newAccountingEntry, item_name: e.target.value })}
                   onFocus={e => e.target.select()}
-                  onClick={e => e.currentTarget.select()}
                 />
               </div>
               <div className="form-row">
@@ -1529,8 +1528,7 @@ export default function App() {
                     value={newAccountingEntry.amount}
                     onChange={e => setNewAccountingEntry({ ...newAccountingEntry, amount: Number(e.target.value) })}
                     onFocus={e => e.target.select()}
-                    onClick={e => e.currentTarget.select()}
-                  />
+                />
                 </div>
                 <div className="form-group">
                   <label>日期</label>
@@ -1540,7 +1538,6 @@ export default function App() {
                     value={newAccountingEntry.transaction_date}
                     onChange={e => setNewAccountingEntry({ ...newAccountingEntry, transaction_date: e.target.value })}
                     onFocus={e => e.target.select()}
-                    onClick={e => e.currentTarget.select()}
                   />
                 </div>
               </div>
@@ -1572,7 +1569,6 @@ export default function App() {
                   value={newAccountingEntry.notes}
                   onChange={e => setNewAccountingEntry({ ...newAccountingEntry, notes: e.target.value })}
                   onFocus={e => e.target.select()}
-                  onClick={e => e.currentTarget.select()}
                 />
               </div>
               <div className="modal-actions">
