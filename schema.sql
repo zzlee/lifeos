@@ -58,6 +58,21 @@ CREATE TABLE IF NOT EXISTS api_keys (
   last_used_at TEXT,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
+CREATE TABLE IF NOT EXISTS line_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  room_type TEXT NOT NULL,          -- user | group | room (LINE chat source type)
+  room_id TEXT NOT NULL,            -- userId (1:1), groupId, or roomId
+  user_id TEXT,                     -- sender's LINE userId (null if unavailable)
+  message_type TEXT NOT NULL,       -- text | image | video | audio | sticker | ...
+  text TEXT,                        -- content for text messages, null otherwise
+  line_message_id TEXT,             -- LINE message id (dedupe key)
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_line_messages_message_id ON line_messages(line_message_id);
+CREATE INDEX IF NOT EXISTS idx_line_messages_room_created ON line_messages(room_type, room_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_line_messages_user_created ON line_messages(user_id, created_at DESC);
+
 CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash);
 
 CREATE INDEX IF NOT EXISTS idx_expenses_user_date ON expenses(user_id, date DESC);

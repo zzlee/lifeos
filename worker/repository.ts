@@ -411,3 +411,65 @@ export async function deleteHealthRecord(
     .run();
   return { ok: true };
 }
+
+// ---- LINE chat message archive ----
+
+export type LineChatMessage = {
+  roomType: "user" | "group" | "room";
+  roomId: string;
+  userId: string | null;
+  messageType: string;
+  text: string | null;
+  lineMessageId: string | null;
+  createdAt: string;
+};
+
+export type LineChatMessageRecord = LineChatMessage & { id: number };
+
+/**
+ * Archive one LINE message. Uses INSERT OR IGNORE with the unique
+ * line_message_id index so duplicate webhook deliveries don't double-store.
+ */
+export async function saveLineMessage(
+  db: D1Database,
+  msg: LineChatMessage,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO line_messages
+        (room_type, room_id, user_id, message_type, text, line_message_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      msg.roomType,
+      msg.roomId,
+      msg.userId,
+      msg.messageType,
+      msg.text,
+      msg.lineMessageId,
+      msg.createdAt,
+    )
+    .run();
+}
+
+/** Query archived messages for one chat room, newest first. */
+export async function getLineMessages(
+  db: D1Database,
+  roomType: string,
+  roomId: string,
+  limit: number = 50,
+  offset: number = 0,
+): Promise<LineChatMessageRecord[]> {
+  const result = await db
+    .prepare(
+      `SELECT id, room_type as roomType, room_id as roomId, user_id as userId,
+              message_type as messageType, text, line_message_id as lineMessageId, created_at as createdAt
+       FROM line_messages
+       WHERE room_type = ? AND room_id = ?
+       ORDER BY created_at DESC, id DESC
+       LIMIT ? OFFSET ?`
+    )
+    .bind(roomType, roomId, limit, offset)
+    .all<LineChatMessageRecord>();
+  return result.results ?? [];
+}

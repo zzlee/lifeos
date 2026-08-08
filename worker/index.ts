@@ -23,7 +23,7 @@ import type { Env } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { replyLine, verifyLineSignature } from "./line";
 import { handleLineMessage } from "./lineCommands";
-import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord } from "./repository";
+import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord, saveLineMessage } from "./repository";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -523,24 +523,44 @@ app.post("/api/line/webhook", async (c) => {
   if (!valid) return c.text("Invalid signature", 401);
 
   const events = JSON.parse(body).events;
-  const replyPromises = events
-    .filter((event: any) => event.type === "message" && (event.message.type === "text" || event.message.type === "image"))
+  const handles = events
+    .filter((event: any) => event.type === "message")
     .map(async (event: any) => {
-      let messages: { type: string; text: string }[] = [{ type: "text", text: "收到" }];
-
-      if (event.message.type === "text") {
-        const commandMessages = await handleLineMessage(c.env, event);
-        if (commandMessages) messages = commandMessages;
+      // 1. Archive every message into the line_messages table (deduped by line_message_id).
+      if (c.env.DB) {
+        const source = event.source ?? {};
+        const roomType: string = source.type === "group" || source.type === "room" ? source.type : "user";
+        const roomId: string | undefined =
+          source.type === "group" ? source.groupId : source.type === "room" ? source.roomId : source.userId;
+        try {
+          await saveLineMessage(c.env.DB, {
+            roomType: roomType as "user" | "group" | "room",
+            roomId: roomId ?? "unknown",
+            userId: source.userId ?? null,
+            messageType: event.message?.type ?? "unknown",
+            text: event.message?.type === "text" ? (event.message.text ?? null) : null,
+            lineMessageId: event.message?.id ?? null,
+            createdAt: event.timestamp ? new Date(event.timestamp).toISOString() : new Date().toISOString(),
+          });
+        } catch (saveErr: any) {
+          console.error("LINE message archive failed:", saveErr);
+        }
       }
 
-      try {
-        await replyLine(c.env.LINE_CHANNEL_ACCESS_TOKEN!, event.replyToken, messages);
-      } catch (replyErr: any) {
-        console.error("LINE reply failed:", replyErr);
+      // 2. Reply only to slash commands; everything else is archived silently.
+      if (event.message?.type === "text") {
+        const commandMessages = await handleLineMessage(c.env, event);
+        if (commandMessages) {
+          try {
+            await replyLine(c.env.LINE_CHANNEL_ACCESS_TOKEN!, event.replyToken, commandMessages);
+          } catch (replyErr: any) {
+            console.error("LINE reply failed:", replyErr);
+          }
+        }
       }
     });
 
-  await Promise.all(replyPromises);
+  await Promise.all(handles);
 
   return c.text("OK");
 });
