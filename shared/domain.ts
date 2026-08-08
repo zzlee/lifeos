@@ -1,4 +1,4 @@
-export type ViewId = "overview" | "finance" | "journal" | "health" | "vault" | "settings";
+export type ViewId = "overview" | "finance" | "journal" | "health" | "vault" | "line" | "settings";
 
 export type ApiKey = {
   id: string;

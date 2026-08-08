@@ -9,6 +9,8 @@ import type {
   SessionResponse,
   VaultExportResponse,
   VaultSecretResponse,
+  LineRoomsResponse,
+  LineMessagesResponse,
 } from "../shared/contracts";
 import { runLifeAgentLoop } from "./agent";
 import {
@@ -21,9 +23,9 @@ import {
 } from "./auth";
 import type { Env } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
-import { replyLine, verifyLineSignature } from "./line";
+import { replyLine, verifyLineSignature, getBotInfo, getGroupSummary } from "./line";
 import { handleLineMessage } from "./lineCommands";
-import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord, saveLineMessage } from "./repository";
+import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord, saveLineMessage, listLineRooms, getLineMessages } from "./repository";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -509,6 +511,70 @@ app.delete("/api/health/:id", async (c) => {
 
   await deleteHealthRecord(c.env.DB, healthId, session.user);
   return c.json({ ok: true });
+});
+
+app.get("/api/line/rooms", async (c) => {
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+
+  const token = c.env.LINE_CHANNEL_ACCESS_TOKEN;
+  const rooms = await listLineRooms(c.env.DB);
+
+  let botUserId: string | null = null;
+  if (token) {
+    try {
+      botUserId = (await getBotInfo(token)).userId;
+    } catch {
+      botUserId = null;
+    }
+  }
+
+  // Resolve group display names from the LINE API (best-effort, parallel).
+  const roomsWithNames = await Promise.all(
+    rooms.map(async (r) => {
+      let name: string | null = null;
+      if (r.roomType === "group" && token) {
+        try {
+          const summary = await getGroupSummary(token, r.roomId);
+          name = summary.groupName;
+        } catch {
+          name = null;
+        }
+      }
+      return { ...r, name };
+    })
+  );
+
+  return c.json({ rooms: roomsWithNames, botUserId } satisfies LineRoomsResponse);
+});
+
+app.get("/api/line/rooms/:roomType/:roomId/messages", async (c) => {
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+
+  const roomType = c.req.param("roomType");
+  const roomId = c.req.param("roomId");
+  if (!["user", "group", "room"].includes(roomType)) {
+    return c.json({ error: "roomType must be user, group or room" }, 400);
+  }
+  const rawLimit = Number(c.req.query("limit") || 100);
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 200) : 100;
+
+  const messages = await getLineMessages(c.env.DB, roomType, roomId, limit, 0);
+
+  let botUserId: string | null = null;
+  const token = c.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (token) {
+    try {
+      botUserId = (await getBotInfo(token)).userId;
+    } catch {
+      botUserId = null;
+    }
+  }
+
+  return c.json({ messages, botUserId } satisfies LineMessagesResponse);
 });
 
 app.post("/api/line/webhook", async (c) => {

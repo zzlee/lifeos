@@ -473,3 +473,33 @@ export async function getLineMessages(
     .all<LineChatMessageRecord>();
   return result.results ?? [];
 }
+
+/** One chat room with its last message, for the conversation list. */
+export type LineRoomSummary = {
+  roomType: "user" | "group" | "room";
+  roomId: string;
+  messageCount: number;
+  lastMessageType: string | null;
+  lastMessageText: string | null;
+  lastSenderId: string | null;
+  lastMessageAt: string | null;
+};
+
+/** List all chat rooms (grouped by room), newest activity first. */
+export async function listLineRooms(db: D1Database): Promise<LineRoomSummary[]> {
+  const result = await db
+    .prepare(
+      `SELECT lm.room_type as roomType, lm.room_id as roomId,
+              (SELECT COUNT(*) FROM line_messages c
+                WHERE c.room_type = lm.room_type AND c.room_id = lm.room_id) as messageCount,
+              lm.message_type as lastMessageType,
+              lm.text as lastMessageText,
+              lm.user_id as lastSenderId,
+              lm.created_at as lastMessageAt
+       FROM line_messages lm
+       WHERE lm.id IN (SELECT MAX(id) FROM line_messages GROUP BY room_type, room_id)
+       ORDER BY lm.created_at DESC`
+    )
+    .all<LineRoomSummary>();
+  return result.results ?? [];
+}

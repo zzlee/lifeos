@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert";
-import { getLineMessages, saveLineMessage } from "../worker/repository.ts";
+import { getLineMessages, listLineRooms, saveLineMessage } from "../worker/repository.ts";
 
 /** Minimal D1 mock: captures the SQL and bound params, returns canned results. */
 function makeMockDb(results: any[] = []) {
@@ -14,6 +14,10 @@ function makeMockDb(results: any[] = []) {
             run: async () => ({ results: [] }),
             all: async () => ({ results }),
           };
+        },
+        all: async () => {
+          calls.push({ sql, params: [] });
+          return { results };
         },
       };
     },
@@ -84,5 +88,29 @@ describe("getLineMessages", () => {
     assert.strictEqual(rows[0].roomType, "group");
     assert.match(calls[0].sql, /ORDER BY created_at DESC, id DESC/);
     assert.deepStrictEqual(calls[0].params, ["group", "C123", 10, 0]);
+  });
+});
+
+describe("listLineRooms", () => {
+  test("returns grouped rooms with last-message fields", async () => {
+    const { db, calls } = makeMockDb([
+      {
+        roomType: "group",
+        roomId: "C1",
+        messageCount: 5,
+        lastMessageType: "text",
+        lastMessageText: "see you",
+        lastSenderId: "U1",
+        lastMessageAt: "2026-08-08T10:00:00.000Z",
+      },
+    ]);
+    const rooms = await listLineRooms(db);
+
+    assert.strictEqual(rooms.length, 1);
+    assert.strictEqual(rooms[0].roomType, "group");
+    assert.strictEqual(rooms[0].messageCount, 5);
+    assert.strictEqual(rooms[0].lastMessageText, "see you");
+    assert.match(calls[0].sql, /GROUP BY room_type, room_id/);
+    assert.match(calls[0].sql, /ORDER BY lm.created_at DESC/);
   });
 });

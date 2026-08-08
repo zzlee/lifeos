@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef, memo } from "react";
 import LoginPage from "./components/LoginPage";
 import { FinanceRow } from "./components/FinanceRow";
 import { HealthRow } from "./components/HealthRow";
+import LineChatView from "./components/LineChatView";
 import { FixedSizeList as List } from "react-window";
 import { toLocalDisplayDate, toLocalDisplayTime, toLocalInputString, getCurrentLocalInputString, localInputToUtcString } from "./lib/timeUtils";
 import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, updateApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction, deleteAccountingTransaction, fetchAccountingCategoryOptions, type AccountingCategory } from "./lib/api";
@@ -13,6 +14,7 @@ const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string 
   { id: "journal", title: "隨手日記", mobile: "日記", icon: "📖" },
   { id: "health", title: "生理資訊", mobile: "健康", icon: "❤️" },
   { id: "vault", title: "密碼管理", mobile: "密碼", icon: "🔐" },
+  { id: "line", title: "聊天紀錄", mobile: "聊天", icon: "💬" },
   { id: "settings", title: "系統設定", mobile: "設定", icon: "⚙️" }
 ];
 
@@ -1219,6 +1221,8 @@ export default function App() {
               </div>
             </section>
           )}
+
+          {view === "line" && <LineChatView />}
 
           {view === "settings" && (
             <section className="page-section">

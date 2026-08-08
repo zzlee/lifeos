@@ -16,3 +16,6 @@ vite.config.js
 vite.config.d.ts
 
 .DS_Store
+
+# Local dev secrets (never commit)
+.dev.vars

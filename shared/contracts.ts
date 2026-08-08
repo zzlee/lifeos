@@ -81,3 +81,35 @@ export type AuthMutationResponse = {
   ok: true;
   session: SessionResponse;
 };
+
+// ---- LINE chat archive API ----
+
+export type LineRoomSummary = {
+  roomType: "user" | "group" | "room";
+  roomId: string;
+  messageCount: number;
+  lastMessageType: string | null;
+  lastMessageText: string | null;
+  lastSenderId: string | null;
+  lastMessageAt: string | null;
+  /** Resolved display name (group name from LINE API, best-effort). */
+  name?: string | null;
+};
+
+export type LineMessageView = {
+  id: number;
+  userId: string | null;
+  messageType: string;
+  text: string | null;
+  createdAt: string;
+};
+
+export type LineRoomsResponse = {
+  rooms: LineRoomSummary[];
+  botUserId?: string | null;
+};
+
+export type LineMessagesResponse = {
+  messages: LineMessageView[];
+  botUserId?: string | null;
+};

@@ -9,6 +9,8 @@ import type {
   HealthMutationResponse,
   JournalListResponse,
   JournalMutationResponse,
+  LineRoomsResponse,
+  LineMessagesResponse,
   SessionResponse,
   VaultSecretResponse,
   VaultListResponse,
@@ -173,6 +175,25 @@ export async function deleteJournal(id: number): Promise<JournalMutationResponse
   });
   if (!response.ok) throw new Error(`delete journal ${response.status}`);
   return (await response.json()) as JournalMutationResponse;
+}
+
+export async function fetchLineRooms(): Promise<LineRoomsResponse> {
+  const response = await fetch(getUrl("/api/line/rooms"), { credentials: "include" });
+  if (!response.ok) throw new Error(`line rooms ${response.status}`);
+  return (await response.json()) as LineRoomsResponse;
+}
+
+export async function fetchLineMessages(
+  roomType: string,
+  roomId: string,
+  limit: number = 100
+): Promise<LineMessagesResponse> {
+  const response = await fetch(
+    getUrl(`/api/line/rooms/${roomType}/${encodeURIComponent(roomId)}/messages?limit=${limit}`),
+    { credentials: "include" }
+  );
+  if (!response.ok) throw new Error(`line messages ${response.status}`);
+  return (await response.json()) as LineMessagesResponse;
 }
 
 export async function fetchExpenses(limit: number = 20, offset: number = 0): Promise<ExpenseListResponse> {
