@@ -23,7 +23,7 @@ import {
 } from "./auth";
 import type { Env } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
-import { replyLine, verifyLineSignature, getBotInfo, getGroupSummary } from "./line";
+import { replyLine, verifyLineSignature, getBotInfo, getGroupSummary, getGroupMemberProfile, getRoomMemberProfile, getUserProfile } from "./line";
 import { handleLineMessage } from "./lineCommands";
 import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord, saveLineMessage, listLineRooms, getLineMessages } from "./repository";
 
@@ -576,7 +576,39 @@ app.get("/api/line/rooms/:roomType/:roomId/messages", async (c) => {
     }
   }
 
-  return c.json({ messages, botUserId } satisfies LineMessagesResponse);
+  // Resolve user display names and profile pictures from the LINE API.
+  const uniqueIds = [...new Set(messages.map((m) => m.userId).filter((id): id is string => !!id))];
+  const profiles = new Map<string, { displayName?: string; pictureUrl?: string }>();
+
+  if (token && uniqueIds.length > 0) {
+    await Promise.all(
+      uniqueIds.map(async (id) => {
+        try {
+          const profile =
+            roomType === "group"
+              ? await getGroupMemberProfile(token, roomId, id)
+              : roomType === "room"
+                ? await getRoomMemberProfile(token, roomId, id)
+                : await getUserProfile(token, id);
+          profiles.set(id, { displayName: profile.displayName, pictureUrl: profile.pictureUrl });
+        } catch {
+          // If profile fetch fails (e.g. user left group, bot blocked), fallback to empty.
+          profiles.set(id, {});
+        }
+      })
+    );
+  }
+
+  const messagesWithProfiles = messages.map((m) => {
+    const profile = m.userId ? profiles.get(m.userId) : null;
+    return {
+      ...m,
+      userName: profile?.displayName,
+      pictureUrl: profile?.pictureUrl,
+    };
+  });
+
+  return c.json({ messages: messagesWithProfiles, botUserId } satisfies LineMessagesResponse);
 });
 
 app.post("/api/line/webhook", async (c) => {
