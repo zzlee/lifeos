@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, useLayoutEffect } from "react";
+import React, { useEffect, useMemo, useState, useRef, useLayoutEffect, memo } from "react";
 import { fetchLineMessages, fetchLineRooms } from "../lib/api";
 import type { LineMessageView, LineRoomSummary } from "../../shared/contracts";
 
@@ -55,7 +55,7 @@ function roomTitle(r: LineRoomSummary): string {
   return `1:1 ${shortId(r.roomId)}`;
 }
 
-export default function LineChatView() {
+const LineChatView = memo(function LineChatView() {
   const [rooms, setRooms] = useState<LineRoomSummary[]>([]);
   const [botUserId, setBotUserId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("all");
@@ -250,4 +250,6 @@ export default function LineChatView() {
       </div>
     </section>
   );
-}
+});
+
+export default LineChatView;

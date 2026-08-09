@@ -22,3 +22,6 @@
 ## 2024-06-05 - [Avoid redundant client-side sorting of pre-ordered data]
 **Learning:** If a backend database query already guarantees order (e.g. `ORDER BY created_at DESC`), we should not redundantly sort the data again on the frontend using expensive O(N log N) `Array.prototype.sort()` coupled with slow `new Date()` parsing.
 **Action:** When we need to flip the display order (e.g., from newest-first to oldest-first), use a simple O(N) `Array.prototype.reverse()` on the returned array to drastically reduce parsing and sorting overhead.
+## 2024-06-03 - [Memoize complex router descendants]
+**Learning:** In a monolithic app architecture where a highly dynamic state (like an AI prompt input updating on every keystroke) resides at the top level (`App.tsx`), *all* nested components re-render by default on every keystroke. This destroys text input performance if child components are doing any layout or rendering work.
+**Action:** Aggressively wrap isolated view components (like `LineChatView`) in `React.memo` to shield them from parent state churn if they do not depend on it.
