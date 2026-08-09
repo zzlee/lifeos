@@ -1118,6 +1118,19 @@ th {
   align-items: flex-start;
   max-width: 70%;
 }
+.line-msg-sender {
+  font-size: 11px;
+  color: #777;
+  margin-left: 2px;
+  margin-bottom: 2px;
+}
+.line-bubble-wrapper {
+  display: flex;
+  align-items: flex-end;
+}
+.line-msg.mine .line-bubble-wrapper {
+  flex-direction: row-reverse;
+}
 .line-msg.mine .line-msg-body {
   align-items: flex-end;
 }
@@ -1141,8 +1154,8 @@ th {
 .line-msg-time {
   font-size: 11px;
   color: #9ca3af;
-  margin-top: 3px;
   padding: 0 4px;
+  margin-bottom: 2px;
 }
 .line-empty {
   color: #9ca3af;

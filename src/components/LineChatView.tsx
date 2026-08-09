@@ -249,8 +249,13 @@ export default function LineChatView() {
                         )
                       )}
                       <div className="line-msg-body">
-                        <div className="line-bubble">{messageLabel(m)}</div>
-                        <span className="line-msg-time">{formatMsgTime(m.createdAt)}</span>
+                        {!mine && m.userId && (
+                          <div className="line-msg-sender">{m.userName || m.userId}</div>
+                        )}
+                        <div className="line-bubble-wrapper">
+                          <div className="line-bubble">{messageLabel(m)}</div>
+                          <span className="line-msg-time">{formatMsgTime(m.createdAt)}</span>
+                        </div>
                       </div>
                     </div>
                   );
