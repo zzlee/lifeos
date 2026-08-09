@@ -227,16 +227,35 @@ const LineChatView = memo(function LineChatView() {
                   return (
                     <div key={m.id} className={`line-msg ${mine ? "mine" : ""}`}>
                       {!mine && (
-                        <span
-                          className="line-msg-avatar"
-                          style={{ background: m.userId ? `hsl(${hashHue(m.userId)} 55% 50%)` : "#bbbbbb" }}
-                        >
-                          {m.userId ? m.userId.slice(-2).toUpperCase() : "?"}
-                        </span>
+                        m.pictureUrl ? (
+                          <img
+                            src={m.pictureUrl}
+                            alt="avatar"
+                            className="line-msg-avatar"
+                            title={m.userName || m.userId || ""}
+                          />
+                        ) : (
+                          <span
+                            className="line-msg-avatar"
+                            style={{ background: m.userId ? `hsl(${hashHue(m.userId)} 55% 50%)` : "#bbbbbb" }}
+                            title={m.userName || m.userId || ""}
+                          >
+                            {m.userName
+                              ? m.userName.slice(0, 2)
+                              : m.userId
+                                ? m.userId.slice(-2).toUpperCase()
+                                : "?"}
+                          </span>
+                        )
                       )}
                       <div className="line-msg-body">
-                        <div className="line-bubble">{messageLabel(m)}</div>
-                        <span className="line-msg-time">{formatMsgTime(m.createdAt)}</span>
+                        {!mine && m.userId && (
+                          <div className="line-msg-sender">{m.userName || m.userId}</div>
+                        )}
+                        <div className="line-bubble-wrapper">
+                          <div className="line-bubble">{messageLabel(m)}</div>
+                          <span className="line-msg-time">{formatMsgTime(m.createdAt)}</span>
+                        </div>
                       </div>
                     </div>
                   );

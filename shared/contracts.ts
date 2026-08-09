@@ -99,6 +99,8 @@ export type LineRoomSummary = {
 export type LineMessageView = {
   id: number;
   userId: string | null;
+  userName?: string;
+  pictureUrl?: string;
   messageType: string;
   text: string | null;
   createdAt: string;
