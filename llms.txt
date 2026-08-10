@@ -1,0 +1,62 @@
+# LifeOS
+
+> LifeOS is a personal digital life dashboard that consolidates finance logs, journal entries, health records, and a lightweight vault behind a single AI-style input surface.
+
+The current repository contains:
+- a React + Vite frontend
+- a Cloudflare Workers + Hono backend
+- a Node.js CLI tool for local data management
+- a D1 schema and repository layer
+- cookie-based session/auth with Google OAuth
+- API Key (SHA-256 hashed) for CLI/External integrations
+- encrypted vault storage using Web Crypto AES-GCM in the worker
+
+## REST APIs
+
+### Authentication and Session
+- `GET /api/ping`
+- `GET /api/session`
+- `GET /api/auth/keys`
+- `POST /api/auth/keys`
+- `PUT /api/auth/keys/:id`
+- `DELETE /api/auth/keys/:id`
+- `PUT /api/auth/profile`
+- `POST /api/auth/logout`
+- `GET /api/auth/google/start`
+- `GET /api/auth/google/callback`
+
+### Dashboard and Agent
+- `GET /api/dashboard`
+- `POST /api/agent`
+
+### Vault
+- `GET /api/vault`
+- `GET /api/vault/:id/secret`
+- `GET /api/vault/export`
+- `POST /api/vault`
+- `PUT /api/vault/:id`
+- `DELETE /api/vault/:id`
+
+### Journals
+- `GET /api/journals`
+- `POST /api/journals`
+- `PUT /api/journals/:id`
+- `DELETE /api/journals/:id`
+
+### Expenses
+- `GET /api/expenses`
+- `POST /api/expenses`
+- `PUT /api/expenses/:id`
+- `DELETE /api/expenses/:id`
+
+### Health
+- `GET /api/health`
+- `POST /api/health`
+- `PUT /api/health/:id`
+- `DELETE /api/health/:id`
+
+### External Integrations
+- `GET /api/test-external`
+- `GET /api/line/rooms`
+- `GET /api/line/rooms/:roomType/:roomId/messages`
+- `POST /api/line/webhook`
