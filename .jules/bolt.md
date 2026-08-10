@@ -25,3 +25,6 @@
 ## 2024-06-03 - [Memoize complex router descendants]
 **Learning:** In a monolithic app architecture where a highly dynamic state (like an AI prompt input updating on every keystroke) resides at the top level (`App.tsx`), *all* nested components re-render by default on every keystroke. This destroys text input performance if child components are doing any layout or rendering work.
 **Action:** Aggressively wrap isolated view components (like `LineChatView`) in `React.memo` to shield them from parent state churn if they do not depend on it.
+## 2024-06-07 - [Avoid multiple filter passes for counts]
+**Learning:** Running multiple `.filter().length` passes over the same array to get subset counts creates unnecessary intermediate arrays and incurs redundant O(N) traversal overhead. This is a common React anti-pattern when calculating derived summary stats.
+**Action:** Consolidate related count calculations into a single `for` loop to save intermediate allocations and reduce time complexity.

@@ -145,14 +145,17 @@ const LineChatView = memo(function LineChatView() {
     return rooms.filter((r) => r.roomType === tab);
   }, [rooms, tab]);
 
-  const counts = useMemo(
-    () => ({
-      all: rooms.length,
-      group: rooms.filter((r) => r.roomType === "group").length,
-      room: rooms.filter((r) => r.roomType === "room").length,
-    }),
-    [rooms]
-  );
+  // ⚡ Bolt Optimization: Replace multiple `.filter().length` passes with a single loop
+  // to avoid creating intermediate arrays and redundant O(N) traversals.
+  const counts = useMemo(() => {
+    let group = 0;
+    let room = 0;
+    for (let i = 0; i < rooms.length; i++) {
+      if (rooms[i].roomType === "group") group++;
+      else if (rooms[i].roomType === "room") room++;
+    }
+    return { all: rooms.length, group, room };
+  }, [rooms]);
 
   // getLineMessages returns newest first; display oldest → newest like the LINE app.
   // ⚡ Bolt Optimization: Use O(N) reverse instead of O(N log N) sort with expensive Date parsing.
