@@ -1,7 +1,7 @@
 name = "lifeos"
 main = "worker/index.ts"
 compatibility_date = "2026-03-27"
-compatibility_flags = [ "global_fetch_strictly_public" ]
+compatibility_flags = [ "global_fetch_strictly_public", "nodejs_compat" ]
 assets = { directory = "./dist" }
 workers_dev = true
 
