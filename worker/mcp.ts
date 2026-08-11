@@ -1,9 +1,5 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { createMcpHandler } from "agents/mcp/server";
 import {
   getJournals,
   getJournal,
@@ -23,21 +19,21 @@ import {
 import type { UserProfile } from "../shared/domain";
 import type { Env } from "./env";
 
-export const transport = new WebStandardStreamableHTTPServerTransport();
-
-export const server = new Server(
-  {
-    name: "lifeos-worker-mcp",
-    version: "1.0.0",
-  },
-  {
-    capabilities: {
-      tools: {},
+export function createMcpServer() {
+  const mcpServer = new McpServer(
+    {
+      name: "lifeos-worker-mcp",
+      version: "1.0.0",
     },
-  }
-);
+    {
+      capabilities: {
+        tools: {},
+      },
+    }
+  );
+  const server = mcpServer.server;
 
-server.setRequestHandler(ListToolsRequestSchema, async () => {
+  server.setRequestHandler("tools/list", async () => {
   return {
     tools: [
       // Journal tools
@@ -218,11 +214,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["id"],
         },
       },
-    ],
+    ] as any,
   };
 });
 
-server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+server.setRequestHandler("tools/call", async (request: any, extra: any) => {
   try {
     const args: any = request.params.arguments || {};
     const authInfoExtra = (extra as any).authInfo?.extra;
@@ -340,4 +336,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
   }
 });
 
-server.connect(transport);
+  return mcpServer;
+}
+
+export const mcpHandler = createMcpHandler(createMcpServer, {
+  route: "/api/mcp",
+  legacy: "stateless",
+  onerror(err) {
+    console.error("[MCP Error]", err);
+  },
+});
+

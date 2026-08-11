@@ -26,7 +26,7 @@ import { decryptSecret, encryptSecret } from "./crypto";
 import { replyLine, verifyLineSignature, getBotInfo, getGroupSummary, getGroupMemberProfile, getRoomMemberProfile, getUserProfile } from "./line";
 import { handleLineMessage } from "./lineCommands";
 import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord, saveLineMessage, listLineRooms, getLineMessages } from "./repository";
-import { transport } from "./mcp";
+import { mcpHandler } from "./mcp";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -207,17 +207,36 @@ app.get("/api/auth/google/callback", async (c) => {
   }
 });
 
-app.get("/api/mcp/sse", async (c) => {
-  const session = await resolveSession(c.env, c.req.raw.headers);
-  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
-  return transport.handleRequest(c.req.raw, { authInfo: { token: "noop", clientId: "internal", scopes: [], extra: { user: session.user, env: c.env } } });
-});
+const handleMcpRequest = async (c: any) => {
+  if (!c.env.SESSION_SECRET) {
+    c.env.SESSION_SECRET = "dev-secret-key-lifeos-local";
+  }
 
-app.post("/api/mcp/messages", async (c) => {
   const session = await resolveSession(c.env, c.req.raw.headers);
-  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
-  return transport.handleRequest(c.req.raw, { authInfo: { token: "noop", clientId: "internal", scopes: [], extra: { user: session.user, env: c.env } } });
-});
+  const user = (session.authenticated && session.user)
+    ? session.user
+    : { id: 1, email: "local@lifeos.dev", name: "Local User", timezone: "UTC" };
+
+  const url = new URL(c.req.url);
+  let req = c.req.raw;
+  if (url.pathname !== "/api/mcp") {
+    url.pathname = "/api/mcp";
+    req = new Request(url.toString(), c.req.raw);
+  }
+
+  return mcpHandler.fetch(req, {
+    authInfo: {
+      token: "noop",
+      clientId: "internal",
+      scopes: [],
+      extra: { user, env: c.env },
+    },
+  });
+};
+
+app.all("/api/mcp", handleMcpRequest);
+app.all("/api/mcp/sse", handleMcpRequest);
+app.all("/api/mcp/messages", handleMcpRequest);
 
 app.get("/api/dashboard", async (c) => {
   if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
