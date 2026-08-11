@@ -26,7 +26,8 @@ import { decryptSecret, encryptSecret } from "./crypto";
 import { replyLine, verifyLineSignature, getBotInfo, getGroupSummary, getGroupMemberProfile, getRoomMemberProfile, getUserProfile } from "./line";
 import { handleLineMessage } from "./lineCommands";
 import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord, saveLineMessage, listLineRooms, getLineMessages } from "./repository";
-import { transport } from "./mcp";
+import { createServer } from "./mcp";
+import { createMcpHandler } from "agents/mcp/server";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -207,16 +208,11 @@ app.get("/api/auth/google/callback", async (c) => {
   }
 });
 
-app.get("/api/mcp/sse", async (c) => {
+app.all("/api/mcp/*", async (c) => {
   const session = await resolveSession(c.env, c.req.raw.headers);
   if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
-  return transport.handleRequest(c.req.raw, { authInfo: { token: "noop", clientId: "internal", scopes: [], extra: { user: session.user, env: c.env } } });
-});
-
-app.post("/api/mcp/messages", async (c) => {
-  const session = await resolveSession(c.env, c.req.raw.headers);
-  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
-  return transport.handleRequest(c.req.raw, { authInfo: { token: "noop", clientId: "internal", scopes: [], extra: { user: session.user, env: c.env } } });
+  const mcpHandler = createMcpHandler(() => createServer(session.user!, c.env));
+  return mcpHandler(c.req.raw, c.env, c.executionCtx);
 });
 
 app.get("/api/dashboard", async (c) => {
