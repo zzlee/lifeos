@@ -14,7 +14,9 @@ import {
   createHealthRecord,
   updateHealthRecord,
   deleteHealthRecord,
-  getDashboardSnapshot
+  getDashboardSnapshot,
+  listLineRooms,
+  getLineMessages
 } from "./repository";
 import type { UserProfile } from "../shared/domain";
 import type { Env } from "./env";
@@ -214,6 +216,30 @@ export function createMcpServer() {
           required: ["id"],
         },
       },
+
+      // LINE chat tools
+      {
+        name: "line_rooms_ls",
+        description: "List all LINE chat rooms with summary of last messages",
+        inputSchema: {
+          type: "object",
+          properties: {},
+        },
+      },
+      {
+        name: "line_messages_ls",
+        description: "Get archived messages for a specific LINE chat room",
+        inputSchema: {
+          type: "object",
+          properties: {
+            roomType: { type: "string", description: "Room type (user, group, room)" },
+            roomId: { type: "string", description: "Room ID" },
+            limit: { type: "number", description: "Limit number of entries" },
+            offset: { type: "number", description: "Offset for pagination" },
+          },
+          required: ["roomType", "roomId"],
+        },
+      },
     ] as any,
   };
 });
@@ -324,6 +350,14 @@ server.setRequestHandler("tools/call", async (request: any, extra: any) => {
       case "health_delete":
         await deleteHealthRecord(env.DB, Number(args.id), user);
         return { content: [{ type: "text", text: `Health record ${args.id} deleted successfully!` }] };
+
+      // LINE chat
+      case "line_rooms_ls":
+        res = await listLineRooms(env.DB);
+        return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
+      case "line_messages_ls":
+        res = await getLineMessages(env.DB, args.roomType, args.roomId, args.limit || 50, args.offset || 0);
+        return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
 
       default:
         throw new Error(`Unknown tool: ${request.params.name}`);
