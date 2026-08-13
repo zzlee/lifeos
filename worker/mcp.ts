@@ -90,7 +90,7 @@ export function createMcpServer() {
     async ({ content, tags }, ctx) => {
       const { user, env } = getAuthContext(ctx);
       if (!env.DB) throw new Error("Database not bound");
-      const tagList = typeof tags === "string" ? tags.split(",").map((t) => t.trim()) : [];
+      const tagList = typeof tags === "string" ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
       await createJournal(env.DB, user, content, tagList);
       return toText({ ok: true, message: "Journal entry created successfully!" });
     }
@@ -109,7 +109,7 @@ export function createMcpServer() {
     async ({ id, content, tags }, ctx) => {
       const { user, env } = getAuthContext(ctx);
       if (!env.DB) throw new Error("Database not bound");
-      const tagList = typeof tags === "string" ? tags.split(",").map((t) => t.trim()) : [];
+      const tagList = typeof tags === "string" ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
       await updateJournal(env.DB, id, user, content, tagList);
       return toText({ ok: true, message: `Journal entry ${id} updated successfully!` });
     }
