@@ -200,6 +200,28 @@ export async function startMcpServer() {
             required: ["id"],
           },
         },
+        {
+          name: "line_rooms_ls",
+          description: "List all LINE chat rooms with summary of last messages",
+          inputSchema: {
+            type: "object",
+            properties: {},
+          },
+        },
+        {
+          name: "line_messages_ls",
+          description: "Get archived messages for a specific LINE chat room",
+          inputSchema: {
+            type: "object",
+            properties: {
+              roomType: { type: "string", description: "Room type (user, group, room)" },
+              roomId: { type: "string", description: "Room ID" },
+              limit: { type: "number", description: "Limit number of entries" },
+              offset: { type: "number", description: "Offset for pagination" },
+            },
+            required: ["roomType", "roomId"],
+          },
+        },
       ],
     };
   });
@@ -295,6 +317,19 @@ export async function startMcpServer() {
         case "health_delete":
           await api.delete(`/api/health/${args.id}`);
           return { content: [{ type: "text", text: `Health record ${args.id} deleted successfully!` }] };
+
+        // LINE chat tools
+        case "line_rooms_ls": {
+          res = await api.get('/api/line/rooms');
+          return { content: [{ type: "text", text: JSON.stringify(res.data, null, 2) }] };
+        }
+        case "line_messages_ls": {
+          if (!args.roomType || !args.roomId) throw new Error('roomType and roomId are required');
+          res = await api.get(`/api/line/rooms/${args.roomType}/${args.roomId}/messages`, {
+            params: { limit: args.limit || 50, offset: args.offset || 0 },
+          });
+          return { content: [{ type: "text", text: JSON.stringify(res.data, null, 2) }] };
+        }
 
         default:
           throw new Error(`Unknown tool: ${request.params.name}`);
