@@ -1,5 +1,6 @@
-import { McpServer } from "@modelcontextprotocol/server";
+import { McpServer, type CallToolResult, type ServerContext } from "@modelcontextprotocol/server";
 import { createMcpHandler } from "agents/mcp/server";
+import { z } from "zod";
 import {
   getJournals,
   getJournal,
@@ -21,356 +22,334 @@ import {
 import type { UserProfile } from "../shared/domain";
 import type { Env } from "./env";
 
+type AuthContext = { user: UserProfile; env: Env };
+
+function getAuthContext(ctx: ServerContext): AuthContext {
+  const extra = ctx.http?.authInfo?.extra as AuthContext | undefined;
+  if (!extra || !extra.user || !extra.env) {
+    throw new Error("Unauthorized context");
+  }
+  return extra;
+}
+
+function toText(value: unknown): CallToolResult {
+  return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
+}
+
+const today = () => new Date().toLocaleDateString("sv-SE");
+
 export function createMcpServer() {
-  const mcpServer = new McpServer(
+  const server = new McpServer({
+    name: "lifeos-worker-mcp",
+    version: "1.0.0",
+  });
+
+  // --- Journal tools ---
+  server.registerTool(
+    "journal_ls",
     {
-      name: "lifeos-worker-mcp",
-      version: "1.0.0",
+      description: "List all journals",
+      inputSchema: z.object({
+        limit: z.number().int().positive().optional().describe("Limit number of entries"),
+        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+      }),
     },
-    {
-      capabilities: {
-        tools: {},
-      },
+    async ({ limit, offset }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      return toText(await getJournals(env.DB, user, limit ?? 20, offset ?? 0));
     }
   );
-  const server = mcpServer.server;
 
-  server.setRequestHandler("tools/list", async () => {
-  return {
-    tools: [
-      // Journal tools
-      {
-        name: "journal_ls",
-        description: "List all journals",
-        inputSchema: {
-          type: "object",
-          properties: {
-            limit: { type: "number", description: "Limit number of entries" },
-            offset: { type: "number", description: "Offset for pagination" },
-          },
-        },
-      },
-      {
-        name: "journal_get",
-        description: "Get a journal entry by ID",
-        inputSchema: {
-          type: "object",
-          properties: {
-            id: { type: "number", description: "Journal entry ID" },
-          },
-          required: ["id"],
-        },
-      },
-      {
-        name: "journal_create",
-        description: "Create a new journal entry",
-        inputSchema: {
-          type: "object",
-          properties: {
-            content: { type: "string", description: "Journal content" },
-            tags: { type: "string", description: "Tags (comma separated)" },
-          },
-          required: ["content"],
-        },
-      },
-      {
-        name: "journal_update",
-        description: "Update a journal entry",
-        inputSchema: {
-          type: "object",
-          properties: {
-            id: { type: "number", description: "Journal entry ID" },
-            content: { type: "string", description: "New journal content" },
-            tags: { type: "string", description: "Tags (comma separated)" },
-          },
-          required: ["id", "content"],
-        },
-      },
-      {
-        name: "journal_delete",
-        description: "Delete a journal entry",
-        inputSchema: {
-          type: "object",
-          properties: {
-            id: { type: "number", description: "Journal entry ID" },
-          },
-          required: ["id"],
-        },
-      },
-
-      // Finance tools
-      {
-        name: "finance_ls",
-        description: "List all expenses",
-        inputSchema: {
-          type: "object",
-          properties: {
-            limit: { type: "number", description: "Limit number of entries" },
-            offset: { type: "number", description: "Offset for pagination" },
-          },
-        },
-      },
-      {
-        name: "finance_get",
-        description: "Get an expense by ID",
-        inputSchema: {
-          type: "object",
-          properties: {
-            id: { type: "number", description: "Expense ID" },
-          },
-          required: ["id"],
-        },
-      },
-      {
-        name: "finance_create",
-        description: "Create a new expense",
-        inputSchema: {
-          type: "object",
-          properties: {
-            amount: { type: "number", description: "Amount" },
-            category: { type: "string", description: "Category" },
-            note: { type: "string", description: "Note" },
-            date: { type: "string", description: "Date (YYYY-MM-DD)" },
-          },
-          required: ["amount", "category"],
-        },
-      },
-      {
-        name: "finance_update",
-        description: "Update an expense",
-        inputSchema: {
-          type: "object",
-          properties: {
-            id: { type: "number", description: "Expense ID" },
-            amount: { type: "number", description: "New amount" },
-            category: { type: "string", description: "New category" },
-            note: { type: "string", description: "Note" },
-            date: { type: "string", description: "Date (YYYY-MM-DD)" },
-          },
-          required: ["id", "amount", "category"],
-        },
-      },
-      {
-        name: "finance_delete",
-        description: "Delete an expense",
-        inputSchema: {
-          type: "object",
-          properties: {
-            id: { type: "number", description: "Expense ID" },
-          },
-          required: ["id"],
-        },
-      },
-
-      // Health tools
-      {
-        name: "health_ls",
-        description: "List all health records",
-        inputSchema: {
-          type: "object",
-          properties: {
-            limit: { type: "number", description: "Limit number of entries" },
-            offset: { type: "number", description: "Offset for pagination" },
-          },
-        },
-      },
-      {
-        name: "health_create",
-        description: "Create a new health record",
-        inputSchema: {
-          type: "object",
-          properties: {
-            sys: { type: "number", description: "Systolic pressure" },
-            dia: { type: "number", description: "Diastolic pressure" },
-            hr: { type: "number", description: "Heart rate" },
-            weight: { type: "number", description: "Weight (kg)" },
-            date: { type: "string", description: "Date (YYYY-MM-DD)" },
-          },
-          required: ["sys", "dia", "hr"],
-        },
-      },
-      {
-        name: "health_update",
-        description: "Update a health record",
-        inputSchema: {
-          type: "object",
-          properties: {
-            id: { type: "string", description: "Health record ID (date)" },
-            sys: { type: "number", description: "Systolic pressure" },
-            dia: { type: "number", description: "Diastolic pressure" },
-            hr: { type: "number", description: "Heart rate" },
-            weight: { type: "number", description: "Weight (kg)" },
-            date: { type: "string", description: "Date (YYYY-MM-DD)" },
-          },
-          required: ["id", "sys", "dia", "hr"],
-        },
-      },
-      {
-        name: "health_delete",
-        description: "Delete a health record",
-        inputSchema: {
-          type: "object",
-          properties: {
-            id: { type: "string", description: "Health record ID (date)" },
-          },
-          required: ["id"],
-        },
-      },
-
-      // LINE chat tools
-      {
-        name: "line_rooms_ls",
-        description: "List all LINE chat rooms with summary of last messages",
-        inputSchema: {
-          type: "object",
-          properties: {},
-        },
-      },
-      {
-        name: "line_messages_ls",
-        description: "Get archived messages for a specific LINE chat room",
-        inputSchema: {
-          type: "object",
-          properties: {
-            roomType: { type: "string", description: "Room type (user, group, room)" },
-            roomId: { type: "string", description: "Room ID" },
-            limit: { type: "number", description: "Limit number of entries" },
-            offset: { type: "number", description: "Offset for pagination" },
-          },
-          required: ["roomType", "roomId"],
-        },
-      },
-    ] as any,
-  };
-});
-
-server.setRequestHandler("tools/call", async (request: any, extra: any) => {
-  try {
-    const args: any = request.params.arguments || {};
-    const authInfoExtra = (extra as any).authInfo?.extra;
-    if (!authInfoExtra) throw new Error("Unauthorized context");
-    const { user, env } = authInfoExtra as { user: UserProfile, env: Env };
-
-    if (!env.DB) throw new Error("Database not bound");
-
-    let res;
-
-    switch (request.params.name) {
-      // Journal
-      case "journal_ls":
-        res = await getJournals(env.DB, user, args.limit || 20, args.offset || 0);
-        return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
-      case "journal_get":
-        // using getJournal is not available in earlier check so we will use getDashboardSnapshot as fallback if getJournal doesn't work, wait I can just use getJournal
-        try {
-          const entry = await getJournal(env.DB, user, Number(args.id));
-          if (!entry) throw new Error(`Journal ${args.id} not found.`);
-          return { content: [{ type: "text", text: JSON.stringify(entry, null, 2) }] };
-        } catch {
-          // fallback
-          const dashboard = await getDashboardSnapshot(env.DB, user);
-          const journalEntry = dashboard.data.journals.find((j: any) => j.id === Number(args.id));
-          if (!journalEntry) throw new Error(`Journal ${args.id} not found.`);
-          return { content: [{ type: "text", text: JSON.stringify(journalEntry, null, 2) }] };
-        }
-      case "journal_create": {
-        const tags = typeof args.tags === "string" ? args.tags.split(",").map((t: string) => t.trim()) : [];
-        await createJournal(env.DB, user, args.content, tags);
-        return { content: [{ type: "text", text: "Journal entry created successfully!" }] };
-      }
-      case "journal_update": {
-        const tags = typeof args.tags === "string" ? args.tags.split(",").map((t: string) => t.trim()) : [];
-        await updateJournal(env.DB, Number(args.id), user, args.content, tags);
-        return { content: [{ type: "text", text: `Journal entry ${args.id} updated successfully!` }] };
-      }
-      case "journal_delete":
-        await deleteJournal(env.DB, Number(args.id), user);
-        return { content: [{ type: "text", text: `Journal entry ${args.id} deleted successfully!` }] };
-
-      // Finance
-      case "finance_ls":
-        res = await getExpenses(env.DB, user, args.limit || 20, args.offset || 0);
-        return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
-      case "finance_get": {
-        const dashboard = await getDashboardSnapshot(env.DB, user);
-        const financeEntry = dashboard.data.finance.find((e: any) => e.id === Number(args.id));
-        if (!financeEntry) throw new Error(`Expense ${args.id} not found.`);
-        return { content: [{ type: "text", text: JSON.stringify(financeEntry, null, 2) }] };
-      }
-      case "finance_create": {
-        const date = typeof args.date === "string" && args.date ? args.date : new Date().toLocaleDateString('sv-SE');
-        await createExpense(env.DB, user, {
-          amount: Number(args.amount),
-          category: args.category,
-          note: args.note || "",
-          date,
-        });
-        return { content: [{ type: "text", text: "Expense created successfully!" }] };
-      }
-      case "finance_update": {
-        const date = typeof args.date === "string" && args.date ? args.date : new Date().toLocaleDateString('sv-SE');
-        await updateExpense(env.DB, Number(args.id), user, {
-          amount: Number(args.amount),
-          category: args.category,
-          note: args.note || "",
-          date,
-        });
-        return { content: [{ type: "text", text: `Expense ${args.id} updated successfully!` }] };
-      }
-      case "finance_delete":
-        await deleteExpense(env.DB, Number(args.id), user);
-        return { content: [{ type: "text", text: `Expense ${args.id} deleted successfully!` }] };
-
-      // Health
-      case "health_ls":
-        res = await getHealthRecords(env.DB, user, args.limit || 30, args.offset || 0);
-        return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
-      case "health_create": {
-        const date = typeof args.date === "string" && args.date ? args.date : new Date().toLocaleDateString('sv-SE');
-        await createHealthRecord(env.DB, user, {
-          sys: Number(args.sys),
-          dia: Number(args.dia),
-          hr: Number(args.hr),
-          weight: args.weight ? Number(args.weight) : undefined,
-          date,
-        });
-        return { content: [{ type: "text", text: "Health record created successfully!" }] };
-      }
-      case "health_update": {
-        const date = typeof args.date === "string" && args.date ? args.date : new Date().toLocaleDateString('sv-SE');
-        await updateHealthRecord(env.DB, Number(args.id), user, {
-          sys: Number(args.sys),
-          dia: Number(args.dia),
-          hr: Number(args.hr),
-          weight: args.weight ? Number(args.weight) : undefined,
-          date,
-        });
-        return { content: [{ type: "text", text: `Health record ${args.id} updated successfully!` }] };
-      }
-      case "health_delete":
-        await deleteHealthRecord(env.DB, Number(args.id), user);
-        return { content: [{ type: "text", text: `Health record ${args.id} deleted successfully!` }] };
-
-      // LINE chat
-      case "line_rooms_ls":
-        res = await listLineRooms(env.DB);
-        return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
-      case "line_messages_ls":
-        res = await getLineMessages(env.DB, args.roomType, args.roomId, args.limit || 50, args.offset || 0);
-        return { content: [{ type: "text", text: JSON.stringify(res, null, 2) }] };
-
-      default:
-        throw new Error(`Unknown tool: ${request.params.name}`);
+  server.registerTool(
+    "journal_get",
+    {
+      description: "Get a journal entry by ID",
+      inputSchema: z.object({
+        id: z.number().int().positive().describe("Journal entry ID"),
+      }),
+    },
+    async ({ id }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      const entry = await getJournal(env.DB, user, id);
+      if (!entry) throw new Error(`Journal ${id} not found.`);
+      return toText(entry);
     }
-  } catch (error: any) {
-    return {
-      content: [{ type: "text", text: `Error: ${error.message}` }],
-      isError: true,
-    };
-  }
-});
+  );
 
-  return mcpServer;
+  server.registerTool(
+    "journal_create",
+    {
+      description: "Create a new journal entry",
+      inputSchema: z.object({
+        content: z.string().describe("Journal content"),
+        tags: z.string().optional().describe("Tags (comma separated)"),
+      }),
+    },
+    async ({ content, tags }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      const tagList = typeof tags === "string" ? tags.split(",").map((t) => t.trim()) : [];
+      await createJournal(env.DB, user, content, tagList);
+      return toText({ ok: true, message: "Journal entry created successfully!" });
+    }
+  );
+
+  server.registerTool(
+    "journal_update",
+    {
+      description: "Update a journal entry",
+      inputSchema: z.object({
+        id: z.number().int().positive().describe("Journal entry ID"),
+        content: z.string().describe("New journal content"),
+        tags: z.string().optional().describe("Tags (comma separated)"),
+      }),
+    },
+    async ({ id, content, tags }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      const tagList = typeof tags === "string" ? tags.split(",").map((t) => t.trim()) : [];
+      await updateJournal(env.DB, id, user, content, tagList);
+      return toText({ ok: true, message: `Journal entry ${id} updated successfully!` });
+    }
+  );
+
+  server.registerTool(
+    "journal_delete",
+    {
+      description: "Delete a journal entry",
+      inputSchema: z.object({
+        id: z.number().int().positive().describe("Journal entry ID"),
+      }),
+    },
+    async ({ id }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      await deleteJournal(env.DB, id, user);
+      return toText({ ok: true, message: `Journal entry ${id} deleted successfully!` });
+    }
+  );
+
+  // --- Finance tools ---
+  server.registerTool(
+    "finance_ls",
+    {
+      description: "List all expenses",
+      inputSchema: z.object({
+        limit: z.number().int().positive().optional().describe("Limit number of entries"),
+        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+      }),
+    },
+    async ({ limit, offset }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      return toText(await getExpenses(env.DB, user, limit ?? 20, offset ?? 0));
+    }
+  );
+
+  server.registerTool(
+    "finance_get",
+    {
+      description: "Get an expense by ID",
+      inputSchema: z.object({
+        id: z.number().int().positive().describe("Expense ID"),
+      }),
+    },
+    async ({ id }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      const dashboard = await getDashboardSnapshot(env.DB, user);
+      const entry = dashboard.data.finance.find((e) => e.id === id);
+      if (!entry) throw new Error(`Expense ${id} not found.`);
+      return toText(entry);
+    }
+  );
+
+  server.registerTool(
+    "finance_create",
+    {
+      description: "Create a new expense",
+      inputSchema: z.object({
+        amount: z.number().describe("Amount"),
+        category: z.string().describe("Category"),
+        note: z.string().optional().describe("Note"),
+        date: z.string().optional().describe("Date (YYYY-MM-DD)"),
+      }),
+    },
+    async ({ amount, category, note, date }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      await createExpense(env.DB, user, {
+        amount: Number(amount),
+        category,
+        note: note || "",
+        date: date || today(),
+      });
+      return toText({ ok: true, message: "Expense created successfully!" });
+    }
+  );
+
+  server.registerTool(
+    "finance_update",
+    {
+      description: "Update an expense",
+      inputSchema: z.object({
+        id: z.number().int().positive().describe("Expense ID"),
+        amount: z.number().describe("New amount"),
+        category: z.string().describe("New category"),
+        note: z.string().optional().describe("Note"),
+        date: z.string().optional().describe("Date (YYYY-MM-DD)"),
+      }),
+    },
+    async ({ id, amount, category, note, date }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      await updateExpense(env.DB, id, user, {
+        amount: Number(amount),
+        category,
+        note: note || "",
+        date: date || today(),
+      });
+      return toText({ ok: true, message: `Expense ${id} updated successfully!` });
+    }
+  );
+
+  server.registerTool(
+    "finance_delete",
+    {
+      description: "Delete an expense",
+      inputSchema: z.object({
+        id: z.number().int().positive().describe("Expense ID"),
+      }),
+    },
+    async ({ id }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      await deleteExpense(env.DB, id, user);
+      return toText({ ok: true, message: `Expense ${id} deleted successfully!` });
+    }
+  );
+
+  // --- Health tools ---
+  server.registerTool(
+    "health_ls",
+    {
+      description: "List all health records",
+      inputSchema: z.object({
+        limit: z.number().int().positive().optional().describe("Limit number of entries"),
+        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+      }),
+    },
+    async ({ limit, offset }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      return toText(await getHealthRecords(env.DB, user, limit ?? 30, offset ?? 0));
+    }
+  );
+
+  server.registerTool(
+    "health_create",
+    {
+      description: "Create a new health record",
+      inputSchema: z.object({
+        sys: z.number().describe("Systolic pressure"),
+        dia: z.number().describe("Diastolic pressure"),
+        hr: z.number().describe("Heart rate"),
+        weight: z.number().optional().describe("Weight (kg)"),
+        date: z.string().optional().describe("Date (YYYY-MM-DD)"),
+      }),
+    },
+    async ({ sys, dia, hr, weight, date }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      await createHealthRecord(env.DB, user, {
+        sys: Number(sys),
+        dia: Number(dia),
+        hr: Number(hr),
+        weight: weight !== undefined ? Number(weight) : undefined,
+        date: date || today(),
+      });
+      return toText({ ok: true, message: "Health record created successfully!" });
+    }
+  );
+
+  server.registerTool(
+    "health_update",
+    {
+      description: "Update a health record",
+      inputSchema: z.object({
+        id: z.string().describe("Health record ID (date)"),
+        sys: z.number().describe("Systolic pressure"),
+        dia: z.number().describe("Diastolic pressure"),
+        hr: z.number().describe("Heart rate"),
+        weight: z.number().optional().describe("Weight (kg)"),
+        date: z.string().optional().describe("Date (YYYY-MM-DD)"),
+      }),
+    },
+    async ({ id, sys, dia, hr, weight, date }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      await updateHealthRecord(env.DB, Number(id), user, {
+        sys: Number(sys),
+        dia: Number(dia),
+        hr: Number(hr),
+        weight: weight !== undefined ? Number(weight) : undefined,
+        date: date || today(),
+      });
+      return toText({ ok: true, message: `Health record ${id} updated successfully!` });
+    }
+  );
+
+  server.registerTool(
+    "health_delete",
+    {
+      description: "Delete a health record",
+      inputSchema: z.object({
+        id: z.string().describe("Health record ID (date)"),
+      }),
+    },
+    async ({ id }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      await deleteHealthRecord(env.DB, Number(id), user);
+      return toText({ ok: true, message: `Health record ${id} deleted successfully!` });
+    }
+  );
+
+  // --- LINE chat tools ---
+  server.registerTool(
+    "line_rooms_ls",
+    {
+      description: "List all LINE chat rooms with summary of last messages",
+      inputSchema: z.object({}),
+    },
+    async (_, ctx) => {
+      const { env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      return toText(await listLineRooms(env.DB));
+    }
+  );
+
+  server.registerTool(
+    "line_messages_ls",
+    {
+      description: "Get archived messages for a specific LINE chat room",
+      inputSchema: z.object({
+        roomType: z.enum(["user", "group", "room"]).describe("Room type (user, group, room)"),
+        roomId: z.string().describe("Room ID"),
+        limit: z.number().int().positive().optional().describe("Limit number of entries"),
+        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+      }),
+    },
+    async ({ roomType, roomId, limit, offset }, ctx) => {
+      const { env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      return toText(await getLineMessages(env.DB, roomType, roomId, limit ?? 50, offset ?? 0));
+    }
+  );
+
+  return server;
 }
 
 export const mcpHandler = createMcpHandler(createMcpServer, {
@@ -380,4 +359,3 @@ export const mcpHandler = createMcpHandler(createMcpServer, {
     console.error("[MCP Error]", err);
   },
 });
-
