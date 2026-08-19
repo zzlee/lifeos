@@ -14,6 +14,8 @@ import {
   getExpenses,
   getHealthRecords,
   getJournals,
+  getLineMessages,
+  listLineRooms,
 } from "./repository";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -389,6 +391,32 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       }));
     }
   },
+  {
+    name: "query_chat_rooms",
+    description: "Query all LINE chat rooms with summary of last messages and message count.",
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+    execute: async (_args, env) => listLineRooms(env.DB!),
+  },
+  {
+    name: "query_chat_messages",
+    description: "Query archived messages for a specific LINE chat room by room_type and room_id.",
+    parameters: {
+      type: "object",
+      properties: {
+        room_type: { type: "string", enum: ["user", "group", "room"], description: "LINE chat room type" },
+        room_id: { type: "string", description: "LINE chat room ID" },
+        limit: { type: "number", description: "Limit number of messages returned (default 50)" },
+      },
+      required: ["room_type", "room_id"],
+    },
+    execute: async (args, env) => {
+      const limit = Number(args.limit) || 50;
+      return getLineMessages(env.DB!, String(args.room_type), String(args.room_id), limit, 0);
+    },
+  },
 ];
 
 const TOOL_MAP = new Map(LIFEOS_TOOLSET.map((tool) => [tool.name, tool]));
@@ -478,7 +506,7 @@ DATE/TIME HANDLING INSTRUCTIONS:
 5. If the user only gives a date (e.g. "yesterday"), pass a simple 'YYYY-MM-DD' string (e.g. '2026-05-26'), EXCEPT for expense/transaction mutations (e.g. create_expense, update_expense) where you MUST ALWAYS include the time. If the user only provides a date for an expense, append the current local time to the date (e.g. '2026-05-26T15:30:00').
 
 CRITICAL INSTRUCTIONS FOR RETRIEVING DATA:
-1. Since the dashboard snapshot is no longer in your context, you MUST ALWAYS call the corresponding query tools ('query_expenses', 'query_health', or 'query_journals') to fetch the data first if the user asks you to list, show, query, search, summarize, or check any transactions, expenses, health records, or journals! Do not assume the database is empty or make up answers without calling these query tools first!
+1. Since the dashboard snapshot is no longer in your context, you MUST ALWAYS call the corresponding query tools ('query_expenses', 'query_health', 'query_journals', 'query_chat_rooms', or 'query_chat_messages') to fetch the data first if the user asks you to list, show, query, search, summarize, or check any transactions, expenses, health records, journals, or LINE chat room history! Do not assume the database is empty or make up answers without calling these query tools first!
 2. When querying expenses or health records without a specific narrow date range specified by the user, DO NOT default to a narrow date filter (like 'today' or 'this week'). Instead, leave the 'start_date' and 'end_date' parameters completely empty or specify a very wide range so that all historical data (including past weeks and months) can be fetched and integrated successfully!
 
 ACCOUNTING CATEGORIES:
