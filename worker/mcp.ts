@@ -8,6 +8,8 @@ import {
   updateJournal,
   deleteJournal,
   getExpenses,
+  exportExpenses,
+  deleteExpensesByRange,
   createExpense,
   updateExpense,
   deleteExpense,
@@ -17,7 +19,9 @@ import {
   deleteHealthRecord,
   getDashboardSnapshot,
   listLineRooms,
-  getLineMessages
+  getLineMessages,
+  exportLineMessages,
+  deleteLineMessages
 } from "./repository";
 import type { UserProfile } from "../shared/domain";
 import type { Env } from "./env";
@@ -231,6 +235,43 @@ export function createMcpServer() {
     }
   );
 
+  server.registerTool(
+    "finance_export",
+    {
+      description: "Export expense records filtered by date range and optional category",
+      inputSchema: z.object({
+        startDate: z.string().optional().describe("Start date filter (YYYY-MM-DD)"),
+        endDate: z.string().optional().describe("End date filter (YYYY-MM-DD)"),
+        category: z.string().optional().describe("Category filter"),
+        limit: z.number().int().positive().optional().describe("Limit number of entries"),
+        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+      }),
+    },
+    async ({ startDate, endDate, category, limit, offset }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      return toText(await exportExpenses(env.DB, user, { startDate, endDate, category, limit, offset }));
+    }
+  );
+
+  server.registerTool(
+    "finance_delete_range",
+    {
+      description: "Delete expense records filtered by date range and optional category",
+      inputSchema: z.object({
+        startDate: z.string().optional().describe("Start date filter (YYYY-MM-DD)"),
+        endDate: z.string().optional().describe("End date filter (YYYY-MM-DD)"),
+        category: z.string().optional().describe("Category filter"),
+      }),
+    },
+    async ({ startDate, endDate, category }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      const result = await deleteExpensesByRange(env.DB, user, { startDate, endDate, category });
+      return toText({ ok: true, message: `Deleted ${result.deletedCount} expense record(s).`, deletedCount: result.deletedCount });
+    }
+  );
+
   // --- Health tools ---
   server.registerTool(
     "health_ls",
@@ -346,6 +387,45 @@ export function createMcpServer() {
       const { env } = getAuthContext(ctx);
       if (!env.DB) throw new Error("Database not bound");
       return toText(await getLineMessages(env.DB, roomType, roomId, limit ?? 50, offset ?? 0));
+    }
+  );
+
+  server.registerTool(
+    "line_messages_export",
+    {
+      description: "Export archived LINE chat messages filtered by time range and optional room",
+      inputSchema: z.object({
+        startDate: z.string().optional().describe("Start date/time filter (YYYY-MM-DD or ISO string)"),
+        endDate: z.string().optional().describe("End date/time filter (YYYY-MM-DD or ISO string)"),
+        roomType: z.enum(["user", "group", "room"]).optional().describe("Room type filter (user, group, room)"),
+        roomId: z.string().optional().describe("Room ID filter"),
+        limit: z.number().int().positive().optional().describe("Limit number of entries"),
+        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+      }),
+    },
+    async ({ startDate, endDate, roomType, roomId, limit, offset }, ctx) => {
+      const { env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      return toText(await exportLineMessages(env.DB, { startDate, endDate, roomType, roomId, limit, offset }));
+    }
+  );
+
+  server.registerTool(
+    "line_messages_delete",
+    {
+      description: "Delete archived LINE chat messages filtered by time range and optional room",
+      inputSchema: z.object({
+        startDate: z.string().optional().describe("Start date/time filter (YYYY-MM-DD or ISO string)"),
+        endDate: z.string().optional().describe("End date/time filter (YYYY-MM-DD or ISO string)"),
+        roomType: z.enum(["user", "group", "room"]).optional().describe("Room type filter (user, group, room)"),
+        roomId: z.string().optional().describe("Room ID filter"),
+      }),
+    },
+    async ({ startDate, endDate, roomType, roomId }, ctx) => {
+      const { env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      const result = await deleteLineMessages(env.DB, { startDate, endDate, roomType, roomId });
+      return toText({ ok: true, message: `Deleted ${result.deletedCount} chat message(s).`, deletedCount: result.deletedCount });
     }
   );
 
