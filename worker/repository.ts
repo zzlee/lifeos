@@ -299,6 +299,85 @@ export async function createExpense(
   return { ok: true };
 }
 
+export async function exportExpenses(
+  db: D1Database,
+  user: UserProfile,
+  filters: {
+    startDate?: string;
+    endDate?: string;
+    category?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<Expense[]> {
+  let sql = "SELECT id, date, amount, category, note FROM expenses WHERE user_id = ?";
+  const params: any[] = [user.id];
+
+  if (filters.startDate) {
+    sql += " AND date >= ?";
+    params.push(filters.startDate.slice(0, 10));
+  }
+  if (filters.endDate) {
+    sql += " AND date <= ?";
+    params.push(filters.endDate.slice(0, 10));
+  }
+  if (filters.category) {
+    sql += " AND category = ?";
+    params.push(filters.category);
+  }
+
+  sql += " ORDER BY date ASC, id ASC";
+
+  if (filters.limit !== undefined) {
+    sql += " LIMIT ?";
+    params.push(filters.limit);
+    if (filters.offset !== undefined) {
+      sql += " OFFSET ?";
+      params.push(filters.offset);
+    }
+  }
+
+  const result = await db
+    .prepare(sql)
+    .bind(...params)
+    .all<Expense>();
+  return result.results ?? [];
+}
+
+export async function deleteExpensesByRange(
+  db: D1Database,
+  user: UserProfile,
+  filters: {
+    startDate?: string;
+    endDate?: string;
+    category?: string;
+  } = {},
+): Promise<{ ok: true; deletedCount: number }> {
+  if (!filters.startDate && !filters.endDate && !filters.category) {
+    throw new Error("At least one filter (startDate, endDate, category) must be provided to delete expenses.");
+  }
+
+  let sql = "DELETE FROM expenses WHERE user_id = ?";
+  const params: any[] = [user.id];
+
+  if (filters.startDate) {
+    sql += " AND date >= ?";
+    params.push(filters.startDate.slice(0, 10));
+  }
+  if (filters.endDate) {
+    sql += " AND date <= ?";
+    params.push(filters.endDate.slice(0, 10));
+  }
+  if (filters.category) {
+    sql += " AND category = ?";
+    params.push(filters.category);
+  }
+
+  const result = await db.prepare(sql).bind(...params).run();
+  const deletedCount = result.meta?.changes ?? 0;
+  return { ok: true, deletedCount };
+}
+
 export async function updateExpense(
   db: D1Database,
   id: number,
@@ -502,4 +581,103 @@ export async function listLineRooms(db: D1Database): Promise<LineRoomSummary[]> 
     )
     .all<LineRoomSummary>();
   return result.results ?? [];
+}
+
+/** Export archived messages filtered by date range and optional room. */
+export async function exportLineMessages(
+  db: D1Database,
+  filters: {
+    startDate?: string;
+    endDate?: string;
+    roomType?: string;
+    roomId?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+): Promise<LineChatMessageRecord[]> {
+  let sql = `SELECT id, room_type as roomType, room_id as roomId, user_id as userId,
+              message_type as messageType, text, line_message_id as lineMessageId, created_at as createdAt
+             FROM line_messages WHERE 1=1`;
+  const params: any[] = [];
+
+  if (filters.roomType) {
+    sql += " AND room_type = ?";
+    params.push(filters.roomType);
+  }
+  if (filters.roomId) {
+    sql += " AND room_id = ?";
+    params.push(filters.roomId);
+  }
+  if (filters.startDate) {
+    sql += " AND created_at >= ?";
+    params.push(filters.startDate);
+  }
+  if (filters.endDate) {
+    let end = filters.endDate;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+      end += "T23:59:59.999Z";
+    }
+    sql += " AND created_at <= ?";
+    params.push(end);
+  }
+
+  sql += " ORDER BY created_at ASC, id ASC";
+
+  if (filters.limit !== undefined) {
+    sql += " LIMIT ?";
+    params.push(filters.limit);
+    if (filters.offset !== undefined) {
+      sql += " OFFSET ?";
+      params.push(filters.offset);
+    }
+  }
+
+  const result = await db
+    .prepare(sql)
+    .bind(...params)
+    .all<LineChatMessageRecord>();
+  return result.results ?? [];
+}
+
+/** Delete archived messages filtered by date range and optional room. */
+export async function deleteLineMessages(
+  db: D1Database,
+  filters: {
+    startDate?: string;
+    endDate?: string;
+    roomType?: string;
+    roomId?: string;
+  } = {},
+): Promise<{ ok: true; deletedCount: number }> {
+  if (!filters.startDate && !filters.endDate && !filters.roomType && !filters.roomId) {
+    throw new Error("At least one filter (startDate, endDate, roomType, roomId) must be provided to delete line messages.");
+  }
+
+  let sql = "DELETE FROM line_messages WHERE 1=1";
+  const params: any[] = [];
+
+  if (filters.roomType) {
+    sql += " AND room_type = ?";
+    params.push(filters.roomType);
+  }
+  if (filters.roomId) {
+    sql += " AND room_id = ?";
+    params.push(filters.roomId);
+  }
+  if (filters.startDate) {
+    sql += " AND created_at >= ?";
+    params.push(filters.startDate);
+  }
+  if (filters.endDate) {
+    let end = filters.endDate;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+      end += "T23:59:59.999Z";
+    }
+    sql += " AND created_at <= ?";
+    params.push(end);
+  }
+
+  const result = await db.prepare(sql).bind(...params).run();
+  const deletedCount = result.meta?.changes ?? 0;
+  return { ok: true, deletedCount };
 }

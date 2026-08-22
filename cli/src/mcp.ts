@@ -46,6 +46,32 @@ export async function startMcpServer() {
           },
         },
         {
+          name: "finance_export",
+          description: "Export expense records filtered by date range and optional category",
+          inputSchema: {
+            type: "object",
+            properties: {
+              startDate: { type: "string", description: "Start date filter (YYYY-MM-DD)" },
+              endDate: { type: "string", description: "End date filter (YYYY-MM-DD)" },
+              category: { type: "string", description: "Category filter" },
+              limit: { type: "number", description: "Limit number of entries" },
+              offset: { type: "number", description: "Offset for pagination" },
+            },
+          },
+        },
+        {
+          name: "finance_delete_range",
+          description: "Delete expense records filtered by date range and optional category",
+          inputSchema: {
+            type: "object",
+            properties: {
+              startDate: { type: "string", description: "Start date filter (YYYY-MM-DD)" },
+              endDate: { type: "string", description: "End date filter (YYYY-MM-DD)" },
+              category: { type: "string", description: "Category filter" },
+            },
+          },
+        },
+        {
           name: "journal_create",
           description: "Create a new journal entry",
           inputSchema: {
@@ -222,6 +248,34 @@ export async function startMcpServer() {
             required: ["roomType", "roomId"],
           },
         },
+        {
+          name: "line_messages_export",
+          description: "Export archived LINE chat messages filtered by time range and optional room",
+          inputSchema: {
+            type: "object",
+            properties: {
+              startDate: { type: "string", description: "Start date/time filter (YYYY-MM-DD or ISO string)" },
+              endDate: { type: "string", description: "End date/time filter (YYYY-MM-DD or ISO string)" },
+              roomType: { type: "string", description: "Room type (user, group, room)" },
+              roomId: { type: "string", description: "Room ID" },
+              limit: { type: "number", description: "Limit number of entries" },
+              offset: { type: "number", description: "Offset for pagination" },
+            },
+          },
+        },
+        {
+          name: "line_messages_delete",
+          description: "Delete archived LINE chat messages filtered by time range and optional room",
+          inputSchema: {
+            type: "object",
+            properties: {
+              startDate: { type: "string", description: "Start date/time filter (YYYY-MM-DD or ISO string)" },
+              endDate: { type: "string", description: "End date/time filter (YYYY-MM-DD or ISO string)" },
+              roomType: { type: "string", description: "Room type (user, group, room)" },
+              roomId: { type: "string", description: "Room ID" },
+            },
+          },
+        },
       ],
     };
   });
@@ -287,6 +341,26 @@ export async function startMcpServer() {
         case "finance_delete":
           await api.delete(`/api/expenses/${args.id}`);
           return { content: [{ type: "text", text: `Expense ${args.id} deleted successfully!` }] };
+        case "finance_export":
+          res = await api.get('/api/expenses/export', {
+            params: {
+              startDate: args.startDate,
+              endDate: args.endDate,
+              category: args.category,
+              limit: args.limit,
+              offset: args.offset,
+            },
+          });
+          return { content: [{ type: "text", text: JSON.stringify(res.data.expenses, null, 2) }] };
+        case "finance_delete_range":
+          res = await api.delete('/api/expenses/range', {
+            params: {
+              startDate: args.startDate,
+              endDate: args.endDate,
+              category: args.category,
+            },
+          });
+          return { content: [{ type: "text", text: JSON.stringify(res.data, null, 2) }] };
 
         // Health
         case "health_ls":
@@ -327,6 +401,30 @@ export async function startMcpServer() {
           if (!args.roomType || !args.roomId) throw new Error('roomType and roomId are required');
           res = await api.get(`/api/line/rooms/${args.roomType}/${args.roomId}/messages`, {
             params: { limit: args.limit || 50, offset: args.offset || 0 },
+          });
+          return { content: [{ type: "text", text: JSON.stringify(res.data, null, 2) }] };
+        }
+        case "line_messages_export": {
+          res = await api.get('/api/line/messages/export', {
+            params: {
+              startDate: args.startDate,
+              endDate: args.endDate,
+              roomType: args.roomType,
+              roomId: args.roomId,
+              limit: args.limit,
+              offset: args.offset,
+            },
+          });
+          return { content: [{ type: "text", text: JSON.stringify(res.data.messages, null, 2) }] };
+        }
+        case "line_messages_delete": {
+          res = await api.delete('/api/line/messages', {
+            params: {
+              startDate: args.startDate,
+              endDate: args.endDate,
+              roomType: args.roomType,
+              roomId: args.roomId,
+            },
           });
           return { content: [{ type: "text", text: JSON.stringify(res.data, null, 2) }] };
         }

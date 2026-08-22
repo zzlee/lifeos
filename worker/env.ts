@@ -2,7 +2,7 @@ export type D1PreparedStatement = {
   bind: (...values: unknown[]) => D1PreparedStatement;
   all: <T = unknown>() => Promise<{ results: T[] }>;
   first: <T = unknown>() => Promise<T | null>;
-  run: <T = unknown>() => Promise<{ results?: T[] }>;
+  run: <T = unknown>() => Promise<{ results?: T[]; meta?: { changes?: number } }>;
 };
 
 export type D1Database = {

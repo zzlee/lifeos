@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert";
-import { getLineMessages, listLineRooms, saveLineMessage } from "../worker/repository.ts";
+import { getLineMessages, listLineRooms, saveLineMessage, exportLineMessages, deleteLineMessages } from "../worker/repository.ts";
 
 /** Minimal D1 mock: captures the SQL and bound params, returns canned results. */
 function makeMockDb(results: any[] = []) {
@@ -112,5 +112,61 @@ describe("listLineRooms", () => {
     assert.strictEqual(rooms[0].lastMessageText, "see you");
     assert.match(calls[0].sql, /GROUP BY room_type, room_id/);
     assert.match(calls[0].sql, /ORDER BY lm.created_at DESC/);
+  });
+});
+
+describe("exportLineMessages", () => {
+  test("queries line messages by date range and filters", async () => {
+    const { db, calls } = makeMockDb([
+      {
+        id: 1,
+        roomType: "group",
+        roomId: "C123",
+        userId: "U456",
+        messageType: "text",
+        text: "hello",
+        lineMessageId: "m1",
+        createdAt: "2026-08-01T10:00:00.000Z",
+      },
+    ]);
+    const rows = await exportLineMessages(db, {
+      startDate: "2026-08-01",
+      endDate: "2026-08-31",
+      roomType: "group",
+      roomId: "C123",
+    });
+
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].text, "hello");
+    assert.match(calls[0].sql, /room_type = \?/);
+    assert.match(calls[0].sql, /created_at >= \?/);
+    assert.match(calls[0].sql, /created_at <= \?/);
+    assert.deepStrictEqual(calls[0].params, [
+      "group",
+      "C123",
+      "2026-08-01",
+      "2026-08-31T23:59:59.999Z",
+    ]);
+  });
+});
+
+describe("deleteLineMessages", () => {
+  test("deletes line messages by date range", async () => {
+    const { db, calls } = makeMockDb();
+    const result = await deleteLineMessages(db, {
+      startDate: "2026-08-01",
+      endDate: "2026-08-31",
+    });
+
+    assert.strictEqual(result.ok, true);
+    assert.match(calls[0].sql, /DELETE FROM line_messages/);
+    assert.deepStrictEqual(calls[0].params, ["2026-08-01", "2026-08-31T23:59:59.999Z"]);
+  });
+
+  test("throws error if no filters are provided", async () => {
+    const { db } = makeMockDb();
+    await assert.rejects(async () => {
+      await deleteLineMessages(db, {});
+    }, /At least one filter/);
   });
 });

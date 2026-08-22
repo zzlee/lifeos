@@ -25,7 +25,7 @@ import type { Env } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { replyLine, verifyLineSignature, getBotInfo, getGroupSummary, getGroupMemberProfile, getRoomMemberProfile, getUserProfile } from "./line";
 import { handleLineMessage } from "./lineCommands";
-import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord, saveLineMessage, listLineRooms, getLineMessages } from "./repository";
+import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, exportExpenses, deleteExpensesByRange, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord, saveLineMessage, listLineRooms, getLineMessages, exportLineMessages, deleteLineMessages } from "./repository";
 import { mcpHandler } from "./mcp";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -438,6 +438,41 @@ app.delete("/api/journals/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+app.get("/api/expenses/export", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const startDate = c.req.query("startDate");
+  const endDate = c.req.query("endDate");
+  const category = c.req.query("category");
+  const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined;
+  const offset = c.req.query("offset") ? Number(c.req.query("offset")) : undefined;
+
+  const expenses = await exportExpenses(c.env.DB, session.user, { startDate, endDate, category, limit, offset });
+  return c.json({ expenses });
+});
+
+app.delete("/api/expenses/range", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const startDate = c.req.query("startDate");
+  const endDate = c.req.query("endDate");
+  const category = c.req.query("category");
+
+  try {
+    const result = await deleteExpensesByRange(c.env.DB, session.user, { startDate, endDate, category });
+    return c.json(result);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ ok: false, error: message }, 400);
+  }
+});
+
 app.get("/api/expenses", async (c) => {
   if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
   
@@ -579,6 +614,41 @@ app.get("/api/line/rooms", async (c) => {
   );
 
   return c.json({ rooms: roomsWithNames, botUserId } satisfies LineRoomsResponse);
+});
+
+app.get("/api/line/messages/export", async (c) => {
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+
+  const startDate = c.req.query("startDate");
+  const endDate = c.req.query("endDate");
+  const roomType = c.req.query("roomType");
+  const roomId = c.req.query("roomId");
+  const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined;
+  const offset = c.req.query("offset") ? Number(c.req.query("offset")) : undefined;
+
+  const messages = await exportLineMessages(c.env.DB, { startDate, endDate, roomType, roomId, limit, offset });
+  return c.json({ messages });
+});
+
+app.delete("/api/line/messages", async (c) => {
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+
+  const startDate = c.req.query("startDate");
+  const endDate = c.req.query("endDate");
+  const roomType = c.req.query("roomType");
+  const roomId = c.req.query("roomId");
+
+  try {
+    const result = await deleteLineMessages(c.env.DB, { startDate, endDate, roomType, roomId });
+    return c.json(result);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return c.json({ ok: false, error: message }, 400);
+  }
 });
 
 app.get("/api/line/rooms/:roomType/:roomId/messages", async (c) => {
