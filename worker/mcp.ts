@@ -21,7 +21,10 @@ import {
   listLineRooms,
   getLineMessages,
   exportLineMessages,
-  deleteLineMessages
+  deleteLineMessages,
+  getVaultItems,
+  createVaultItem,
+  exportVault
 } from "./repository";
 import type { UserProfile } from "../shared/domain";
 import type { Env } from "./env";
@@ -355,6 +358,57 @@ export function createMcpServer() {
       if (!env.DB) throw new Error("Database not bound");
       await deleteHealthRecord(env.DB, Number(id), user);
       return toText({ ok: true, message: `Health record ${id} deleted successfully!` });
+    }
+  );
+
+  // --- Vault tools ---
+  server.registerTool(
+    "vault_ls",
+    {
+      description: "List vault items with masked secrets",
+      inputSchema: z.object({
+        query: z.string().optional().describe("Filter by site keyword"),
+        limit: z.number().int().positive().optional().describe("Limit number of entries"),
+        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+      }),
+    },
+    async ({ query, limit, offset }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      return toText(await getVaultItems(env.DB, user, limit ?? 20, offset ?? 0, { query }));
+    }
+  );
+
+  server.registerTool(
+    "vault_create",
+    {
+      description: "Create a new vault item",
+      inputSchema: z.object({
+        site: z.string().describe("Website or service name"),
+        username: z.string().describe("Username or account name"),
+        secret: z.string().describe("Password or secret"),
+      }),
+    },
+    async ({ site, username, secret }, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      if (!env.VAULT_MASTER_KEY) throw new Error("Vault master key not configured");
+      await createVaultItem(env.DB, user, { site, username, secret }, env.VAULT_MASTER_KEY);
+      return toText({ ok: true, message: "Vault item created successfully!" });
+    }
+  );
+
+  server.registerTool(
+    "vault_export",
+    {
+      description: "Export all vault items with decrypted secrets",
+      inputSchema: z.object({}),
+    },
+    async (_, ctx) => {
+      const { user, env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      if (!env.VAULT_MASTER_KEY) throw new Error("Vault master key not configured");
+      return toText(await exportVault(env.DB, user, env.VAULT_MASTER_KEY));
     }
   );
 

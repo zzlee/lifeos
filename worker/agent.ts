@@ -16,6 +16,9 @@ import {
   getJournals,
   getLineMessages,
   listLineRooms,
+  getVaultItems,
+  createVaultItem,
+  getVaultSecret,
 } from "./repository";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -415,6 +418,53 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     execute: async (args, env) => {
       const limit = Number(args.limit) || 50;
       return getLineMessages(env.DB!, String(args.room_type), String(args.room_id), limit, 0);
+    },
+  },
+  {
+    name: "query_vault",
+    description: "Query and search vault items (passwords/credentials) with masked preview by site keyword.",
+    parameters: {
+      type: "object",
+      properties: {
+        keyword: { type: "string", description: "Filter by site or service keyword" },
+        limit: { type: "number", description: "Limit number of items returned (default 20)" },
+      },
+    },
+    execute: async (args, env, user) => {
+      const limit = Number(args.limit) || 20;
+      return getVaultItems(env.DB!, user, limit, 0, { query: args.keyword });
+    },
+  },
+  {
+    name: "create_vault_item",
+    description: "Create a new vault entry storing site, username, and secret securely.",
+    parameters: {
+      type: "object",
+      properties: {
+        site: { type: "string" },
+        username: { type: "string" },
+        secret: { type: "string" },
+      },
+      required: ["site", "username", "secret"],
+    },
+    execute: async (args, env, user) => {
+      if (!env.VAULT_MASTER_KEY) throw new Error("Vault master key not configured");
+      return createVaultItem(env.DB!, user, { site: String(args.site), username: String(args.username), secret: String(args.secret) }, env.VAULT_MASTER_KEY);
+    },
+  },
+  {
+    name: "get_vault_secret",
+    description: "Retrieve and decrypt full secret for a vault item by ID.",
+    parameters: {
+      type: "object",
+      properties: {
+        id: { type: "number", description: "Vault item ID" },
+      },
+      required: ["id"],
+    },
+    execute: async (args, env, user) => {
+      if (!env.VAULT_MASTER_KEY) throw new Error("Vault master key not configured");
+      return getVaultSecret(env.DB!, user, Number(args.id), env.VAULT_MASTER_KEY);
     },
   },
 ];
