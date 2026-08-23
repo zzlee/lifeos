@@ -89,6 +89,14 @@ describe("Agent Tool Integration", () => {
                           arguments: JSON.stringify({}),
                         },
                       },
+                      {
+                        id: "call_3",
+                        type: "function",
+                        function: {
+                          name: "query_chat_groups",
+                          arguments: JSON.stringify({ keyword: "work" }),
+                        },
+                      },
                     ],
                   },
                 },
@@ -103,7 +111,7 @@ describe("Agent Tool Integration", () => {
                 {
                   message: {
                     role: "assistant",
-                    content: "Retrieved journal and exported vault successfully.",
+                    content: "Retrieved journal, exported vault, and queried chat groups successfully.",
                   },
                 },
               ],
@@ -127,11 +135,13 @@ describe("Agent Tool Integration", () => {
 
       const result = await runLifeAgentLoop(env, user, [{ role: "user", content: "Check journal 5 and export vault" }]);
 
-      assert.strictEqual(result.reply, "Retrieved journal and exported vault successfully.");
-      assert.strictEqual(result.toolCalls.length, 2);
+      assert.strictEqual(result.reply, "Retrieved journal, exported vault, and queried chat groups successfully.");
+      assert.strictEqual(result.toolCalls.length, 3);
       assert.strictEqual(result.toolCalls[0].name, "get_journal");
       assert.strictEqual(result.toolCalls[0].result.id, 5);
       assert.strictEqual(result.toolCalls[1].name, "export_vault");
+      assert.strictEqual(result.toolCalls[2].name, "query_chat_groups");
+      assert.deepStrictEqual(result.toolCalls[2].args, { keyword: "work" });
     } finally {
       globalThis.fetch = originalFetch;
     }

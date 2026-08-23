@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert";
-import { getLineMessages, listLineRooms, saveLineMessage, exportLineMessages, deleteLineMessages } from "../worker/repository.ts";
+import { getLineMessages, listLineRooms, listLineGroups, saveLineMessage, exportLineMessages, deleteLineMessages } from "../worker/repository.ts";
 
 /** Minimal D1 mock: captures the SQL and bound params, returns canned results. */
 function makeMockDb(results: any[] = []) {
@@ -112,6 +112,65 @@ describe("listLineRooms", () => {
     assert.strictEqual(rooms[0].lastMessageText, "see you");
     assert.match(calls[0].sql, /GROUP BY room_type, room_id/);
     assert.match(calls[0].sql, /ORDER BY lm.created_at DESC/);
+  });
+});
+
+describe("listLineGroups", () => {
+  test("returns group chat rooms and applies query keyword filter", async () => {
+    const { db, calls } = makeMockDb([
+      {
+        roomType: "group",
+        roomId: "group_abc",
+        messageCount: 12,
+        lastMessageAt: "2026-08-08T10:00:00.000Z",
+      },
+      {
+        roomType: "group",
+        roomId: "group_xyz",
+        messageCount: 3,
+        lastMessageAt: "2026-08-07T10:00:00.000Z",
+      },
+    ]);
+
+    const groups = await listLineGroups(db, undefined, { query: "abc" });
+
+    assert.strictEqual(groups.length, 1);
+    assert.strictEqual(groups[0].roomId, "group_abc");
+    assert.strictEqual(groups[0].messageCount, 12);
+    assert.strictEqual(groups[0].groupName, null);
+    assert.match(calls[0].sql, /WHERE lm\.room_type = 'group'/);
+  });
+
+  test("fetches groupName when lineToken is supplied and API resolves", async () => {
+    const { db } = makeMockDb([
+      {
+        roomType: "group",
+        roomId: "group_123",
+        messageCount: 8,
+        lastMessageAt: "2026-08-08T10:00:00.000Z",
+      },
+    ]);
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/v2/bot/group/group_123/summary")) {
+        return new Response(JSON.stringify({ groupId: "group_123", groupName: "Family Chat Group" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("{}", { status: 404 });
+    }) as any;
+
+    try {
+      const groups = await listLineGroups(db, "valid-token");
+      assert.strictEqual(groups.length, 1);
+      assert.strictEqual(groups[0].roomId, "group_123");
+      assert.strictEqual(groups[0].groupName, "Family Chat Group");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
 
