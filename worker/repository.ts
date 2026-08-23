@@ -2,6 +2,32 @@ import type { AgentMutation } from "../shared/lifeAgent";
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile } from "../shared/domain";
 import type { D1Database } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
+import { getGroupSummary } from "./line";
+
+const groupNameCache = new Map<string, { groupName: string; timestamp: number }>();
+const MAX_GROUP_CACHE_SIZE = 500;
+const GROUP_CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
+
+export async function getGroupNameCached(token: string, groupId: string): Promise<string | null> {
+  const cached = groupNameCache.get(groupId);
+  if (cached && Date.now() - cached.timestamp < GROUP_CACHE_TTL_MS) {
+    return cached.groupName;
+  }
+  try {
+    const summary = await getGroupSummary(token, groupId);
+    if (summary && summary.groupName) {
+      if (groupNameCache.size >= MAX_GROUP_CACHE_SIZE) {
+        const firstKey = groupNameCache.keys().next().value;
+        if (firstKey !== undefined) groupNameCache.delete(firstKey);
+      }
+      groupNameCache.set(groupId, { groupName: summary.groupName, timestamp: Date.now() });
+      return summary.groupName;
+    }
+  } catch (e) {
+    // Return null if LINE API fails or token is invalid
+  }
+  return null;
+}
 
 export async function getJournals(
   db: D1Database,
@@ -557,6 +583,7 @@ export async function getLineMessages(
 export type LineRoomSummary = {
   roomType: "user" | "group" | "room";
   roomId: string;
+  groupName?: string | null;
   messageCount: number;
   lastMessageType: string | null;
   lastMessageText: string | null;
@@ -565,7 +592,7 @@ export type LineRoomSummary = {
 };
 
 /** List all chat rooms (grouped by room), newest activity first. */
-export async function listLineRooms(db: D1Database): Promise<LineRoomSummary[]> {
+export async function listLineRooms(db: D1Database, lineToken?: string): Promise<LineRoomSummary[]> {
   const result = await db
     .prepare(
       `SELECT lm.room_type as roomType, lm.room_id as roomId,
@@ -580,7 +607,80 @@ export async function listLineRooms(db: D1Database): Promise<LineRoomSummary[]> 
        ORDER BY lm.created_at DESC`
     )
     .all<LineRoomSummary>();
-  return result.results ?? [];
+
+  const rooms = result.results ?? [];
+
+  if (lineToken) {
+    return Promise.all(
+      rooms.map(async (room) => {
+        if (room.roomType === "group" && room.roomId) {
+          const groupName = await getGroupNameCached(lineToken, room.roomId);
+          return { ...room, groupName: groupName ?? null };
+        }
+        return room;
+      })
+    );
+  }
+
+  return rooms;
+}
+
+export type LineGroupSummary = {
+  roomType: "group";
+  roomId: string;
+  groupName: string | null;
+  messageCount: number;
+  lastMessageAt: string | null;
+};
+
+/** List or query LINE group chat rooms from chat history with resolved group names. */
+export async function listLineGroups(
+  db: D1Database,
+  lineToken?: string,
+  filters: { query?: string; limit?: number; offset?: number } = {}
+): Promise<LineGroupSummary[]> {
+  const result = await db
+    .prepare(
+      `SELECT lm.room_type as roomType, lm.room_id as roomId,
+              (SELECT COUNT(*) FROM line_messages c
+                WHERE c.room_type = lm.room_type AND c.room_id = lm.room_id) as messageCount,
+              lm.created_at as lastMessageAt
+       FROM line_messages lm
+       WHERE lm.room_type = 'group'
+         AND lm.id IN (SELECT MAX(id) FROM line_messages WHERE room_type = 'group' GROUP BY room_id)
+       ORDER BY lm.created_at DESC`
+    )
+    .all<{
+      roomType: "group";
+      roomId: string;
+      messageCount: number;
+      lastMessageAt: string | null;
+    }>();
+
+  let groups = (result.results ?? []).map((g) => ({
+    ...g,
+    groupName: null as string | null,
+  }));
+
+  if (lineToken) {
+    groups = await Promise.all(
+      groups.map(async (g) => {
+        const groupName = await getGroupNameCached(lineToken, g.roomId);
+        return { ...g, groupName };
+      })
+    );
+  }
+
+  if (filters.query) {
+    const q = filters.query.toLowerCase();
+    groups = groups.filter(
+      (g) => g.roomId.toLowerCase().includes(q) || (g.groupName && g.groupName.toLowerCase().includes(q))
+    );
+  }
+
+  const offset = filters.offset ?? 0;
+  const limit = filters.limit ?? 50;
+  return groups.slice(offset, offset + limit);
 }
 
 /** Export archived messages filtered by date range and optional room. */

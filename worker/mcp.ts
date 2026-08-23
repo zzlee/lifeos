@@ -19,6 +19,7 @@ import {
   deleteHealthRecord,
   getDashboardSnapshot,
   listLineRooms,
+  listLineGroups,
   getLineMessages,
   exportLineMessages,
   deleteLineMessages,
@@ -416,13 +417,30 @@ export function createMcpServer() {
   server.registerTool(
     "line_rooms_ls",
     {
-      description: "List all LINE chat rooms with summary of last messages",
+      description: "List all LINE chat rooms with summary of last messages and resolved group names",
       inputSchema: z.object({}),
     },
     async (_, ctx) => {
       const { env } = getAuthContext(ctx);
       if (!env.DB) throw new Error("Database not bound");
-      return toText(await listLineRooms(env.DB));
+      return toText(await listLineRooms(env.DB, env.LINE_CHANNEL_ACCESS_TOKEN));
+    }
+  );
+
+  server.registerTool(
+    "line_groups_ls",
+    {
+      description: "List or query LINE chat room group names from chat history",
+      inputSchema: z.object({
+        query: z.string().optional().describe("Filter by group name or group ID keyword"),
+        limit: z.number().int().positive().optional().describe("Limit number of entries"),
+        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+      }),
+    },
+    async ({ query, limit, offset }, ctx) => {
+      const { env } = getAuthContext(ctx);
+      if (!env.DB) throw new Error("Database not bound");
+      return toText(await listLineGroups(env.DB, env.LINE_CHANNEL_ACCESS_TOKEN, { query, limit, offset }));
     }
   );
 
