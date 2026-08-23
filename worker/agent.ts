@@ -12,13 +12,19 @@ import {
   updateHealthRecord,
   updateJournal,
   getExpenses,
+  exportExpenses,
+  deleteExpensesByRange,
   getHealthRecords,
   getJournals,
+  getJournal,
   getLineMessages,
   listLineRooms,
+  exportLineMessages,
+  deleteLineMessages,
   getVaultItems,
   createVaultItem,
   getVaultSecret,
+  exportVault,
 } from "./repository";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -125,6 +131,23 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     },
   },
   {
+    name: "get_expense",
+    description: "Get a specific expense/transaction entry by ID.",
+    parameters: {
+      type: "object",
+      properties: {
+        id: { type: "number", description: "Expense ID" },
+      },
+      required: ["id"],
+    },
+    execute: async (args, env, user) => {
+      const dashboard = await getDashboardSnapshot(env.DB!, user);
+      const entry = dashboard.data.finance.find((e) => e.id === Number(args.id));
+      if (!entry) throw new Error(`Expense ${args.id} not found.`);
+      return entry;
+    },
+  },
+  {
     name: "update_expense",
     description: "Update an existing expense or transaction by id.",
     parameters: {
@@ -182,6 +205,64 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
       } else {
         return deleteExternalTransaction(Number(args.id), accountingUserId || 1);
       }
+    },
+  },
+  {
+    name: "export_expenses",
+    description: "Export expense records filtered by date range and optional category.",
+    parameters: {
+      type: "object",
+      properties: {
+        start_date: { type: "string", description: "Start date filter (YYYY-MM-DD or ISO timestamp)" },
+        end_date: { type: "string", description: "End date filter (YYYY-MM-DD or ISO timestamp)" },
+        category: { type: "string", description: "Category filter" },
+        limit: { type: "number", description: "Limit number of entries" },
+        offset: { type: "number", description: "Offset for pagination" },
+      },
+    },
+    execute: async (args, env, user) => {
+      return exportExpenses(env.DB!, user, {
+        startDate: normalizeStartDate(args.start_date, user.timezone),
+        endDate: normalizeEndDate(args.end_date, user.timezone),
+        category: args.category,
+        limit: args.limit ? Number(args.limit) : undefined,
+        offset: args.offset ? Number(args.offset) : undefined,
+      });
+    },
+  },
+  {
+    name: "delete_expenses_by_range",
+    description: "Delete expense records in local database filtered by date range and optional category.",
+    parameters: {
+      type: "object",
+      properties: {
+        start_date: { type: "string", description: "Start date filter (YYYY-MM-DD or ISO timestamp)" },
+        end_date: { type: "string", description: "End date filter (YYYY-MM-DD or ISO timestamp)" },
+        category: { type: "string", description: "Category filter" },
+      },
+    },
+    execute: async (args, env, user) => {
+      return deleteExpensesByRange(env.DB!, user, {
+        startDate: normalizeStartDate(args.start_date, user.timezone),
+        endDate: normalizeEndDate(args.end_date, user.timezone),
+        category: args.category,
+      });
+    },
+  },
+  {
+    name: "get_journal",
+    description: "Get a specific journal entry by ID.",
+    parameters: {
+      type: "object",
+      properties: {
+        id: { type: "number", description: "Journal entry ID" },
+      },
+      required: ["id"],
+    },
+    execute: async (args, env, user) => {
+      const entry = await getJournal(env.DB!, user, Number(args.id));
+      if (!entry) throw new Error(`Journal ${args.id} not found.`);
+      return entry;
     },
   },
   {
@@ -421,6 +502,52 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     },
   },
   {
+    name: "export_chat_messages",
+    description: "Export archived LINE chat messages filtered by time range and optional room.",
+    parameters: {
+      type: "object",
+      properties: {
+        start_date: { type: "string", description: "Start date/time filter (YYYY-MM-DD or ISO string)" },
+        end_date: { type: "string", description: "End date/time filter (YYYY-MM-DD or ISO string)" },
+        room_type: { type: "string", enum: ["user", "group", "room"], description: "Room type filter" },
+        room_id: { type: "string", description: "Room ID filter" },
+        limit: { type: "number", description: "Limit number of entries" },
+        offset: { type: "number", description: "Offset for pagination" },
+      },
+    },
+    execute: async (args, env) => {
+      return exportLineMessages(env.DB!, {
+        startDate: args.start_date,
+        endDate: args.end_date,
+        roomType: args.room_type,
+        roomId: args.room_id,
+        limit: args.limit ? Number(args.limit) : undefined,
+        offset: args.offset ? Number(args.offset) : undefined,
+      });
+    },
+  },
+  {
+    name: "delete_chat_messages",
+    description: "Delete archived LINE chat messages filtered by time range and optional room.",
+    parameters: {
+      type: "object",
+      properties: {
+        start_date: { type: "string", description: "Start date/time filter (YYYY-MM-DD or ISO string)" },
+        end_date: { type: "string", description: "End date/time filter (YYYY-MM-DD or ISO string)" },
+        room_type: { type: "string", enum: ["user", "group", "room"], description: "Room type filter" },
+        room_id: { type: "string", description: "Room ID filter" },
+      },
+    },
+    execute: async (args, env) => {
+      return deleteLineMessages(env.DB!, {
+        startDate: args.start_date,
+        endDate: args.end_date,
+        roomType: args.room_type,
+        roomId: args.room_id,
+      });
+    },
+  },
+  {
     name: "query_vault",
     description: "Query and search vault items (passwords/credentials) with masked preview by site keyword.",
     parameters: {
@@ -465,6 +592,18 @@ const LIFEOS_TOOLSET: ToolSpec[] = [
     execute: async (args, env, user) => {
       if (!env.VAULT_MASTER_KEY) throw new Error("Vault master key not configured");
       return getVaultSecret(env.DB!, user, Number(args.id), env.VAULT_MASTER_KEY);
+    },
+  },
+  {
+    name: "export_vault",
+    description: "Export all vault items with decrypted secrets.",
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+    execute: async (_args, env, user) => {
+      if (!env.VAULT_MASTER_KEY) throw new Error("Vault master key not configured");
+      return exportVault(env.DB!, user, env.VAULT_MASTER_KEY);
     },
   },
 ];
