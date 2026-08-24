@@ -18,7 +18,7 @@ import type {
 } from "../../shared/contracts";
 import type { VaultItem } from "./types";
 
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
+const apiBase = import.meta.env?.VITE_API_BASE_URL ?? "";
 const accountingApiBase = "https://purple-water-b776.zzlee-tw.workers.dev";
 
 const getUrl = (path: string) => (apiBase ? `${apiBase}${path}` : path);
@@ -407,4 +407,15 @@ export async function deleteAccountingTransaction(id: number): Promise<{ ok: boo
   });
   if (!response.ok) throw new Error(`delete accounting tx ${response.status}`);
   return { ok: true };
+}
+
+export type ExternalDatabaseSizeResponse = {
+  size_bytes: number;
+  tables?: Record<string, number>;
+};
+
+export async function fetchExternalDatabaseSize(): Promise<ExternalDatabaseSizeResponse> {
+  const response = await fetch(`${accountingApiBase}/api/database/size`);
+  if (!response.ok) throw new Error(`fetch external database size ${response.status}`);
+  return (await response.json()) as ExternalDatabaseSizeResponse;
 }
