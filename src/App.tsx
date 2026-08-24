@@ -5,7 +5,7 @@ import { HealthRow } from "./components/HealthRow";
 import LineChatView from "./components/LineChatView";
 import { FixedSizeList as List } from "react-window";
 import { toLocalDisplayDate, toLocalDisplayTime, toLocalInputString, getCurrentLocalInputString, localInputToUtcString } from "./lib/timeUtils";
-import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, updateApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction, deleteAccountingTransaction, fetchAccountingCategoryOptions, fetchDatabaseSize, type AccountingCategory } from "./lib/api";
+import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, updateApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction, deleteAccountingTransaction, fetchAccountingCategoryOptions, fetchDatabaseSize, fetchExternalDatabaseSize, type AccountingCategory } from "./lib/api";
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -152,6 +152,7 @@ export default function App() {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
   const [dbSizeBytes, setDbSizeBytes] = useState<number | null>(null);
+  const [externalDbSizeBytes, setExternalDbSizeBytes] = useState<number | null>(null);
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
 
   useEffect(() => {
@@ -173,6 +174,7 @@ export default function App() {
     if (view === "settings" && isAuthenticated) {
       loadKeys();
       fetchDatabaseSize().then(res => setDbSizeBytes(res.sizeBytes)).catch(err => console.error("Failed to fetch db size:", err));
+      fetchExternalDatabaseSize().then(res => setExternalDbSizeBytes(res.size_bytes)).catch(err => console.error("Failed to fetch external db size:", err));
     }
   }, [view, isAuthenticated]);
 
@@ -1286,11 +1288,21 @@ export default function App() {
                 </div>
               </div>
               <div className="panel" style={{ marginBottom: "2rem" }}>
-                <div className="panel-header"><h4>外部記帳設定</h4><p className="text-sm text-slate-500">設定 accounting API 使用的 user id。</p></div>
+                <div className="panel-header"><h4>外部記帳設定</h4><p className="text-sm text-slate-500">設定 accounting API 使用的 user id 與檢視外部資料庫用量。</p></div>
                 <div className="settings-content" style={{ marginTop: "1rem", maxWidth: "300px" }}>
                   <label>Accounting User ID</label>
                   <input className="input-field" value={accountingUserId} onChange={(e)=>setAccountingUserId(e.target.value)} />
                   <button className="secondary-button" style={{marginTop:"0.5rem"}} onClick={()=>{window.localStorage.setItem("lifeos-accounting-user-id", accountingUserId || "1"); setToast({visible:true,message:"Accounting user id 已儲存"});}}>儲存</button>
+                  <div style={{ marginTop: "1.5rem" }}>
+                    <label>外部資料庫總大小 (External Database Size)</label>
+                    <p style={{ fontSize: "1.125rem", fontWeight: "600", color: "#1e293b", marginTop: "0.25rem" }}>
+                      {externalDbSizeBytes !== null
+                        ? externalDbSizeBytes >= 1024 * 1024
+                          ? `${(externalDbSizeBytes / (1024 * 1024)).toFixed(2)} MB (${externalDbSizeBytes.toLocaleString()} bytes)`
+                          : `${(externalDbSizeBytes / 1024).toFixed(2)} KB (${externalDbSizeBytes.toLocaleString()} bytes)`
+                        : "載入中..."}
+                    </p>
+                  </div>
                 </div>
               </div>
               <div className="panel">
