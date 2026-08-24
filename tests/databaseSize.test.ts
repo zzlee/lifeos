@@ -20,7 +20,29 @@ function makeMockDb(pageCount: number, pageSize: number) {
   };
 }
 
-test("getDatabaseSize calculates page_count * page_size correctly", async () => {
+test("getDatabaseSize retrieves sizeBytes from meta.size_after when available", async () => {
+  const db = {
+    prepare(sql: string) {
+      return {
+        async run() {
+          if (sql === "SELECT 1") {
+            return {
+              results: [],
+              meta: { size_after: 1048576 }
+            };
+          }
+          return { results: [], meta: {} };
+        }
+      };
+    }
+  } as any;
+
+  const sizeResult = await getDatabaseSize(db);
+  assert.equal(typeof sizeResult.sizeBytes, "number");
+  assert.equal(sizeResult.sizeBytes, 1048576);
+});
+
+test("getDatabaseSize calculates page_count * page_size correctly as fallback", async () => {
   const db = makeMockDb(25, 4096) as any;
   const sizeResult = await getDatabaseSize(db);
 
