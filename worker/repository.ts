@@ -404,25 +404,41 @@ export async function deleteExpensesByRange(
   return { ok: true, deletedCount };
 }
 
-/** Get database total size in bytes using SQLite pragma queries. */
+/** Get database total size in bytes using D1 result metadata (meta.size_after) with PRAGMA fallback. */
 export async function getDatabaseSize(db: D1Database): Promise<{ sizeBytes: number }> {
-  const pageCountResult = await db.prepare("PRAGMA page_count").first<{ page_count?: number; page_count_1?: number } | number>();
-  const pageSizeResult = await db.prepare("PRAGMA page_size").first<{ page_size?: number; page_size_1?: number } | number>();
-
-  let pageCount = 0;
-  if (typeof pageCountResult === "number") {
-    pageCount = pageCountResult;
-  } else if (pageCountResult && typeof pageCountResult === "object") {
-    const val = Object.values(pageCountResult)[0];
-    if (typeof val === "number") pageCount = val;
+  try {
+    const stmt = db.prepare("SELECT 1");
+    if (typeof stmt.run === "function") {
+      const res = await stmt.run();
+      if (res && res.meta && typeof res.meta.size_after === "number") {
+        return { sizeBytes: res.meta.size_after };
+      }
+    }
+  } catch {
+    // If run() or size_after metadata is unavailable, fall back to PRAGMA calculation
   }
 
+  let pageCount = 0;
   let pageSize = 0;
-  if (typeof pageSizeResult === "number") {
-    pageSize = pageSizeResult;
-  } else if (pageSizeResult && typeof pageSizeResult === "object") {
-    const val = Object.values(pageSizeResult)[0];
-    if (typeof val === "number") pageSize = val;
+  try {
+    const pageCountResult = await db.prepare("PRAGMA page_count").first<{ page_count?: number; page_count_1?: number } | number>();
+    const pageSizeResult = await db.prepare("PRAGMA page_size").first<{ page_size?: number; page_size_1?: number } | number>();
+
+    if (typeof pageCountResult === "number") {
+      pageCount = pageCountResult;
+    } else if (pageCountResult && typeof pageCountResult === "object") {
+      const val = Object.values(pageCountResult)[0];
+      if (typeof val === "number") pageCount = val;
+    }
+
+    if (typeof pageSizeResult === "number") {
+      pageSize = pageSizeResult;
+    } else if (pageSizeResult && typeof pageSizeResult === "object") {
+      const val = Object.values(pageSizeResult)[0];
+      if (typeof val === "number") pageSize = val;
+    }
+  } catch {
+    // ignore
   }
 
   return { sizeBytes: pageCount * pageSize };
