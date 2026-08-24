@@ -11,6 +11,7 @@ import type {
   VaultSecretResponse,
   LineRoomsResponse,
   LineMessagesResponse,
+  DatabaseSizeResponse,
 } from "../shared/contracts";
 import { runLifeAgentLoop } from "./agent";
 import {
@@ -25,7 +26,7 @@ import type { Env } from "./env";
 import { decryptSecret, encryptSecret } from "./crypto";
 import { replyLine, verifyLineSignature, getBotInfo, getGroupSummary, getGroupMemberProfile, getRoomMemberProfile, getUserProfile } from "./line";
 import { handleLineMessage } from "./lineCommands";
-import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, exportExpenses, deleteExpensesByRange, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord, saveLineMessage, listLineRooms, getLineMessages, exportLineMessages, deleteLineMessages } from "./repository";
+import { getDashboardSnapshot, getVaultSecret, getVaultItems, createVaultItem, exportVault, maskSecret, getJournals, createJournal, updateJournal, deleteJournal, getExpenses, exportExpenses, deleteExpensesByRange, createExpense, updateExpense, deleteExpense, getHealthRecords, createHealthRecord, updateHealthRecord, deleteHealthRecord, saveLineMessage, listLineRooms, getLineMessages, exportLineMessages, deleteLineMessages, getDatabaseSize } from "./repository";
 import { mcpHandler } from "./mcp";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -237,6 +238,15 @@ const handleMcpRequest = async (c: any) => {
 app.all("/api/mcp", handleMcpRequest);
 app.all("/api/mcp/sse", handleMcpRequest);
 app.all("/api/mcp/messages", handleMcpRequest);
+
+app.get("/api/database/size", async (c) => {
+  if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
+  const session = await resolveSession(c.env, c.req.raw.headers);
+  if (!session.authenticated || !session.user) return c.json({ error: "Unauthorized" }, 401);
+
+  const result = await getDatabaseSize(c.env.DB);
+  return c.json({ sizeBytes: result.sizeBytes } satisfies DatabaseSizeResponse);
+});
 
 app.get("/api/dashboard", async (c) => {
   if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);

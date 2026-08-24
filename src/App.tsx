@@ -5,7 +5,7 @@ import { HealthRow } from "./components/HealthRow";
 import LineChatView from "./components/LineChatView";
 import { FixedSizeList as List } from "react-window";
 import { toLocalDisplayDate, toLocalDisplayTime, toLocalInputString, getCurrentLocalInputString, localInputToUtcString } from "./lib/timeUtils";
-import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, updateApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction, deleteAccountingTransaction, fetchAccountingCategoryOptions, type AccountingCategory } from "./lib/api";
+import { updateUserProfile, fetchDashboardSnapshot, fetchSession, fetchVaultSecret, isApiConfigured, logout, sendAgentCommand, createVaultItem, fetchApiKeys, createApiKey, updateApiKey, deleteApiKey, updateVaultItem, deleteVaultItem, createJournal, updateJournal, deleteJournal, createExpense, updateExpense, deleteExpense, createHealthRecord, updateHealthRecord, deleteHealthRecord, fetchJournals, fetchExpenses, fetchHealthRecords, fetchVaultItems, fetchAccountingTransactions, createAccountingTransaction, updateAccountingTransaction, deleteAccountingTransaction, fetchAccountingCategoryOptions, fetchDatabaseSize, type AccountingCategory } from "./lib/api";
 import type { Expense, HealthEntry, JournalEntry, LifeOSState, UserProfile, VaultItem, ViewId, ApiKey } from "./lib/types";
 
 const navItems: Array<{ id: ViewId; title: string; mobile: string; icon: string }> = [
@@ -151,6 +151,7 @@ export default function App() {
 
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
+  const [dbSizeBytes, setDbSizeBytes] = useState<number | null>(null);
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
 
   useEffect(() => {
@@ -171,6 +172,7 @@ export default function App() {
   useEffect(() => {
     if (view === "settings" && isAuthenticated) {
       loadKeys();
+      fetchDatabaseSize().then(res => setDbSizeBytes(res.sizeBytes)).catch(err => console.error("Failed to fetch db size:", err));
     }
   }, [view, isAuthenticated]);
 
@@ -1231,6 +1233,22 @@ export default function App() {
                 description="管理您的 API Keys 以便在 CLI 或第三方工具中使用 LifeOS。"
               />
               
+
+              <div className="panel" style={{ marginBottom: "2rem" }}>
+                <div className="panel-header">
+                  <h4>資料庫用量 (Database Usage)</h4>
+                  <p className="text-sm text-slate-500">顯示目前 Cloudflare D1 資料庫的總大小。</p>
+                </div>
+                <div className="settings-content" style={{ marginTop: "1rem" }}>
+                  <p style={{ fontSize: "1.125rem", fontWeight: "600", color: "#1e293b" }}>
+                    {dbSizeBytes !== null
+                      ? dbSizeBytes >= 1024 * 1024
+                        ? `${(dbSizeBytes / (1024 * 1024)).toFixed(2)} MB (${dbSizeBytes.toLocaleString()} bytes)`
+                        : `${(dbSizeBytes / 1024).toFixed(2)} KB (${dbSizeBytes.toLocaleString()} bytes)`
+                      : "載入中..."}
+                  </p>
+                </div>
+              </div>
 
               <div className="panel" style={{ marginBottom: "2rem" }}>
                 <div className="panel-header">

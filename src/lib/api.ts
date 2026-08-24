@@ -14,6 +14,7 @@ import type {
   SessionResponse,
   VaultSecretResponse,
   VaultListResponse,
+  DatabaseSizeResponse,
 } from "../../shared/contracts";
 import type { VaultItem } from "./types";
 
@@ -24,6 +25,12 @@ const getUrl = (path: string) => (apiBase ? `${apiBase}${path}` : path);
 
 export function isApiConfigured(): boolean {
   return apiBase === "" || apiBase.startsWith("https");
+}
+
+export async function fetchDatabaseSize(): Promise<DatabaseSizeResponse> {
+  const response = await fetch(getUrl("/api/database/size"), { credentials: "include" });
+  if (!response.ok) throw new Error(`fetch database size ${response.status}`);
+  return (await response.json()) as DatabaseSizeResponse;
 }
 
 export async function fetchDashboardSnapshot(): Promise<DashboardSnapshotResponse> {
