@@ -115,3 +115,7 @@ export type LineMessagesResponse = {
   messages: LineMessageView[];
   botUserId?: string | null;
 };
+
+export type DatabaseSizeResponse = {
+  sizeBytes: number;
+};

@@ -404,6 +404,30 @@ export async function deleteExpensesByRange(
   return { ok: true, deletedCount };
 }
 
+/** Get database total size in bytes using SQLite pragma queries. */
+export async function getDatabaseSize(db: D1Database): Promise<{ sizeBytes: number }> {
+  const pageCountResult = await db.prepare("PRAGMA page_count").first<{ page_count?: number; page_count_1?: number } | number>();
+  const pageSizeResult = await db.prepare("PRAGMA page_size").first<{ page_size?: number; page_size_1?: number } | number>();
+
+  let pageCount = 0;
+  if (typeof pageCountResult === "number") {
+    pageCount = pageCountResult;
+  } else if (pageCountResult && typeof pageCountResult === "object") {
+    const val = Object.values(pageCountResult)[0];
+    if (typeof val === "number") pageCount = val;
+  }
+
+  let pageSize = 0;
+  if (typeof pageSizeResult === "number") {
+    pageSize = pageSizeResult;
+  } else if (pageSizeResult && typeof pageSizeResult === "object") {
+    const val = Object.values(pageSizeResult)[0];
+    if (typeof val === "number") pageSize = val;
+  }
+
+  return { sizeBytes: pageCount * pageSize };
+}
+
 export async function updateExpense(
   db: D1Database,
   id: number,
