@@ -210,7 +210,7 @@ app.get("/api/auth/google/callback", async (c) => {
 
 const handleMcpRequest = async (c: any) => {
   if (!c.env.SESSION_SECRET) {
-    c.env.SESSION_SECRET = "dev-secret-key-lifeos-local";
+    throw new Error("SESSION_SECRET environment variable is not configured.");
   }
 
   const session = await resolveSession(c.env, c.req.raw.headers);
