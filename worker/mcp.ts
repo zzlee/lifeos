@@ -48,7 +48,7 @@ const today = () => new Date().toLocaleDateString("sv-SE");
 
 export function createMcpServer() {
   const server = new McpServer({
-    name: "lifeos-worker-mcp",
+    name: "lifeos",
     version: "1.0.0",
   });
 
