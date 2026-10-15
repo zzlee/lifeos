@@ -261,7 +261,7 @@ export function createMcpServer() {
   server.registerTool(
     "finance_delete_range",
     {
-      description: "Delete expense records filtered by date range and optional category",
+      description: "Delete expense records filtered by date range and optional category (At least one filter is required)",
       inputSchema: z.object({
         startDate: z.string().optional().describe("Start date filter (YYYY-MM-DD)"),
         endDate: z.string().optional().describe("End date filter (YYYY-MM-DD)"),
@@ -324,7 +324,7 @@ export function createMcpServer() {
     {
       description: "Update a health record",
       inputSchema: z.object({
-        id: z.string().describe("Health record ID (date)"),
+        id: z.number().int().positive().describe("Health record ID"),
         sys: z.number().describe("Systolic pressure"),
         dia: z.number().describe("Diastolic pressure"),
         hr: z.number().describe("Heart rate"),
@@ -335,7 +335,7 @@ export function createMcpServer() {
     async ({ id, sys, dia, hr, weight, date }, ctx) => {
       const { user, env } = getAuthContext(ctx);
       if (!env.DB) throw new Error("Database not bound");
-      await updateHealthRecord(env.DB, Number(id), user, {
+      await updateHealthRecord(env.DB, id, user, {
         sys: Number(sys),
         dia: Number(dia),
         hr: Number(hr),
@@ -351,13 +351,13 @@ export function createMcpServer() {
     {
       description: "Delete a health record",
       inputSchema: z.object({
-        id: z.string().describe("Health record ID (date)"),
+        id: z.number().int().positive().describe("Health record ID"),
       }),
     },
     async ({ id }, ctx) => {
       const { user, env } = getAuthContext(ctx);
       if (!env.DB) throw new Error("Database not bound");
-      await deleteHealthRecord(env.DB, Number(id), user);
+      await deleteHealthRecord(env.DB, id, user);
       return toText({ ok: true, message: `Health record ${id} deleted successfully!` });
     }
   );
