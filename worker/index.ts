@@ -208,16 +208,42 @@ app.get("/api/auth/google/callback", async (c) => {
   }
 });
 
+const RESERVED_MCP_PATHS = new Set(["/api/mcp/sse", "/api/mcp/messages"]);
+
+function decodePathToken(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 const handleMcpRequest = async (c: any) => {
   if (!c.env.SESSION_SECRET) {
     throw new Error("SESSION_SECRET environment variable is not configured.");
   }
 
-  // The MCP endpoint is authenticated: a session cookie or a Bearer API key is
-  // required. Previously an unauthenticated caller silently fell back to a
-  // default user, which exposed the endpoint (and the shared LINE archive) to
-  // anyone who knew the URL.
-  const session = await resolveSession(c.env, c.req.raw.headers);
+  const url = new URL(c.req.url);
+
+  // The MCP endpoint is authenticated with a session cookie or a Bearer API key.
+  // Previously an unauthenticated caller silently fell back to a default user,
+  // which exposed the endpoint (and the shared LINE archive) to anyone who knew
+  // the URL. For clients that cannot send custom headers (e.g. the Gemini web
+  // app), the same API key may instead be embedded in the URL as
+  // `/api/mcp?token=<key>` or `/api/mcp/<key>`, treated exactly like
+  // `Authorization: Bearer <key>`.
+  const pathToken =
+    url.pathname.startsWith("/api/mcp/") && !RESERVED_MCP_PATHS.has(url.pathname)
+      ? decodePathToken(url.pathname.slice("/api/mcp/".length)).replace(/\/+$/, "")
+      : "";
+  const urlToken = pathToken || url.searchParams.get("token") || "";
+
+  const authHeaders = new Headers(c.req.raw.headers);
+  if (urlToken && !authHeaders.has("Authorization")) {
+    authHeaders.set("Authorization", `Bearer ${urlToken}`);
+  }
+
+  const session = await resolveSession(c.env, authHeaders);
   if (!session.authenticated || !session.user) {
     return c.json(
       { jsonrpc: "2.0", error: { code: -32001, message: "Unauthorized" }, id: null },
@@ -227,11 +253,13 @@ const handleMcpRequest = async (c: any) => {
   }
   const user = session.user;
 
-  const url = new URL(c.req.url);
+  // Normalize the path to /api/mcp and strip any URL token before dispatch.
   let req = c.req.raw;
-  if (url.pathname !== "/api/mcp") {
-    url.pathname = "/api/mcp";
-    req = new Request(url.toString(), c.req.raw);
+  if (url.pathname !== "/api/mcp" || url.searchParams.has("token")) {
+    const cleanUrl = new URL(c.req.url);
+    cleanUrl.pathname = "/api/mcp";
+    cleanUrl.searchParams.delete("token");
+    req = new Request(cleanUrl.toString(), c.req.raw);
   }
 
   return mcpHandler.fetch(req, {
@@ -247,6 +275,7 @@ const handleMcpRequest = async (c: any) => {
 app.all("/api/mcp", handleMcpRequest);
 app.all("/api/mcp/sse", handleMcpRequest);
 app.all("/api/mcp/messages", handleMcpRequest);
+app.all("/api/mcp/*", handleMcpRequest);
 
 app.get("/api/database/size", async (c) => {
   if (!c.env.DB) return c.json({ error: "Database not bound" }, 500);
