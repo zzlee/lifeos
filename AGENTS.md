@@ -6,12 +6,24 @@
 - Run worker locally: `npm run dev:worker`
 - Build frontend + typecheck app TS project refs: `npm run build`
 - Typecheck worker only: `npm run check:worker`
-- Deploy worker (production env): `npm run deploy`
+- Deploy worker (production env): `npm run deploy` — usually unnecessary, see Deployment below.
 
 ## Command gotchas
 - There is no root `test`, `lint`, or `deploy:worker` script in `package.json`; use the scripts above.
 - CLI build/link is available from root as `npm run cli:build` (runs `cli` build and `npm link`).
 - `opencode.json` expects a global `lifeos` command for MCP (`lifeos mcp`), so CLI must be built/linked before MCP works.
+
+## Deployment (Cloudflare auto-deploy)
+- Production deploys happen automatically on push to `master` via **Cloudflare Workers Builds** (Git integration configured in the Cloudflare dashboard, not in this repo). A push is typically live in ~1–2 minutes.
+- `.github/workflows/ci.yml` only runs tests (`check:worker` + unit tests + Playwright); it does **not** deploy. There is intentionally no deploy step in CI/CD.
+- Do **not** run `npm run deploy` as part of normal changes — pushing already deploys, and a manual deploy just creates a redundant version.
+
+## MCP server
+- Endpoint: `/api/mcp` (also `/api/mcp/sse`, `/api/mcp/messages`); implemented in `worker/mcp.ts`, mounted in `worker/index.ts`. Transport is Streamable HTTP (stateless).
+- Auth is **required**: a session cookie or an API key (`Authorization: Bearer <key>`). Create keys in the UI (Settings → API Keys, backed by `POST /api/auth/keys`).
+- For clients that cannot send headers (e.g. the Gemini web app), the same API key may be embedded in the URL as `/api/mcp?token=<key>` or `/api/mcp/<key>`; it is stripped before the MCP handler runs.
+- The `X-LifeOS-User-Id/Email/Name` headers are **not** trusted unless `ALLOW_HEADER_AUTH=true` (local dev/test only) — otherwise they are a forgeable auth bypass.
+- The `line_*` tools read/delete an **instance-wide** archive (`line_messages` has no `user_id`), not a per-user one.
 
 ## Environment and local data
 - Worker uses D1 binding `DB`; initialize local DB with: `npx wrangler d1 execute lifeos-db --local --file=schema.sql`.
