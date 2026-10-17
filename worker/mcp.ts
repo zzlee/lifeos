@@ -13,11 +13,12 @@ import {
   createExpense,
   updateExpense,
   deleteExpense,
+  getExpenseById,
   getHealthRecords,
   createHealthRecord,
   updateHealthRecord,
   deleteHealthRecord,
-  getDashboardSnapshot,
+  getHealthById,
   listLineRooms,
   listLineGroups,
   getLineMessages,
@@ -58,8 +59,8 @@ export function createMcpServer() {
     {
       description: "List all journals",
       inputSchema: z.object({
-        limit: z.number().int().positive().optional().describe("Limit number of entries"),
-        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+        limit: z.number().int().min(1).max(500).optional().describe("Limit number of entries (1-500, default 20)"),
+        offset: z.number().int().min(0).max(100000).optional().describe("Offset for pagination"),
       }),
     },
     async ({ limit, offset }, ctx) => {
@@ -145,8 +146,8 @@ export function createMcpServer() {
     {
       description: "List all expenses",
       inputSchema: z.object({
-        limit: z.number().int().positive().optional().describe("Limit number of entries"),
-        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+        limit: z.number().int().min(1).max(500).optional().describe("Limit number of entries (1-500, default 20)"),
+        offset: z.number().int().min(0).max(100000).optional().describe("Offset for pagination"),
       }),
     },
     async ({ limit, offset }, ctx) => {
@@ -167,8 +168,7 @@ export function createMcpServer() {
     async ({ id }, ctx) => {
       const { user, env } = getAuthContext(ctx);
       if (!env.DB) throw new Error("Database not bound");
-      const dashboard = await getDashboardSnapshot(env.DB, user);
-      const entry = dashboard.data.finance.find((e) => e.id === id);
+      const entry = await getExpenseById(env.DB, user, id);
       if (!entry) throw new Error(`Expense ${id} not found.`);
       return toText(entry);
     }
@@ -201,23 +201,26 @@ export function createMcpServer() {
   server.registerTool(
     "finance_update",
     {
-      description: "Update an expense",
+      description:
+        "Update an expense. `amount` and `category` are required; omitted `note`/`date` keep their existing values (they are NOT cleared or reset to today).",
       inputSchema: z.object({
         id: z.number().int().positive().describe("Expense ID"),
         amount: z.number().describe("New amount"),
         category: z.string().describe("New category"),
-        note: z.string().optional().describe("Note"),
-        date: z.string().optional().describe("Date (YYYY-MM-DD)"),
+        note: z.string().optional().describe("New note (omit to keep the existing note)"),
+        date: z.string().optional().describe("Date (YYYY-MM-DD; omit to keep the existing date)"),
       }),
     },
     async ({ id, amount, category, note, date }, ctx) => {
       const { user, env } = getAuthContext(ctx);
       if (!env.DB) throw new Error("Database not bound");
+      const existing = await getExpenseById(env.DB, user, id);
+      if (!existing) throw new Error(`Expense ${id} not found.`);
       await updateExpense(env.DB, id, user, {
         amount: Number(amount),
         category,
-        note: note || "",
-        date: date || today(),
+        note: note !== undefined ? note : existing.note,
+        date: date ?? existing.date,
       });
       return toText({ ok: true, message: `Expense ${id} updated successfully!` });
     }
@@ -242,19 +245,20 @@ export function createMcpServer() {
   server.registerTool(
     "finance_export",
     {
-      description: "Export expense records filtered by date range and optional category",
+      description:
+        "Export expense records filtered by date range and optional category. Date filters are inclusive (a date-only endDate includes the whole day). Results are capped at 500 rows per call; use offset to page.",
       inputSchema: z.object({
         startDate: z.string().optional().describe("Start date filter (YYYY-MM-DD)"),
-        endDate: z.string().optional().describe("End date filter (YYYY-MM-DD)"),
+        endDate: z.string().optional().describe("End date filter (YYYY-MM-DD, inclusive)"),
         category: z.string().optional().describe("Category filter"),
-        limit: z.number().int().positive().optional().describe("Limit number of entries"),
-        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+        limit: z.number().int().min(1).max(500).optional().describe("Max rows to return (1-500, default 500)"),
+        offset: z.number().int().min(0).max(100000).optional().describe("Offset for pagination"),
       }),
     },
     async ({ startDate, endDate, category, limit, offset }, ctx) => {
       const { user, env } = getAuthContext(ctx);
       if (!env.DB) throw new Error("Database not bound");
-      return toText(await exportExpenses(env.DB, user, { startDate, endDate, category, limit, offset }));
+      return toText(await exportExpenses(env.DB, user, { startDate, endDate, category, limit: limit ?? 500, offset }));
     }
   );
 
@@ -282,8 +286,8 @@ export function createMcpServer() {
     {
       description: "List all health records",
       inputSchema: z.object({
-        limit: z.number().int().positive().optional().describe("Limit number of entries"),
-        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+        limit: z.number().int().min(1).max(500).optional().describe("Limit number of entries (1-500, default 30)"),
+        offset: z.number().int().min(0).max(100000).optional().describe("Offset for pagination"),
       }),
     },
     async ({ limit, offset }, ctx) => {
@@ -322,25 +326,28 @@ export function createMcpServer() {
   server.registerTool(
     "health_update",
     {
-      description: "Update a health record",
+      description:
+        "Update a health record. `sys`, `dia`, `hr` are required; omitted `weight`/`date` keep their existing values (they are NOT cleared or reset to today).",
       inputSchema: z.object({
         id: z.number().int().positive().describe("Health record ID"),
         sys: z.number().describe("Systolic pressure"),
         dia: z.number().describe("Diastolic pressure"),
         hr: z.number().describe("Heart rate"),
-        weight: z.number().optional().describe("Weight (kg)"),
-        date: z.string().optional().describe("Date (YYYY-MM-DD)"),
+        weight: z.number().optional().describe("Weight (kg; omit to keep the existing value)"),
+        date: z.string().optional().describe("Date (YYYY-MM-DD; omit to keep the existing date)"),
       }),
     },
     async ({ id, sys, dia, hr, weight, date }, ctx) => {
       const { user, env } = getAuthContext(ctx);
       if (!env.DB) throw new Error("Database not bound");
+      const existing = await getHealthById(env.DB, user, id);
+      if (!existing) throw new Error(`Health record ${id} not found.`);
       await updateHealthRecord(env.DB, id, user, {
         sys: Number(sys),
         dia: Number(dia),
         hr: Number(hr),
-        weight: weight !== undefined ? Number(weight) : undefined,
-        date: date || today(),
+        weight: weight !== undefined ? Number(weight) : existing.weight,
+        date: date ?? existing.date,
       });
       return toText({ ok: true, message: `Health record ${id} updated successfully!` });
     }
@@ -369,8 +376,8 @@ export function createMcpServer() {
       description: "List vault items with masked secrets",
       inputSchema: z.object({
         query: z.string().optional().describe("Filter by site keyword"),
-        limit: z.number().int().positive().optional().describe("Limit number of entries"),
-        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+        limit: z.number().int().min(1).max(500).optional().describe("Limit number of entries (1-500, default 20)"),
+        offset: z.number().int().min(0).max(100000).optional().describe("Offset for pagination"),
       }),
     },
     async ({ query, limit, offset }, ctx) => {
@@ -402,12 +409,18 @@ export function createMcpServer() {
   server.registerTool(
     "vault_export",
     {
-      description: "Export all vault items with decrypted secrets",
-      inputSchema: z.object({}),
+      description:
+        "DANGER: export EVERY vault item with its secret decrypted in plaintext. Requires confirm=true. Only call when the user explicitly asks to export all credentials.",
+      inputSchema: z.object({
+        confirm: z.boolean().describe("Must be true. Confirms exporting all vault secrets in plaintext."),
+      }),
     },
-    async (_, ctx) => {
+    async ({ confirm }, ctx) => {
       const { user, env } = getAuthContext(ctx);
       if (!env.DB) throw new Error("Database not bound");
+      if (confirm !== true) {
+        throw new Error("Set confirm=true to export all vault secrets in plaintext.");
+      }
       if (!env.VAULT_MASTER_KEY) throw new Error("Vault master key not configured");
       return toText(await exportVault(env.DB, user, env.VAULT_MASTER_KEY));
     }
@@ -417,7 +430,8 @@ export function createMcpServer() {
   server.registerTool(
     "line_rooms_ls",
     {
-      description: "List all LINE chat rooms with summary of last messages and resolved group names",
+      description:
+        "List all LINE chat rooms with summary of last messages and resolved group names. NOTE: the LINE archive is instance-wide (shared across all users), not per-user.",
       inputSchema: z.object({}),
     },
     async (_, ctx) => {
@@ -430,11 +444,12 @@ export function createMcpServer() {
   server.registerTool(
     "line_groups_ls",
     {
-      description: "List or query LINE chat room group names from chat history",
+      description:
+        "List or query LINE chat room group names from chat history. NOTE: the LINE archive is instance-wide (shared across all users), not per-user.",
       inputSchema: z.object({
         query: z.string().optional().describe("Filter by group name or group ID keyword"),
-        limit: z.number().int().positive().optional().describe("Limit number of entries"),
-        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+        limit: z.number().int().min(1).max(500).optional().describe("Limit number of entries (1-500, default 50)"),
+        offset: z.number().int().min(0).max(100000).optional().describe("Offset for pagination"),
       }),
     },
     async ({ query, limit, offset }, ctx) => {
@@ -451,8 +466,8 @@ export function createMcpServer() {
       inputSchema: z.object({
         roomType: z.enum(["user", "group", "room"]).describe("Room type (user, group, room)"),
         roomId: z.string().describe("Room ID"),
-        limit: z.number().int().positive().optional().describe("Limit number of entries"),
-        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+        limit: z.number().int().min(1).max(500).optional().describe("Limit number of entries (1-500, default 50)"),
+        offset: z.number().int().min(0).max(100000).optional().describe("Offset for pagination"),
       }),
     },
     async ({ roomType, roomId, limit, offset }, ctx) => {
@@ -465,27 +480,29 @@ export function createMcpServer() {
   server.registerTool(
     "line_messages_export",
     {
-      description: "Export archived LINE chat messages filtered by time range and optional room",
+      description:
+        "Export archived LINE chat messages filtered by time range and optional room. NOTE: the LINE archive is instance-wide (shared across all users). Date filters are inclusive; a date-only endDate includes the whole day. Results are capped at 500 rows per call.",
       inputSchema: z.object({
         startDate: z.string().optional().describe("Start date/time filter (YYYY-MM-DD or ISO string)"),
-        endDate: z.string().optional().describe("End date/time filter (YYYY-MM-DD or ISO string)"),
+        endDate: z.string().optional().describe("End date/time filter (YYYY-MM-DD or ISO string, inclusive)"),
         roomType: z.enum(["user", "group", "room"]).optional().describe("Room type filter (user, group, room)"),
         roomId: z.string().optional().describe("Room ID filter"),
-        limit: z.number().int().positive().optional().describe("Limit number of entries"),
-        offset: z.number().int().nonnegative().optional().describe("Offset for pagination"),
+        limit: z.number().int().min(1).max(500).optional().describe("Max rows to return (1-500, default 500)"),
+        offset: z.number().int().min(0).max(100000).optional().describe("Offset for pagination"),
       }),
     },
     async ({ startDate, endDate, roomType, roomId, limit, offset }, ctx) => {
       const { env } = getAuthContext(ctx);
       if (!env.DB) throw new Error("Database not bound");
-      return toText(await exportLineMessages(env.DB, { startDate, endDate, roomType, roomId, limit, offset }));
+      return toText(await exportLineMessages(env.DB, { startDate, endDate, roomType, roomId, limit: limit ?? 500, offset }));
     }
   );
 
   server.registerTool(
     "line_messages_delete",
     {
-      description: "Delete archived LINE chat messages filtered by time range and optional room",
+      description:
+        "Permanently delete archived LINE chat messages filtered by time range and/or room. At least one filter (startDate, endDate, roomType, roomId) is required. NOTE: this is instance-wide (shared across all users) and irreversible.",
       inputSchema: z.object({
         startDate: z.string().optional().describe("Start date/time filter (YYYY-MM-DD or ISO string)"),
         endDate: z.string().optional().describe("End date/time filter (YYYY-MM-DD or ISO string)"),

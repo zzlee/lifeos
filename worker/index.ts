@@ -213,10 +213,19 @@ const handleMcpRequest = async (c: any) => {
     throw new Error("SESSION_SECRET environment variable is not configured.");
   }
 
+  // The MCP endpoint is authenticated: a session cookie or a Bearer API key is
+  // required. Previously an unauthenticated caller silently fell back to a
+  // default user, which exposed the endpoint (and the shared LINE archive) to
+  // anyone who knew the URL.
   const session = await resolveSession(c.env, c.req.raw.headers);
-  const user = (session.authenticated && session.user)
-    ? session.user
-    : { id: 1, email: "local@lifeos.dev", name: "Local User", timezone: "UTC" };
+  if (!session.authenticated || !session.user) {
+    return c.json(
+      { jsonrpc: "2.0", error: { code: -32001, message: "Unauthorized" }, id: null },
+      401,
+      { "WWW-Authenticate": "Bearer" },
+    );
+  }
+  const user = session.user;
 
   const url = new URL(c.req.url);
   let req = c.req.raw;

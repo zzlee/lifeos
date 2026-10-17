@@ -8,6 +8,14 @@ const groupNameCache = new Map<string, { groupName: string; timestamp: number }>
 const MAX_GROUP_CACHE_SIZE = 500;
 const GROUP_CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
 
+/**
+ * Escape SQL LIKE metacharacters so user-supplied search text is treated
+ * literally. Use together with `LIKE ? ESCAPE '\'`.
+ */
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (m) => `\\${m}`);
+}
+
 export async function getGroupNameCached(token: string, groupId: string): Promise<string | null> {
   const cached = groupNameCache.get(groupId);
   if (cached && Date.now() - cached.timestamp < GROUP_CACHE_TTL_MS) {
@@ -48,8 +56,8 @@ export async function getJournals(
     params.push(filters.endDate);
   }
   if (filters.query) {
-    sql += " AND content LIKE ?";
-    params.push(`%${filters.query}%`);
+    sql += " AND content LIKE ? ESCAPE '\\'";
+    params.push(`%${escapeLikePattern(filters.query)}%`);
   }
   if (filters.tag) {
     sql += " AND (tags LIKE ? OR tags LIKE ? OR tags LIKE ? OR tags = ?)";
@@ -299,8 +307,8 @@ export async function getExpenses(
     params.push(filters.category);
   }
   if (filters.query) {
-    sql += " AND note LIKE ?";
-    params.push(`%${filters.query}%`);
+    sql += " AND note LIKE ? ESCAPE '\\'";
+    params.push(`%${escapeLikePattern(filters.query)}%`);
   }
 
   sql += " ORDER BY date DESC, id DESC LIMIT ? OFFSET ?";
@@ -311,6 +319,19 @@ export async function getExpenses(
     .bind(...params)
     .all<Expense>();
   return result.results ?? [];
+}
+
+/** Fetch a single expense by id, scoped to the user. */
+export async function getExpenseById(
+  db: D1Database,
+  user: UserProfile,
+  id: number,
+): Promise<Expense | null> {
+  const result = await db
+    .prepare("SELECT id, date, amount, category, note FROM expenses WHERE user_id = ? AND id = ?")
+    .bind(user.id, id)
+    .first<Expense>();
+  return result ?? null;
 }
 
 export async function createExpense(
@@ -480,8 +501,8 @@ export async function getVaultItems(
   const params: any[] = [user.id];
 
   if (filters.query) {
-    sql += " AND site LIKE ?";
-    params.push(`%${filters.query}%`);
+    sql += " AND site LIKE ? ESCAPE '\\'";
+    params.push(`%${escapeLikePattern(filters.query)}%`);
   }
 
   sql += " ORDER BY site ASC LIMIT ? OFFSET ?";
@@ -518,6 +539,19 @@ export async function getHealthRecords(
     .bind(...params)
     .all<HealthEntry & { id: number }>();
   return result.results ?? [];
+}
+
+/** Fetch a single health record by id, scoped to the user. */
+export async function getHealthById(
+  db: D1Database,
+  user: UserProfile,
+  id: number,
+): Promise<HealthEntry | null> {
+  const result = await db
+    .prepare("SELECT id, recorded_at as date, sys, dia, hr, weight FROM health_daily WHERE user_id = ? AND id = ?")
+    .bind(user.id, id)
+    .first<HealthEntry>();
+  return result ?? null;
 }
 
 export async function createHealthRecord(

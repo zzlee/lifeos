@@ -91,7 +91,12 @@ export async function resolveSession(
   }
 
   const cookieToken = readCookie(headers, SESSION_COOKIE);
-  const headerUser = readUserFromHeaders(headers);
+  // SECURITY: the X-LifeOS-User-* headers are unsigned and therefore trivially
+  // forgeable by anyone, which would let a caller impersonate any user (and,
+  // via the vault tools, exfiltrate secrets). They are only honored when
+  // ALLOW_HEADER_AUTH is explicitly "true" (local development / tests) and are
+  // disabled by default. Real clients use the session cookie or a Bearer API key.
+  const headerUser = env.ALLOW_HEADER_AUTH === "true" ? readUserFromHeaders(headers) : null;
 
   const sessionFromCookie = cookieToken
     ? await verifySessionToken(cookieToken, env.SESSION_SECRET)

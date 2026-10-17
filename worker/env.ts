@@ -27,4 +27,10 @@ export type Env = {
   LINE_CHANNEL_SECRET?: string;
   LINE_CHANNEL_ACCESS_TOKEN?: string;
   ALLOWED_ORIGINS?: string;
+  /**
+   * SECURITY: when set to "true", unsigned X-LifeOS-User-* headers are trusted
+   * for authentication. This is a development/test convenience only and must
+   * never be enabled in production (it allows impersonating any user).
+   */
+  ALLOW_HEADER_AUTH?: string;
 };
